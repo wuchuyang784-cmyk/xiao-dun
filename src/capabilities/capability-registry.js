@@ -25,16 +25,12 @@
 // =============================================================================
 
 import { buildHotspotRuntimeContext } from '../hotspots.js'
-import { buildWorldcupRuntimeContext } from '../worldcup.js'
 import { buildWeatherRuntimeContext } from '../weather.js'
 import { listApiSlotCapabilities } from './api-slots.js'
 
 // ---- 已迁能力的工具名数组（本模块为唯一定义处；tool-router 从这里 import）----
 export const WEB_TOOLS = ['web_search', 'fetch_url', 'browser_read']
 export const HOTSPOT_TOOLS = ['hotspot_mode']
-// 世界杯模式打开面板即可（赛况数据由 prefeed 注入上下文）；追问细节（首发名单/射手榜等）
-// 要联网，所以 WEB_TOOLS 一并带上。
-export const WORLDCUP_TOOLS = ['worldcup_mode', ...WEB_TOOLS]
 export const CASES_IMPORT_TOOLS = ['cases_import_mode']
 export const RECORD_TOOLS = ['record_panel_mode']
 
@@ -51,11 +47,6 @@ const HOTSPOT_TRIGGERS = [
   '热点', '热搜', '热门', '新闻', '今日', '趋势', '榜单', '头条', 'trending',
   'news', 'hot ', 'top ', '微博热搜', '热议',
 ]
-const WORLDCUP_TRIGGERS = [
-  '世界杯', '赛况', '比分', '赛程', '对阵', '积分榜', '小组赛', '淘汰赛',
-  '谁赢', '进球', '几比几', '揭幕战', '球赛', '足球赛',
-  'world cup', 'worldcup', 'fifa',
-]
 const CASES_IMPORT_TRIGGERS = [
   '案例导入', '批量导入', '导入案例', '诈骗案例', '知识库', '诈骗知识库', '向量库', 'rag',
   '建库', '案例库', '导入诈骗', '案例入库', 'case import', 'knowledge base',
@@ -67,7 +58,6 @@ const RECORD_TRIGGERS = [
 
 const WEATHER_KEYWORD_RE = /天气|温度|气温|下雨|降雨|下雪|雾霾|阴天|晴天|多云|wttr|weather/i
 const HOTSPOT_KEYWORD_RE = /热点|热搜|热门|新闻|今日|趋势|榜单|头条|热议|微博热搜|trending|headline/i
-const WORLDCUP_KEYWORD_RE = /世界杯|赛况|比分|赛程|对阵|积分榜|小组赛|淘汰赛|揭幕战|进球|几比几|world ?cup|worldcup|fifa/i
 const CASES_IMPORT_KEYWORD_RE = /案例导入|批量导入|导入案例|诈骗案例|知识库|诈骗知识库|向量库|rag\b|建库|案例库|导入诈骗|案例入库/i
 const RECORD_KEYWORD_RE = /记录备案|备案|分析记录|审计记录|使用备案|记录面板|备案面板/i
 
@@ -89,11 +79,6 @@ const HOTSPOT_CONTEXT_BLOCK = `### Hotspot Panel
 - You have a hotspot_mode tool that opens a visual hotspot / trending-topics panel. It is NOT pre-loaded each turn — if it is not in your current tool list, call find_tool("热点 面板 hotspot") first to load it, then call it.
 - Open it (action="show") only when the user actually wants to browse trending topics, or a demo/scene needs it; close it (action="hide") when asked. Do not open it for ordinary Q&A.
 - While the panel is open, current hotspot data is injected into your context automatically — answer from that rather than guessing.`
-
-const WORLDCUP_CONTEXT_BLOCK = `### World Cup Panel
-- You have a worldcup_mode tool that opens a panel with live scores, schedule and group standings (FIFA World Cup, Beijing time). It is NOT pre-loaded each turn — if it is not in your current tool list, call find_tool("世界杯 比分 worldcup") first to load it, then call it.
-- Open it (action="show") when the user asks about World Cup matches, scores or schedule and a visual panel helps; close it (action="hide") when asked.
-- While the panel is open, current match data is injected into your context automatically; for deeper details (lineups, scorers) use web tools.`
 
 const CASES_IMPORT_CONTEXT_BLOCK = `### Case Import / Knowledge Base Panel
 - You have a cases_import_mode tool that opens the Case Import / Knowledge Base panel (案例导入 / 知识库). It is NOT pre-loaded each turn — if it is not in your current tool list, call find_tool("案例导入 知识库 case import") first to load it, then call it.
@@ -168,19 +153,6 @@ export const CAPABILITIES = [
     toolWhen: () => false,
     context: HOTSPOT_CONTEXT_BLOCK,
     prefeed: (ctx) => buildHotspotRuntimeContext(ctx.rawText || ''),
-  },
-  {
-    id: 'worldcup',
-    label: '世界杯面板',
-    summary: '打开世界杯比分/赛程/积分榜面板（worldcup_mode）；面板开启时赛况自动预喂。',
-    triggers: WORLDCUP_TRIGGERS,
-    tools: WORLDCUP_TOOLS,
-    // 面板不再走关键词自动开：detect 恒 false（理由同 hotspot，见上）。
-    detect: () => false,
-    // 工具不自动注入（schema 较大且拖 WEB_TOOLS）；只递规则块，Agent 想用时 find_tool 装载。
-    toolWhen: () => false,
-    context: WORLDCUP_CONTEXT_BLOCK,
-    prefeed: (ctx) => buildWorldcupRuntimeContext(ctx.rawText || ''),
   },
   {
     id: 'cases-import',
