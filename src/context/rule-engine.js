@@ -1,0 +1,49 @@
+import { buildWeatherRuntimeContext } from '../weather.js'
+import { loadContextRules } from './rule-store.js'
+
+function ruleMatches(rule, text) {
+  for (const pattern of rule.patterns || []) {
+    try {
+      if (new RegExp(pattern, 'i').test(text)) return true
+    } catch {
+      if (text.toLowerCase().includes(String(pattern || '').toLowerCase())) return true
+    }
+  }
+  return false
+}
+
+async function providerBlock(rule, text) {
+  if (rule.provider === 'static_text') {
+    return String(rule.context || rule.action?.context || '').trim()
+  }
+  if (rule.provider === 'weather') {
+    return await buildWeatherRuntimeContext(text)
+  }
+  return ''
+}
+
+function shouldDedupeProvider(provider = '') {
+  return provider === 'weather'
+}
+
+export async function runContextRuleEngine(message = '') {
+  const text = String(message || '')
+  if (!text.trim()) return ''
+
+  const matchedBlocks = []
+  const seenProviders = new Set()
+
+  for (const rule of loadContextRules()) {
+    if (!rule.enabled || rule.status === 'draft') continue
+    if (!ruleMatches(rule, text)) continue
+    if (shouldDedupeProvider(rule.provider) && seenProviders.has(rule.provider)) continue
+    const block = await providerBlock(rule, text)
+    if (!block) continue
+    if (shouldDedupeProvider(rule.provider)) seenProviders.add(rule.provider)
+    matchedBlocks.push(`<rule-context id="${rule.id}" provider="${rule.provider}">
+${block}
+</rule-context>`)
+  }
+
+  return matchedBlocks.join('\n\n')
+}
