@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI 分析备案</title>
+<style>
+:root{--bg:#05070f;--panel:rgba(12,20,40,.72);--panel2:rgba(18,30,58,.6);--ink:#e8f1ff;--muted:#7f97b8;--line:rgba(120,160,220,.18);--line2:rgba(120,170,255,.4);--cyan:#4bdcff;--violet:#a78bfa;--amber:#ffc45b;--coral:#ff735f;--ok:#45ddb1}
+*{box-sizing:border-box}html,body{height:100%}body{margin:0;background:var(--bg);color:var(--ink);font-family:"Inter","PingFang SC","Microsoft YaHei",sans-serif;overflow:hidden}
+#stage{position:absolute;inset:0;display:flex;flex-direction:column;padding:18px 20px 14px}
+.top{display:flex;align-items:center;gap:16px;border-bottom:1px solid var(--line);padding-bottom:12px}
+.brand{font-size:14px;font-weight:800;letter-spacing:.12em}.brand-sub{font-size:8px;color:var(--muted);letter-spacing:.18em;margin-top:2px}
+.title{font-size:20px;font-weight:900;letter-spacing:.16em;margin-left:6px}
+.stats{margin-left:auto;display:flex;gap:14px}
+.stat{text-align:center;padding:6px 14px;border:1px solid var(--line);border-radius:9px;background:var(--panel)}
+.stat b{display:block;font-size:18px;font-weight:850}.stat span{font-size:9px;color:var(--muted)}
+.stat.alert b{color:var(--coral)}.stat.high b{color:var(--amber)}.stat.today b{color:var(--cyan)}
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 0}
+.filters select,.filters input{background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:7px 10px;font-size:12px;outline:none}
+.filters input[type=date]{color-scheme:dark}
+.filters .kw{flex:1;min-width:180px}
+.btn{background:linear-gradient(135deg,rgba(58,120,220,.9),rgba(40,90,200,.9));border:0;color:#fff;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer}
+.btn.ghost{background:var(--panel2);border:1px solid var(--line)}
+.table-wrap{flex:1;min-height:0;overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid rgba(120,160,220,.1);white-space:nowrap}
+th{position:sticky;top:0;background:#0a1430;color:#bcd3f0;font-weight:700;font-size:11px;letter-spacing:.04em;z-index:1}
+tbody tr:hover{background:rgba(70,130,220,.08);cursor:pointer}
+.risk{display:inline-block;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:700}
+.risk.low{background:rgba(69,221,177,.16);color:var(--ok)}
+.risk.medium{background:rgba(75,220,255,.16);color:var(--cyan)}
+.risk.high{background:rgba(255,196,91,.16);color:var(--amber)}
+.risk.critical{background:rgba(255,115,95,.18);color:var(--coral)}
+.chip{font-size:10px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:1px 7px}
+.alert-y{color:var(--coral);font-weight:700}.alert-n{color:var(--muted)}
+.pager{display:flex;align-items:center;gap:12px;justify-content:flex-end;padding-top:10px;font-size:12px;color:var(--muted)}
+.pager button{background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:7px;padding:5px 12px;cursor:pointer}
+.pager button:disabled{opacity:.4;cursor:not-allowed}
+.empty{padding:40px;text-align:center;color:var(--muted)}
+.drawer{position:absolute;top:0;right:0;height:100%;width:380px;background:#0a1430;border-left:1px solid var(--line2);box-shadow:-20px 0 50px rgba(0,0,0,.4);transform:translateX(100%);transition:transform .28s ease;z-index:20;display:flex;flex-direction:column}
+.drawer.open{transform:translateX(0)}
+.drawer-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line)}
+.drawer-head b{font-size:14px;letter-spacing:.06em}
+.drawer-body{padding:18px;overflow:auto;font-size:12px;line-height:1.8}
+.drawer-body .row{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px dashed rgba(120,160,220,.12)}
+.drawer-body .row span{color:var(--muted)}.drawer-body .row b{font-weight:600;text-align:right;max-width:60%}
+.closex{background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:7px;width:28px;height:28px;cursor:pointer;font-size:15px}
+.rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.rules .chip{background:rgba(167,139,250,.12);color:var(--violet);border-color:rgba(167,139,250,.3)}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:rgba(80,130,210,.3);border-radius:8px}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="top">
+    <div><div class="brand">AI · 分析备案</div><div class="brand-sub">ANALYSIS RECORD FILING</div></div>
+    <div class="title">AI 分析备案</div>
+    <div class="stats">
+      <div class="stat"><b id="s-total">—</b><span>备案总量</span></div>
+      <div class="stat today"><b id="s-today">—</b><span>今日新增</span></div>
+      <div class="stat high"><b id="s-high">—</b><span>高风险</span></div>
+      <div class="stat alert"><b id="s-alert">—</b><span>触发告警</span></div>
+    </div>
+  </div>
+
+  <div class="filters">
+    <select id="f-province"><option value="">全部省份</option></select>
+    <select id="f-risk"><option value="">全部风险</option><option value="low">低风险</option><option value="medium">中风险</option><option value="high">高风险</option><option value="critical">严重风险</option></select>
+    <select id="f-channel"><option value="">全部渠道</option><option value="wechat">微信</option><option value="app">App</option><option value="web">Web</option><option value="unknown">未知</option></select>
+    <input type="date" id="f-from" title="起始日期">
+    <input type="date" id="f-to" title="结束日期">
+    <input class="kw" id="f-kw" placeholder="搜索摘要 / 类型 / 用户">
+    <button class="btn" id="btn-search">查询</button>
+    <button class="btn ghost" id="btn-reset">重置</button>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>时间</th><th>用户(脱敏)</th><th>省份</th><th>渠道</th><th>命中类型</th><th>风险</th><th>模型</th><th>耗时</th><th>告警</th><th></th></tr></thead>
+      <tbody id="tbody"><tr><td colspan="10" class="empty">加载中…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="pager">
+    <span id="p-info">—</span>
+    <button id="p-prev">上一页</button>
+    <button id="p-next">下一页</button>
+  </div>
+</div>
+
+<div class="drawer" id="drawer">
+  <div class="drawer-head"><b>备案详情</b><button class="closex" id="d-close">×</button></div>
+  <div class="drawer-body" id="d-body"></div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const API=/^https?:$/.test(location.protocol)?location.origin:'http://localhost:3721';
+const PROVINCES=[['110000','北京市'],['120000','天津市'],['130000','河北省'],['140000','山西省'],['150000','内蒙古自治区'],['210000','辽宁省'],['220000','吉林省'],['230000','黑龙江省'],['310000','上海市'],['320000','江苏省'],['330000','浙江省'],['340000','安徽省'],['350000','福建省'],['360000','江西省'],['370000','山东省'],['410000','河南省'],['420000','湖北省'],['430000','湖南省'],['440000','广东省'],['450000','广西壮族自治区'],['460000','海南省'],['500000','重庆市'],['510000','四川省'],['520000','贵州省'],['530000','云南省'],['540000','西藏自治区'],['610000','陕西省'],['620000','甘肃省'],['630000','青海省'],['640000','宁夏回族自治区'],['650000','新疆维吾尔自治区'],['710000','台湾省'],['810000','香港特别行政区'],['820000','澳门特别行政区']];
+const riskLabel=l=>({low:'低风险',medium:'中风险',high:'高风险',critical:'严重风险'}[l]||l);
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtTime=v=>{const d=new Date(v);return isNaN(d.getTime())?'—':d.toLocaleString('zh-CN',{hour12:false})};
+let state={page:1,pageSize:20,total:0};
+
+PROVINCES.forEach(([code,name])=>{const o=document.createElement('option');o.value=code;o.textContent=name;$('f-province').appendChild(o)});
+
+function buildQuery(){
+  const p=new URLSearchParams();
+  p.set('page',state.page);p.set('pageSize',state.pageSize);
+  if($('f-province').value)p.set('provinceCode',$('f-province').value);
+  if($('f-risk').value)p.set('riskLevel',$('f-risk').value);
+  if($('f-channel').value)p.set('channel',$('f-channel').value);
+  if($('f-from').value)p.set('dateFrom',`${$('f-from').value}T00:00:00.000Z`);
+  if($('f-to').value)p.set('dateTo',`${$('f-to').value}T23:59:59.999Z`);
+  if($('f-kw').value.trim())p.set('keyword',$('f-kw').value.trim());
+  return p.toString();
+}
+
+async function loadStats(){
+  try{const r=await fetch(`${API}/api/v1/analysis-records/stats`,{signal:AbortSignal.timeout(8000)});const d=await r.json();const s=d.data||{};
+    $('s-total').textContent=s.total??0;$('s-today').textContent=s.today??0;$('s-high').textContent=s.highRisk??0;$('s-alert').textContent=s.alerted??0;
+  }catch(e){console.warn('stats failed',e.message)}
+}
+
+async function load(){
+  try{
+    const r=await fetch(`${API}/api/v1/analysis-records?${buildQuery()}`,{signal:AbortSignal.timeout(10000)});
+    const d=await r.json();const data=d.data||{};const rows=data.records||[];
+    state.total=data.total||0;state.page=data.page||1;state.pageSize=data.pageSize||20;
+    const tp=data.totalPages||1;
+    $('p-info').textContent=`第 ${state.page}/${tp} 页 · 共 ${state.total} 条`;
+    $('p-prev').disabled=state.page<=1;$('p-next').disabled=state.page>=tp;
+    if(!rows.length){$('tbody').innerHTML='<tr><td colspan="10" class="empty">暂无备案记录</td></tr>';return}
+    $('tbody').innerHTML=rows.map(r=>`<tr data-id="${esc(r.recordId)}">
+      <td>${fmtTime(r.createdAt)}</td>
+      <td>${esc(r.userId||'—')}</td>
+      <td>${esc(r.provinceName||'未知')}</td>
+      <td><span class="chip">${esc(r.channel)}</span></td>
+      <td>${esc(r.fraudType||'—')}</td>
+      <td><span class="risk ${r.riskLevel}">${riskLabel(r.riskLevel)}</span></td>
+      <td>${esc(r.modelUsed||'—')}</td>
+      <td>${r.latencyMs==null?'—':r.latencyMs+'ms'}</td>
+      <td class="${r.alertSent?'alert-y':'alert-n'}">${r.alertSent?'是':'否'}</td>
+      <td><span class="chip">详情</span></td>
+    </tr>`).join('');
+    $('tbody').querySelectorAll('tr[data-id]').forEach(tr=>tr.onclick=()=>openDetail(tr.dataset.id));
+  }catch(e){$('tbody').innerHTML=`<tr><td colspan="10" class="empty">加载失败：${esc(e.message)}</td></tr>`}
+}
+
+async function openDetail(id){
+  try{
+    const r=await fetch(`${API}/api/v1/analysis-records/${encodeURIComponent(id)}`,{signal:AbortSignal.timeout(8000)});
+    const d=await r.json();const x=d.data;if(!x){return}
+    const rules=(x.rulesHit||[]).map(k=>`<span class="chip">${esc(k)}</span>`).join('')||'—';
+    $('d-body').innerHTML=`
+      <div class="row"><span>备案ID</span><b>${esc(x.recordId)}</b></div>
+      <div class="row"><span>时间</span><b>${fmtTime(x.createdAt)}</b></div>
+      <div class="row"><span>用户(脱敏)</span><b>${esc(x.userId||'—')}</b></div>
+      <div class="row"><span>设备</span><b>${esc(x.deviceId||'—')}</b></div>
+      <div class="row"><span>省份</span><b>${esc(x.provinceName||'未知')}</b></div>
+      <div class="row"><span>渠道</span><b>${esc(x.channel)}</b></div>
+      <div class="row"><span>命中类型</span><b>${esc(x.fraudType||'—')}</b></div>
+      <div class="row"><span>风险等级</span><b><span class="risk ${x.riskLevel}">${riskLabel(x.riskLevel)}</span></b></div>
+      <div class="row"><span>模型</span><b>${esc(x.modelUsed||'—')}</b></div>
+      <div class="row"><span>耗时</span><b>${x.latencyMs==null?'—':x.latencyMs+'ms'}</b></div>
+      <div class="row"><span>触发告警</span><b class="${x.alertSent?'alert-y':'alert-n'}">${x.alertSent?'是':'否'}</b></div>
+      <div class="row"><span>用户反馈</span><b>${esc(x.feedback||'—')}</b></div>
+      <div class="row"><span>来源</span><b>${esc(x.source||'—')}</b></div>
+      <div class="row" style="display:block"><span>消息摘要(脱敏)</span><b style="display:block;max-width:100%;text-align:left;margin-top:6px;color:var(--ink)">${esc(x.inputSummary||'—')}</b></div>
+      <div class="row" style="display:block"><span>命中规则</span><div class="rules">${rules}</div></div>`;
+    $('drawer').classList.add('open');
+  }catch(e){console.warn('detail failed',e.message)}
+}
+
+$('btn-search').onclick=()=>{state.page=1;load()};
+$('btn-reset').onclick=()=>{$('f-province').value='';$('f-risk').value='';$('f-channel').value='';$('f-from').value='';$('f-to').value='';$('f-kw').value='';state.page=1;load()};
+$('p-prev').onclick=()=>{if(state.page>1){state.page--;load()}};
+$('p-next').onclick=()=>{state.page++;load()};
+$('d-close').onclick=()=>$('drawer').classList.remove('open');
+window.addEventListener('message',e=>{if(e?.data?.type==='record-exit')$('drawer').classList.remove('open')});
+
+loadStats();load();
+setInterval(loadStats,60000);
+window.addEventListener('xiaodun:refresh-records',load);
+</script>
+</body>
+</html>
