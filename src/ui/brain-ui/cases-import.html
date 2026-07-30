@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>案例导入 / 知识库</title>
+<style>
+  :root {
+    --bg: #05070f; --panel: #0c1120; --panel2: #111a2e; --line: #1d2740;
+    --ink: #e8eefc; --ink2: #9fb0d0; --cool: #4d8dff; --ok: #36d399; --warn: #f6c453; --bad: #f87272;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.6 -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; padding: 22px 26px; }
+  h1 { font-size: 18px; margin: 0 0 4px; letter-spacing: .5px; }
+  .kicker { color: var(--cool); font-size: 12px; letter-spacing: 2px; text-transform: uppercase; }
+  .stats { display: flex; gap: 14px; margin: 16px 0; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 16px; min-width: 120px; }
+  .stat b { font-size: 20px; color: var(--ink); }
+  .stat span { display: block; color: var(--ink2); font-size: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; margin-bottom: 16px; }
+  .card h2 { font-size: 14px; margin: 0 0 12px; color: var(--ink); }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .hint { color: var(--ink2); font-size: 12px; margin-top: 8px; }
+  button { background: var(--cool); color: #fff; border: 0; border-radius: 8px; padding: 9px 16px; font-size: 13px; cursor: pointer; }
+  button.ghost { background: transparent; border: 1px solid var(--line); color: var(--ink); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  input[type=file] { color: var(--ink2); font-size: 13px; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; margin-top: 8px; }
+  th, td { border: 1px solid var(--line); padding: 5px 8px; text-align: left; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  th { background: var(--panel2); color: var(--ink2); position: sticky; top: 0; }
+  .map-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px 14px; }
+  .map-item { display: flex; align-items: center; gap: 8px; }
+  .map-item label { width: 92px; color: var(--ink2); font-size: 12px; flex-shrink: 0; }
+  select { flex: 1; background: var(--panel2); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 5px 6px; font-size: 12px; }
+  .progress { height: 10px; background: var(--panel2); border-radius: 6px; overflow: hidden; margin: 10px 0; }
+  .progress > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--cool), #7aa7ff); transition: width .25s; }
+  .log { background: #060a14; border: 1px solid var(--line); border-radius: 8px; padding: 10px; height: 150px; overflow: auto; font: 12px/1.5 ui-monospace, Menlo, Consolas, monospace; color: var(--ink2); white-space: pre-wrap; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; border: 1px solid var(--line); color: var(--ink2); margin-left: 6px; }
+  a { color: var(--cool); }
+</style>
+</head>
+<body>
+  <div class="kicker">XIAO DUN · KNOWLEDGE BASE</div>
+  <h1>案例导入 / 知识库管理</h1>
+  <p class="hint">批量导入固定格式的诈骗案例：同时写入关系库（系统真实源），并通过 RAG 接入 seam 同步建向量索引（当前 RAG 未接入时为占位，可后续回填）。</p>
+
+  <div class="stats" id="stats">
+    <div class="stat"><b id="stat-total">–</b><span>库中案例</span></div>
+    <div class="stat"><b id="stat-indexed">–</b><span>已索引(RAG)</span></div>
+    <div class="stat"><b id="stat-pending">–</b><span>待索引</span></div>
+  </div>
+
+  <div class="card">
+    <h2>1 · 选择文件</h2>
+    <div class="row">
+      <input type="file" id="file" accept=".csv,.json,.jsonl,.jsonl,.txt" />
+      <button class="ghost" id="template-btn" type="button">下载 CSV 模板</button>
+    </div>
+    <div class="hint">支持 CSV / JSON(数组) / JSONL。编码 UTF-8。列名可任意，下一步手动映射。</div>
+  </div>
+
+  <div class="card" id="map-card" hidden>
+    <h2>2 · 字段映射</h2>
+    <div class="map-grid" id="map-grid"></div>
+    <div class="hint" id="province-hint">“省份”列请映射到包含省份名或代码的列（如「广东省」「440000」），系统自动归一为省份代码。</div>
+  </div>
+
+  <div class="card" id="preview-card" hidden>
+    <h2>3 · 预览（前 5 行）</h2>
+    <div style="overflow:auto; max-height:240px;"><table id="preview-table"></table></div>
+    <div class="row" style="margin-top:14px;">
+      <button id="import-btn" type="button">开始导入</button>
+      <button class="ghost" id="reindex-btn" type="button">重新索引（RAG 回填）</button>
+      <span class="pill" id="row-count">0 行待导入</span>
+    </div>
+  </div>
+
+  <div class="card" id="progress-card" hidden>
+    <h2>4 · 导入进度</h2>
+    <div class="progress"><i id="bar"></i></div>
+    <div class="row" style="gap:18px;">
+      <span>状态：<b id="p-status">–</b></span>
+      <span>已处理：<b id="p-processed">0</b>/<b id="p-total">0</b></span>
+      <span style="color:var(--ok)">新增 <b id="p-inserted">0</b></span>
+      <span style="color:var(--cool)">更新 <b id="p-updated">0</b></span>
+      <span style="color:var(--bad)">失败 <b id="p-failed">0</b></span>
+    </div>
+    <div class="log" id="log"></div>
+  </div>
+
+<script>
+const PROVINCES = [
+  ['110000','北京市'],['120000','天津市'],['130000','河北省'],['140000','山西省'],['150000','内蒙古自治区'],
+  ['210000','辽宁省'],['220000','吉林省'],['230000','黑龙江省'],['310000','上海市'],['320000','江苏省'],
+  ['330000','浙江省'],['340000','安徽省'],['350000','福建省'],['360000','江西省'],['370000','山东省'],
+  ['410000','河南省'],['420000','湖北省'],['430000','湖南省'],['440000','广东省'],['450000','广西壮族自治区'],
+  ['460000','海南省'],['500000','重庆市'],['510000','四川省'],['520000','贵州省'],['530000','云南省'],
+  ['540000','西藏自治区'],['610000','陕西省'],['620000','甘肃省'],['630000','青海省'],['640000','宁夏回族自治区'],
+  ['650000','新疆维吾尔自治区'],['710000','台湾省'],['810000','香港特别行政区'],['820000','澳门特别行政区']
+]
+const NAME_TO_CODE = new Map(PROVINCES.map(([c, n]) => [n, c]))
+const CODE_TO_NAME = new Map(PROVINCES.map(([c, n]) => [c, n]))
+const RISK_MAP = { '高':'high','中':'medium','低':'low','严重':'critical','高危':'high','中危':'medium','低危':'low',
+  'high':'high','medium':'medium','low':'low','critical':'critical' }
+
+const FIELDS = [
+  { key: 'caseId', label: '案例编号', kw: ['caseid','案例编号','编号','id'] },
+  { key: 'province', label: '省份', kw: ['省份','省','province','地区','区域'], required: true },
+  { key: 'fraudType', label: '诈骗类型', kw: ['诈骗类型','类型','fraud','诈骗'], required: true },
+  { key: 'riskLevel', label: '风险等级', kw: ['风险','等级','risk','级别'], required: true },
+  { key: 'lossAmount', label: '损失金额', kw: ['损失','金额','loss','涉案'] },
+  { key: 'occurredAt', label: '发生时间', kw: ['发生','时间','occur','日期','date','time'] },
+  { key: 'summary', label: '案例摘要', kw: ['摘要','summary','描述','说明'] },
+  { key: 'content', label: '案例全文', kw: ['全文','content','详情','文本'] },
+  { key: 'reviewStatus', label: '审核状态', kw: ['审核','review','状态'] },
+  { key: 'source', label: '来源', kw: ['来源','source','出处'] },
+]
+
+let parsedRows = []      // 原始对象数组（键为源列名）
+let sourceColumns = []    // 源列名列表
+let mapping = {}          // field.key -> 源列名 或 ''
+
+const $ = (id) => document.getElementById(id)
+const api = (p) => p
+async function apiFetch(path, opts) {
+  const res = await fetch(path, opts)
+  if (!res.ok) throw new Error(`${res.status} ${await res.text().catch(()=>'')}`)
+  return res.json()
+}
+
+function log(msg) { const el = $('log'); el.textContent += msg + '\n'; el.scrollTop = el.scrollHeight }
+
+// ── 解析文件 ──
+$('file').addEventListener('change', async (e) => {
+  const f = e.target.files[0]; if (!f) return
+  try {
+    const text = await f.text()
+    parsedRows = parseFile(f.name, text)
+    if (!parsedRows.length) { alert('未解析到任何行'); return }
+    sourceColumns = Object.keys(parsedRows[0])
+    buildMapping()
+    renderPreview()
+    $('map-card').hidden = false
+    $('preview-card').hidden = false
+    $('row-count').textContent = `${parsedRows.length} 行待导入`
+    log(`已解析 ${parsedRows.length} 行，源列：${sourceColumns.join(', ')}`)
+  } catch (err) { alert('解析失败：' + err.message) }
+})
+
+function parseFile(name, text) {
+  const lower = name.toLowerCase()
+  if (lower.endsWith('.jsonl') || lower.endsWith('.txt')) {
+    return text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((l) => JSON.parse(l))
+  }
+  if (lower.endsWith('.json')) {
+    const data = JSON.parse(text)
+    return Array.isArray(data) ? data : (data.cases || [])
+  }
+  return parseCSV(text) // csv
+}
+
+function parseCSV(text) {
+  const rows = []
+  let field = '', row = [], inQ = false
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]
+    if (inQ) {
+      if (c === '"') { if (text[i+1] === '"') { field += '"'; i++ } else inQ = false }
+      else field += c
+    } else {
+      if (c === '"') inQ = true
+      else if (c === ',') { row.push(field); field = '' }
+      else if (c === '\n') { row.push(field); rows.push(row); row = []; field = '' }
+      else if (c === '\r') {}
+      else field += c
+    }
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row) }
+  if (!rows.length) return []
+  const header = rows[0].map((h) => h.trim())
+  return rows.slice(1).filter((r) => r.some((v) => String(v).trim() !== '')).map((r) => {
+    const obj = {}
+    header.forEach((h, idx) => { obj[h] = (r[idx] ?? '').toString().trim() })
+    return obj
+  })
+}
+
+// ── 字段映射 ──
+function buildMapping() {
+  mapping = {}
+  FIELDS.forEach((f) => {
+    const guess = sourceColumns.find((c) => f.kw.some((k) => c.toLowerCase().includes(k)))
+    mapping[f.key] = guess || ''
+  })
+  const grid = $('map-grid'); grid.innerHTML = ''
+  FIELDS.forEach((f) => {
+    const item = document.createElement('div'); item.className = 'map-item'
+    const label = document.createElement('label'); label.textContent = f.label + (f.required ? ' *' : '')
+    const sel = document.createElement('select')
+    sel.innerHTML = '<option value="">（不使用）</option>' + sourceColumns.map((c) => `<option value="${c}">${c}</option>`).join('')
+    sel.value = mapping[f.key]
+    sel.addEventListener('change', () => { mapping[f.key] = sel.value })
+    item.appendChild(label); item.appendChild(sel); grid.appendChild(item)
+  })
+}
+
+function resolveProvince(raw) {
+  if (!raw) return null
+  const v = String(raw).trim()
+  if (CODE_TO_NAME.has(v)) return v
+  if (NAME_TO_CODE.has(v)) return NAME_TO_CODE.get(v)
+  // 包含省份名
+  for (const [name, code] of NAME_TO_CODE) if (v.includes(name)) return code
+  return null
+}
+
+function buildCase(row) {
+  const get = (key) => { const col = mapping[key]; return col ? (row[col] ?? '') : '' }
+  const provinceCode = resolveProvince(get('province'))
+  if (!provinceCode) return null
+  const riskRaw = String(get('riskLevel') || 'medium').trim()
+  const riskLevel = RISK_MAP[riskRaw.toLowerCase()] || 'medium'
+  const obj = { provinceCode, fraudType: get('fraudType') || '未分类诈骗', riskLevel }
+  const cid = get('caseId'); if (cid) obj.caseId = cid
+  const la = parseFloat(get('lossAmount')); if (!Number.isNaN(la)) obj.lossAmount = la
+  const t = get('occurredAt'); if (t) obj.occurredAt = t
+  const s = get('summary'); if (s) obj.summary = s
+  const c = get('content'); if (c) obj.content = c
+  const rs = get('reviewStatus'); if (rs) obj.reviewStatus = rs
+  const src = get('source'); if (src) obj.source = src
+  return obj
+}
+
+function renderPreview() {
+  const tbl = $('preview-table')
+  const cols = FIELDS.map((f) => f.key)
+  let html = '<tr>' + cols.map((c) => `<th>${c}</th>`).join('') + '</tr>'
+  parsedRows.slice(0, 5).forEach((r) => {
+    const item = buildCase(r)
+    html += '<tr>' + cols.map((c) => {
+      let v = item ? (item[c] ?? '') : '✗映射缺失'
+      if (c === 'provinceCode') v = item ? item.provinceCode : '✗'
+      return `<td title="${v}">${String(v)}</td>`
+    }).join('') + '</tr>'
+  })
+  tbl.innerHTML = html
+}
+
+// ── 导入 ──
+$('import-btn').addEventListener('click', async () => {
+  if (!mapping.province || !mapping.fraudType || !mapping.riskLevel) { alert('请先完成必填字段映射（省份/诈骗类型/风险等级）'); return }
+  const cases = []
+  let skip = 0
+  parsedRows.forEach((r) => { const c = buildCase(r); if (c) cases.push(c); else skip++ })
+  if (!cases.length) { alert('没有可导入的有效行'); return }
+  startJob('/api/v1/fraud-cases/import-async', { cases }, 'import', skip)
+})
+
+$('reindex-btn').addEventListener('click', async () => {
+  if (!confirm('将把「待索引」案例交给 RAG 建向量（force 全量请改用接口）。确认？')) return
+  startJob('/api/v1/fraud-cases/reindex', {}, 'reindex', 0)
+})
+
+async function startJob(path, body, kind, skip) {
+  $('progress-card').hidden = false
+  $('import-btn').disabled = true; $('reindex-btn').disabled = true
+  try {
+    const init = await apiFetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    const jobId = init.data?.jobId
+    log(`任务已提交：${kind} jobId=${jobId}` + (skip ? `（跳过 ${skip} 行无效）` : ''))
+    if (skip) log(`⚠ 跳过 ${skip} 行（省份无法识别等）`)
+    pollJob(jobId)
+  } catch (err) { log('提交失败：' + err.message); $('import-btn').disabled = false; $('reindex-btn').disabled = false }
+}
+
+async function pollJob(jobId) {
+  const timer = setInterval(async () => {
+    try {
+      const j = await apiFetch(`/api/v1/fraud-cases/import-jobs/${jobId}`)
+      const d = j.data
+      const pct = d.total ? Math.round((d.processed / d.total) * 100) : (d.status === 'done' ? 100 : 0)
+      $('bar').style.width = pct + '%'
+      $('p-status').textContent = d.status
+      $('p-processed').textContent = d.processed
+      $('p-total').textContent = d.total
+      $('p-inserted').textContent = d.inserted
+      $('p-updated').textContent = d.updated
+      $('p-failed').textContent = d.failed
+      if (d.status === 'done') { log('✅ 完成：新增 ' + d.inserted + ' / 更新 ' + d.updated + ' / 失败 ' + d.failed); clearInterval(timer); refreshStats(); $('import-btn').disabled = false; $('reindex-btn').disabled = false }
+      else if (d.status === 'error') { log('❌ 失败：' + d.error); clearInterval(timer); $('import-btn').disabled = false; $('reindex-btn').disabled = false }
+    } catch (err) { log('轮询失败：' + err.message) }
+  }, 500)
+}
+
+// ── 统计 ──
+async function refreshStats() {
+  try {
+    const r = await apiFetch('/api/v1/fraud-cases/stats')
+    const s = r.data
+    $('stat-total').textContent = s.total
+    $('stat-indexed').textContent = s.indexed
+    $('stat-pending').textContent = s.pending
+  } catch {}
+}
+refreshStats()
+
+// ── 模板下载 ──
+$('template-btn').addEventListener('click', () => {
+  const header = ['caseId','province','fraudType','riskLevel','lossAmount','occurredAt','summary','content']
+  const sample = ['case_0001,广东省,冒充客服,high,56000,2026-07-28T10:00:00+08:00,冒充电商客服诱导转账,客服以退款理赔为由发送钓鱼链接要求转账',
+    'case_0002,北京市,虚假投资,medium,128000,2026-07-27T22:00:00+08:00,虚假投资平台诱导追加保证金,通过虚假平台要求受害人追加保证金']
+  const csv = [header.join(','), ...sample].join('\n')
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv' })
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'fraud_cases_template.csv'; a.click()
+})
+</script>
+</body>
+</html>
