@@ -1,27 +1,12 @@
 import { buildHeartbeatSystemPromptPreview } from '../../system-prompt-preview.js'
 import { getHotspots, getHotspotPanelState, setHotspotPanelState } from '../../hotspots.js'
-import { getWorldcup, getWorldcupPanelState, setWorldcupPanelState } from '../../worldcup.js'
 
 import { DOC_TOPICS, getDocPanelState, setDocPanelState } from '../../docs.js'
 import { getGeoWeatherSnapshot } from '../../geo-weather.js'
 import { getAgentName } from '../agent.js'
 import { jsonResponse, parseBooleanish, readJsonBody } from '../utils.js'
 
-// 案例导入面板的可见状态（与 worldcup 一致，由前端开关时上报）
-let casesImportPanelState = { active: false, source: 'brain-ui' }
-function getCasesImportPanelState() { return { ...casesImportPanelState } }
-function setCasesImportPanelState({ active, source } = {}) {
-  casesImportPanelState = { active: !!active, source: source || 'brain-ui' }
-  return { ...casesImportPanelState }
-}
 
-// 记录备案面板的可见状态（与 worldcup 一致，由前端开关时上报）
-let recordPanelState = { active: false, source: 'brain-ui' }
-function getRecordPanelState() { return { ...recordPanelState } }
-function setRecordPanelState({ active, source } = {}) {
-  recordPanelState = { active: !!active, source: source || 'brain-ui' }
-  return { ...recordPanelState }
-}
 
 export async function handlePanelRoutes(req, res, url, { getStateSnapshot = null } = {}) {
   if (req.method === 'GET' && url.pathname === '/hotspots') {
@@ -57,73 +42,6 @@ export async function handlePanelRoutes(req, res, url, { getStateSnapshot = null
     }
   }
 
-  if (req.method === 'GET' && url.pathname === '/worldcup') {
-    getWorldcup({
-      force: /^(1|true|yes)$/i.test(url.searchParams.get('refresh') || ''),
-      viewed: /^(1|true|yes)$/i.test(url.searchParams.get('viewed') || ''),
-    })
-      .then((worldcup) => jsonResponse(res, 200, worldcup))
-      .catch((err) => jsonResponse(res, 502, {
-        ok: false,
-        error: err.message,
-        matches: [],
-        standings: {},
-      }))
-    return true
-  }
-
-  if (url.pathname === '/worldcup-state') {
-    if (req.method === 'GET') {
-      jsonResponse(res, 200, { ok: true, state: getWorldcupPanelState() })
-      return true
-    }
-    if (req.method === 'POST') {
-      try {
-        const body = await readJsonBody(req)
-        const active = parseBooleanish(body.active)
-        const state = setWorldcupPanelState({ active, source: body.source || 'brain-ui' })
-        jsonResponse(res, 200, { ok: true, state })
-      } catch (err) {
-        jsonResponse(res, 400, { ok: false, error: err.message })
-      }
-      return true
-    }
-  }
-
-  if (url.pathname === '/cases-import-state') {
-    if (req.method === 'GET') {
-      jsonResponse(res, 200, { ok: true, state: getCasesImportPanelState() })
-      return true
-    }
-    if (req.method === 'POST') {
-      try {
-        const body = await readJsonBody(req)
-        const state = setCasesImportPanelState({ active: parseBooleanish(body.active), source: body.source || 'brain-ui' })
-        jsonResponse(res, 200, { ok: true, state })
-      } catch (err) {
-        jsonResponse(res, 400, { ok: false, error: err.message })
-      }
-      return true
-    }
-  }
-
-  if (url.pathname === '/record-panel-state') {
-    if (req.method === 'GET') {
-      jsonResponse(res, 200, { ok: true, state: getRecordPanelState() })
-      return true
-    }
-    if (req.method === 'POST') {
-      try {
-        const body = await readJsonBody(req)
-        const state = setRecordPanelState({ active: parseBooleanish(body.active), source: body.source || 'brain-ui' })
-        jsonResponse(res, 200, { ok: true, state })
-      } catch (err) {
-        jsonResponse(res, 400, { ok: false, error: err.message })
-      }
-      return true
-    }
-  }
-
   if (url.pathname === '/doc-panel-state') {
     if (req.method === 'GET') {
       jsonResponse(res, 200, { ok: true, state: getDocPanelState() })
@@ -133,7 +51,8 @@ export async function handlePanelRoutes(req, res, url, { getStateSnapshot = null
       try {
         const body = await readJsonBody(req)
         const active = parseBooleanish(body.active)
-        const state = setDocPanelState({ active, topicId: body.topicId || null, source: body.source || 'brain-ui' })
+        const topic = typeof body.topic === 'string' ? body.topic : undefined
+        const state = setDocPanelState({ active, topic, source: body.source || 'brain-ui' })
         jsonResponse(res, 200, { ok: true, state })
       } catch (err) {
         jsonResponse(res, 400, { ok: false, error: err.message })
@@ -142,45 +61,26 @@ export async function handlePanelRoutes(req, res, url, { getStateSnapshot = null
     }
   }
 
-  if (req.method === 'GET' && url.pathname.startsWith('/docs/')) {
-    const topicId = url.pathname.slice(6)
-    const doc = DOC_TOPICS[topicId]
-    if (!doc) {
-      jsonResponse(res, 404, { ok: false, error: `unknown topic: ${topicId}` })
-      return true
-    }
-    jsonResponse(res, 200, { ok: true, doc })
-    return true
-  }
-
-  if (req.method === 'GET' && url.pathname === '/docs') {
-    const topics = Object.values(DOC_TOPICS).map(({ id, title, subtitle, icon, summary }) => ({ id, title, subtitle, icon, summary }))
-    jsonResponse(res, 200, { ok: true, topics })
+  if (req.method === 'GET' && url.pathname === '/geo-weather') {
+    getGeoWeatherSnapshot()
+      .then((weather) => jsonResponse(res, 200, weather))
+      .catch((err) => jsonResponse(res, 502, { ok: false, error: err.message }))
     return true
   }
 
   if (req.method === 'GET' && url.pathname === '/system-prompt-preview') {
-    Promise.resolve()
-      .then(() => buildHeartbeatSystemPromptPreview({
-        stateSnapshot: typeof getStateSnapshot === 'function' ? getStateSnapshot() : {},
-      }))
-      .then((preview) => jsonResponse(res, 200, preview))
-      .catch((err) => jsonResponse(res, 500, { error: err.message }))
+    try {
+      const state = typeof getStateSnapshot === 'function' ? getStateSnapshot() : {}
+      const preview = await buildHeartbeatSystemPromptPreview(state)
+      jsonResponse(res, 200, { ok: true, prompt: preview })
+    } catch (err) {
+      jsonResponse(res, 500, { ok: false, error: err.message })
+    }
     return true
   }
 
-  if (req.method === 'GET' && url.pathname === '/agent-profile') {
+  if (req.method === 'GET' && url.pathname === '/agent') {
     jsonResponse(res, 200, { name: getAgentName() })
-    return true
-  }
-
-  if (req.method === 'GET' && url.pathname === '/environment-panel') {
-    jsonResponse(res, 200, {
-      ok: true,
-      agentName: getAgentName(),
-      ...getGeoWeatherSnapshot(),
-      serverTime: new Date().toISOString(),
-    })
     return true
   }
 

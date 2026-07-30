@@ -31,8 +31,8 @@ import { listApiSlotCapabilities } from './api-slots.js'
 // ---- 已迁能力的工具名数组（本模块为唯一定义处；tool-router 从这里 import）----
 export const WEB_TOOLS = ['web_search', 'fetch_url', 'browser_read']
 export const HOTSPOT_TOOLS = ['hotspot_mode']
-export const CASES_IMPORT_TOOLS = ['cases_import_mode']
-export const RECORD_TOOLS = ['record_panel_mode']
+export const CASES_IMPORT_TOOLS = []
+export const RECORD_TOOLS = []
 
 // ---- 触发词 / 触发正则 ----
 // 工具半历史上用字面包含的字符串数组（tool-router），工作流半用正则（prompt）。两者各自
@@ -47,19 +47,9 @@ const HOTSPOT_TRIGGERS = [
   '热点', '热搜', '热门', '新闻', '今日', '趋势', '榜单', '头条', 'trending',
   'news', 'hot ', 'top ', '微博热搜', '热议',
 ]
-const CASES_IMPORT_TRIGGERS = [
-  '案例导入', '批量导入', '导入案例', '诈骗案例', '知识库', '诈骗知识库', '向量库', 'rag',
-  '建库', '案例库', '导入诈骗', '案例入库', 'case import', 'knowledge base',
-]
-const RECORD_TRIGGERS = [
-  '记录备案', '备案', '分析记录', '审计记录', '使用备案', '记录面板', '备案面板',
-  'record panel', 'audit log', 'audit record',
-]
 
 const WEATHER_KEYWORD_RE = /天气|温度|气温|下雨|降雨|下雪|雾霾|阴天|晴天|多云|wttr|weather/i
 const HOTSPOT_KEYWORD_RE = /热点|热搜|热门|新闻|今日|趋势|榜单|头条|热议|微博热搜|trending|headline/i
-const CASES_IMPORT_KEYWORD_RE = /案例导入|批量导入|导入案例|诈骗案例|知识库|诈骗知识库|向量库|rag\b|建库|案例库|导入诈骗|案例入库/i
-const RECORD_KEYWORD_RE = /记录备案|备案|分析记录|审计记录|使用备案|记录面板|备案面板/i
 
 // ---- 工作流块（prompt 注入用；从 prompt.js / index.js 搬来，文本逐字保留）----
 const WEATHER_CONTEXT_BLOCK = `### Weather Surface Rules
@@ -80,16 +70,6 @@ const HOTSPOT_CONTEXT_BLOCK = `### Hotspot Panel
 - Open it (action="show") only when the user actually wants to browse trending topics, or a demo/scene needs it; close it (action="hide") when asked. Do not open it for ordinary Q&A.
 - While the panel is open, current hotspot data is injected into your context automatically — answer from that rather than guessing.`
 
-const CASES_IMPORT_CONTEXT_BLOCK = `### Case Import / Knowledge Base Panel
-- You have a cases_import_mode tool that opens the Case Import / Knowledge Base panel (案例导入 / 知识库). It is NOT pre-loaded each turn — if it is not in your current tool list, call find_tool("案例导入 知识库 case import") first to load it, then call it.
-- Open it (action="show") when the user wants to batch-import fraud / scam cases, manage the case knowledge base, or build the RAG vector index; close it (action="hide") when asked.
-- The panel lets the admin paste a batch of Chinese scam-case reports, parse them into structured records, and ingest them into the case library (with vector indexing for later semantic search). While the panel is open, you can describe what to import or summarize import results from the panel.`
-
-const RECORD_CONTEXT_BLOCK = `### Record / Filing Panel (记录备案)
-- You have a record_panel_mode tool that opens the Record / Filing panel (记录备案). It is NOT pre-loaded each turn — if it is not in your current tool list, call find_tool("记录备案 备案 record panel") first to load it, then call it.
-- Open it (action="show") when the user asks to view the App's AI-analyzed usage filings / audit records / analysis history; close it (action="hide") when asked.
-- The panel lists every analysis the App AI performed (who/what/when/why), serving as the compliance audit trail. While it is open, you can answer questions about specific records, summarize trends, or explain a filing entry the user points at. Do NOT invent record contents — read them from the panel.`
-
 // 安装工作流：原先以 directions.unshift 注入在 index.js，现归位为能力 context，统一经
 // buildSystemPrompt 注入（同一份文本、同一道 isSoftwareInstallRequest 门）。
 // 通用辅助：text 已小写，triggers 字面包含。
@@ -102,7 +82,7 @@ function hits(text, triggers) {
 }
 
 // =============================================================================
-// 能力定义（v1：已配对的 web / weather / hotspot / worldcup / web/weather）
+// 能力定义（v1：已配对的 web / weather / hotspot）
 //
 // 每个能力字段：
 //   id / label / summary —— 标识 + 自感知/发现用的人读描述
@@ -153,31 +133,6 @@ export const CAPABILITIES = [
     toolWhen: () => false,
     context: HOTSPOT_CONTEXT_BLOCK,
     prefeed: (ctx) => buildHotspotRuntimeContext(ctx.rawText || ''),
-  },
-  {
-    id: 'cases-import',
-    label: '案例导入面板',
-    summary: '打开案例导入 / 知识库面板（cases_import_mode）；批量导入诈骗案例并建库（含 RAG 向量索引）。',
-    triggers: CASES_IMPORT_TRIGGERS,
-    tools: CASES_IMPORT_TOOLS,
-    // 面板不再走关键词自动开：detect 恒 false（理由同 hotspot，见上）。
-    detect: () => false,
-    // 面板工具不自动注入；Agent 判断需要后经 find_tool 装载（与 hotspot/worldcup 一致）。
-    toolWhen: () => false,
-    context: CASES_IMPORT_CONTEXT_BLOCK,
-    prefeed: null,
-  },
-  {
-    id: 'record',
-    label: '记录备案面板',
-    summary: '打开记录备案 / 审计面板（record_panel_mode）；查看 App AI 分析的使用备案与审计记录。',
-    triggers: RECORD_TRIGGERS,
-    tools: RECORD_TOOLS,
-    // 面板不再走关键词自动开：detect 恒 false（理由同 hotspot，见上）。
-    detect: () => false,
-    toolWhen: () => false,
-    context: RECORD_CONTEXT_BLOCK,
-    prefeed: null,
   },
 
 ]

@@ -32,37 +32,6 @@ export const uiSchemas = {
     }
   },
 
-  cases_import_mode: {
-    type: 'function',
-    function: {
-      name: 'cases_import_mode',
-      description: 'Control the Case Import / Knowledge Base panel (案例导入 / 知识库). Open it when the user wants to batch-import fraud / scam cases, manage the case knowledge base, or build the RAG vector index; close it when asked. status checks current state.',
-      parameters: {
-        type: 'object',
-        properties: {
-          action: { type: 'string', enum: ['show', 'open', 'hide', 'close', 'toggle', 'status'], description: 'show/open opens the case-import panel; hide/close closes it; toggle switches it; status only checks state.' },
-          reason: { type: 'string', description: 'Optional short reason for opening or closing.' },
-        },
-        required: ['action']
-      }
-    }
-  },
-
-  record_panel_mode: {
-    type: 'function',
-    function: {
-      name: 'record_panel_mode',
-      description: 'Control the Record / Filing panel (记录备案). It lists every analysis the App AI performed (who/what/when/why) as the compliance audit trail. Open it when the user asks to view usage filings, audit records, or analysis history; close it when asked. status checks current state.',
-      parameters: {
-        type: 'object',
-        properties: {
-          action: { type: 'string', enum: ['show', 'open', 'hide', 'close', 'toggle', 'status'], description: 'show/open opens the record panel; hide/close closes it; toggle switches it; status only checks state.' },
-          reason: { type: 'string', description: 'Optional short reason for opening or closing.' },
-        },
-        required: ['action']
-      }
-    }
-  },
 
   open_doc_panel: {
     type: 'function',

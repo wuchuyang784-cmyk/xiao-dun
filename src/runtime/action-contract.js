@@ -53,8 +53,8 @@ const CONTRACTS = [
   {
     id: 'ui_action',
     label: '更新界面状态',
-    tools: ['focus_banner', 'hotspot_mode', 'worldcup_mode', 'cases_import_mode', 'record_panel_mode', 'ui_set'],
-    pattern: /(?:打开|关闭|显示|隐藏).{0,30}(?:专注|热点|热搜|世界杯|案例导入|知识库|记录备案|备案|人物卡|面板|卡片)|(?:进入|退出).{0,12}(?:专注|心流|focus)/i,
+    tools: ['focus_banner', 'hotspot_mode', 'ui_set'],
+    pattern: /(?:打开|关闭|显示|隐藏).{0,30}(?:专注|热点|热搜|人物卡|面板|卡片)|(?:进入|退出).{0,12}(?:专注|心流|focus)/i,
   },
 ]
 

@@ -182,7 +182,7 @@ const REVIEW_TRIGGERS = [
 // 触发词 → 工具组的单一数据源。selectTools（按轮注入）和 find_tool（模型主动搜工具）
 // 共用它，避免两处各维护一份中文关键词。注：CORE / task / memory / 多模态 mmCaps gate 等
 // 特殊注入逻辑仍在 selectTools 里，这里只收录"纯关键词触发的专业组"，正好是 find_tool 要搜的范围。
-// 已迁能力（web/hotspot/worldcup/web/weather）的触发词+工具已移入 capability-registry.js，
+// 已迁能力（web/hotspot/web/weather）的触发词+工具已移入 capability-registry.js，
 // find_tool 改读注册表发现它们，故不再列于此。
 export const TOOL_GROUPS = [
   { triggers: FILESYSTEM_TRIGGERS,   tools: FILESYSTEM_TOOLS },
@@ -281,8 +281,8 @@ export function selectTools(ctx = {}) {
   if (hits(body, TICKER_TRIGGERS) || isTick) {
     for (const t of TICKER_TOOLS) out.add(t)
   }
-  // —— 能力注册表：已迁能力（web / hotspot / worldcup / web/weather）的工具注入 ——
-  // 每个能力用自己的 toolWhen 门（web=关键词、hotspot/worldcup=不自动、
+  // —— 能力注册表：已迁能力（web / hotspot / web/weather）的工具注入 ——
+  // 每个能力用自己的 toolWhen 门（web=关键词、hotspot=不自动、
   const capCtx = { text: body, rawText: messageBody, isTick, mmCaps, hasTask }
   for (const t of capabilityToolsFor(capCtx)) out.add(t)
   if (INLINE_IMAGE_RE.test(messageBody)) out.add('analyze_image')

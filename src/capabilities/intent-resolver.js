@@ -1,16 +1,14 @@
 // =============================================================================
 // intent-resolver.js —— 面板 / 能力调用的「意图路由」层
 //
-// 现状缺口：面板工具（cases_import_mode / record_panel_mode / hotspot_mode /
-//   worldcup_mode）默认 toolWhen=false，只有关键词命中时才注入对应工作流块，
-//   而工具本身仍不自动注入（靠 LLM 调 find_tool 装载）。一旦用户用「非关键词」
-//   的自由表述（如"帮我把这批诈骗案例整理进系统"），正则 miss → 无 context、
-//   无工具 → 面板永远不会被打开。
+// 现状缺口：面板工具（hotspot_mode 等）默认 toolWhen=false，只有关键词命中时才
+//   注入对应工作流块，而工具本身仍不自动注入（靠 LLM 调 find_tool 装载）。
+//   一旦用户用「非关键词」的自由表述，正则 miss → 无 context、无工具 →
+//   面板永远不会被打开。
 //
 // 本模块补上「意图路由」，三层递进：
-//   1) 显式指令快车道：消息以 /cases /records /hotspot /worldcup ... 开头 →
-//      直接强制激活对应能力（确定性、零 LLM、最低延迟）。覆盖前端斜杠菜单之外的
-//      渠道（API / 外部消息），也与前端 window.xiaodunCasesImport?.toggle() 互为冗余保险。
+//   1) 显式指令快车道：消息以 /hotspot /weather ... 开头 → 直接强制激活对应
+//      能力（确定性、零 LLM、最低延迟）。覆盖前端斜杠菜单之外的渠道。
 //   2) 关键词路径：命中既有 detect 即视为已路由，return null 走原流程（保持原
 //      toolWhen 行为，不强制，避免绕过"面板工具不自动注入"的刻意设计）。
 //   3) LLM 意图兜底：前两者都没命中、且消息不像闲聊时，用一次轻量分类在能力
@@ -28,15 +26,8 @@ import {
 
 // 显式斜杠指令 → 能力 id 的快车道映射。
 const EXPLICIT_COMMANDS = {
-  '/cases': 'cases-import',
-  '/case': 'cases-import',
-  '/records': 'record',
-  '/record': 'record',
-  '/备案': 'record',
   '/hotspot': 'hotspot',
   '/热点': 'hotspot',
-  '/worldcup': 'worldcup',
-  '/世界杯': 'worldcup',
   '/weather': 'weather',
   '/天气': 'weather',
   '/web': 'web',

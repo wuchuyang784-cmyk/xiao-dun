@@ -266,10 +266,6 @@ async function executeToolUnchecked(name, args, context = {}) {
         return execMediaMode(args)
       case 'hotspot_mode':
         return execHotspotMode(args)
-      case 'cases_import_mode':
-        return execCasesImportMode(args)
-      case 'record_panel_mode':
-        return execRecordPanelMode(args)
       case 'open_doc_panel':
         return execOpenDocPanel(args)
       case 'schedule_reminder':
@@ -435,7 +431,7 @@ function execFindTool({ query } = {}) {
     }
   }
   // ①b 能力发现：query 命中能力（triggers/label/summary）→ 收下其工具，并带回工作流摘要。
-  //   这是「自感知按需激活」的发现半：已迁能力（web/hotspot/worldcup/web/weather）的
+  //   这是「自感知按需激活」的发现半：已迁能力（web/hotspot/web/weather）的
   //   触发词与工具不在 TOOL_GROUPS，靠这里从能力注册表发现；命中时把能力的工作流(context)
   //   摘要一并回给 Agent，让它即便在关键词没进 prompt 的轮次也知道「这套工具该怎么用」。
   const capHits = findCapabilitiesByQuery(q)
@@ -606,62 +602,6 @@ function execHotspotMode(args = {}) {
   }
 
   return JSON.stringify({ ok: true, tool: 'hotspot_mode', state })
-}
-
-// 记录备案 / 案例导入面板：事件名与 brain-ui/app.js 监听一致（record_panel_mode / cases_import_mode）。
-// 面板状态由前端（body 类 + POST /record-panel-state）作为真相源；executor 仅持轻量镜像用于 tool 返回。
-let casesImportModeActive = false
-function execCasesImportMode(args = {}) {
-  const action = String(args.action || 'status').trim().toLowerCase()
-  if (!['show', 'open', 'hide', 'close', 'toggle', 'status'].includes(action)) {
-    return JSON.stringify({ ok: false, tool: 'cases_import_mode', error: 'unsupported action' })
-  }
-  let nextActive = null
-  if (action === 'show' || action === 'open') nextActive = true
-  if (action === 'hide' || action === 'close') nextActive = false
-  if (action === 'toggle') nextActive = !casesImportModeActive
-  const active = typeof nextActive === 'boolean' ? nextActive : casesImportModeActive
-  if (typeof nextActive === 'boolean') {
-    casesImportModeActive = nextActive
-    emitEvent('cases_import_mode', {
-      action: active ? 'show' : 'hide',
-      active,
-      reason: typeof args.reason === 'string' ? args.reason : '',
-    })
-    emitEvent('action', {
-      tool: 'cases_import_mode',
-      summary: active ? '打开案例导入面板' : '关闭案例导入面板',
-      detail: args.reason || '',
-    })
-  }
-  return JSON.stringify({ ok: true, tool: 'cases_import_mode', state: { active } })
-}
-
-let recordPanelModeActive = false
-function execRecordPanelMode(args = {}) {
-  const action = String(args.action || 'status').trim().toLowerCase()
-  if (!['show', 'open', 'hide', 'close', 'toggle', 'status'].includes(action)) {
-    return JSON.stringify({ ok: false, tool: 'record_panel_mode', error: 'unsupported action' })
-  }
-  let nextActive = null
-  if (action === 'show' || action === 'open') nextActive = true
-  if (action === 'hide' || action === 'close') nextActive = false
-  if (action === 'toggle') nextActive = !recordPanelModeActive
-  const active = typeof nextActive === 'boolean' ? nextActive : recordPanelModeActive
-  if (typeof nextActive === 'boolean') {
-    recordPanelModeActive = nextActive
-    emitEvent('record_panel_mode', {
-      action: active ? 'show' : 'hide',
-      active,
-      reason: typeof args.reason === 'string' ? args.reason : '',
-    })
-    emitEvent('action', {
-      tool: 'record_panel_mode',
-      summary: active ? '打开记录备案面板' : '关闭记录备案面板',
-      detail: args.reason || '',
-    })
-  }
-  return JSON.stringify({ ok: true, tool: 'record_panel_mode', state: { active } })
 }
 
 function execOpenDocPanel(args = {}) {

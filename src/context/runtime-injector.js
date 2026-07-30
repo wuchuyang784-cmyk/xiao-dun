@@ -1,10 +1,9 @@
 import { gatherContext, formatExtraContext } from './gatherer.js'
 import { buildKeywordRuntimeContext } from './keyword-context.js'
-// 注：hotspot/worldcup/weather 的「数据预喂」(buildXxxRuntimeContext) 已迁入能力注册表的
+// 注：hotspot/weather 的「数据预喂」(buildXxxRuntimeContext) 已迁入能力注册表的
 //   prefeed，经 runCapabilityPrefeed 统一驱动。这里仍保留两个「面板开关态」上下文
 //   (buildXxxPanelStateContext)——它们是面板状态而非能力数据，未迁。
 import { buildHotspotPanelStateContext } from '../hotspots.js'
-import { buildWorldcupPanelStateContext } from '../worldcup.js'
 import { buildDocRuntimeContext, buildDocPanelStateContext, detectDocTopic } from '../docs.js'
 import { runCapabilityPrefeed } from '../capabilities/capability-registry.js'
 
@@ -21,14 +20,13 @@ export async function runRuntimeInjector({
 
   // 同步派生（无 await，无 IO，直接算）—— 放最前面让后面的 await 期间这些已就绪
   const hotspotStateText = buildHotspotPanelStateContext()
-  const worldcupStateText = buildWorldcupPanelStateContext()
   const detectedDocTopic = detectDocTopic(text)
   const docStateText = buildDocPanelStateContext(detectedDocTopic)
   const docContextText = buildDocRuntimeContext(text)
 
   // Wave 1 优化：异步 await 全部并发跑。
   //   原实现多个 await 串行 = 累加耗时；改 Promise.all 后 = max(各自耗时)。
-  //   runCapabilityPrefeed 并发跑各能力的 prefeed（hotspot/worldcup/weather 数据预喂，
+  //   runCapabilityPrefeed 并发跑各能力的 prefeed（hotspot/weather 数据预喂，
   //     各自 self-gate：非相关消息瞬返空；weather 命中才触发一次实际抓取）。
   //   gatherContext 仍然只在 task && !fastUserPath 时跑（Wave 3 会换启发式）。
   const capCtx = { text: text.toLowerCase(), rawText: text, forcedCapabilityIds }
@@ -48,7 +46,6 @@ export async function runRuntimeInjector({
 
   // 能力预喂结果按 id 取出，保持原 contextText 顺序与返回字段形状。
   const hotspotContextText = capPrefeed.byId.hotspot || ''
-  const worldcupContextText = capPrefeed.byId.worldcup || ''
   const weatherContextText = capPrefeed.byId.weather || ''
 
   const taskExtraContextItems = taskExtraContextItemsRaw || []
@@ -60,8 +57,6 @@ export async function runRuntimeInjector({
     keywordContextText,
     hotspotStateText,
     hotspotContextText,
-    worldcupStateText,
-    worldcupContextText,
     weatherContextText,
     docStateText,
     docContextText,
@@ -72,8 +67,6 @@ export async function runRuntimeInjector({
     keywordContextText,
     hotspotStateText,
     hotspotContextText,
-    worldcupStateText,
-    worldcupContextText,
     weatherContextText,
     detectedDocTopic,
     docStateText,
