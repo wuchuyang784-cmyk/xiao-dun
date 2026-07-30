@@ -1,15 +1,17 @@
-# 小盾数据管理后台（XiaoDun Admin Web）
+# 小盾反诈智能体（XiaoDun Anti-Fraud Agent）
 
-本目录是 **小盾（XiaoDun/Jarvis）** 的运行版本：用浏览器访问的本地 AI 助手运行时。
-原有桌面窗口（Electron）的运行方式被保留为纯 Node 后端 + HTTP API + SSE/WebSocket，前端页面仍由浏览器加载。
+**小盾（XiaoDun）** 是一个运行在本地的民用反诈自主规划智能体，通过浏览器访问。
 
 ```text
 浏览器 ── http://127.0.0.1:3721/ ──> Node HTTP API + SSE + WebSocket
-                                      └─ 主循环（LLM / 记忆 / 工具执行）
+                                      └─ 主循环（LLM / 记忆 / 反诈工具链 / 风险研判）
 ```
+
+**核心能力**：实时追踪新型诈骗案例、可视化诈骗套路拆解、每日反诈科普推送、接收用户聊天/转账/链接内容进行自主风险研判，输出可视化风险拆解报告。
 
 - `index.html` 加载 `src/ui/brain-ui/app.js` 与样式。
 - `src/index.js` 启动后端、HTTP API、SSE、WebSocket、主循环。
+- `src/prompt.js` 构建反诈人物设定、工具规划流程、输出模板。
 - `scripts/start-web.mjs` 负责拉起后端子进程、等待网页就绪、并自动打开浏览器（Web 模式）。
 
 ---
@@ -182,7 +184,7 @@ pwsh -File scripts/start-lan.ps1 -Mode backend
 - **systemd**（示例 `/etc/systemd/system/xiaodun.service`）：
   ```ini
   [Unit]
-  Description=XiaoDun Admin Web
+  Description=XiaoDun Anti-Fraud Agent
   After=network.target
 
   [Service]

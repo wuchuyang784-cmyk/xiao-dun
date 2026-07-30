@@ -1,9 +1,9 @@
 {
-  "name": "xiao-dun-admin-web",
+  "name": "xiaodun-anti-fraud-agent",
   "productName": "Xiao Dun Admin Web",
   "version": "0.1.0",
   "private": true,
-  "description": "Browser-based administration interface converted from the original XiaoDun desktop runtime",
+  "description": "Local anti-fraud autonomous planning agent with LLM, memory system, and risk assessment tools",
   "type": "module",
   "engines": {
     "node": ">=22"

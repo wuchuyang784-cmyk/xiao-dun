@@ -1,6 +1,6 @@
 [project]
 sub_id = "287bf5ff"
-name = "xiao-dun"
+name = "xiaodun-anti-fraud-agent"
 requires = ["nodejs-24"]
 project_type = "web"
 version = "0.0.32"

@@ -1,6 +1,8 @@
 ## 项目概述
 
-小盾数据管理后台（XiaoDun Admin Web）——基于浏览器的本地 AI 助手运行时。原 Electron 桌面应用改造为纯 Node 后端 + HTTP API + SSE/WebSocket，前端由浏览器加载。具备 LLM 对话、记忆系统、工具执行、语音识别、嵌入向量、天气/热点采集等能力。
+小盾（XiaoDun）——民用反诈自主规划智能体。运行在本地的 AI 智能体，通过浏览器访问。具备 LLM 对话、长期记忆系统、自主工具规划与执行、反诈风险研判、诈骗案例可视化拆解、每日反诈科普推送等能力。
+
+核心定位：不是通用 AI 助手，而是专注于反诈领域的智能守护者。实时追踪新型诈骗案例、可视化诈骗套路、接收用户聊天/转账/链接内容进行风险研判，输出可视化风险拆解报告。
 
 ## 技术栈
 
@@ -11,13 +13,12 @@
 - **LLM 集成**：OpenAI SDK，支持多 Provider（DeepSeek、Minimax、通义千问、Kimi、智谱等）
 - **语音**：sherpa-onnx-node（本地 ASR/TTS）
 - **嵌入**：@huggingface/transformers（本地嵌入模型）
-- **可视化**：ECharts
+- **可视化**：ECharts（诈骗套路拆解、风险热力图）
 - **包管理**：npm（有 `package-lock.json`）
 
 ## 目录结构
 
 ```
-xiao-dun/
 ├── index.html              # 前端入口
 ├── config.json             # 运行时配置（LLM provider、TTS、社交等）
 ├── src/
@@ -26,19 +27,19 @@ xiao-dun/
 │   ├── llm.js              # LLM 调用封装
 │   ├── db.js               # SQLite 数据库操作
 │   ├── config.js           # 配置加载
-│   ├── prompt.js           # System Prompt 构建
+│   ├── prompt.js           # System Prompt 构建（含反诈人物设定）
 │   ├── memory/             # 记忆系统（线程、摘要、注入、刷新循环）
-│   ├── capabilities/       # 工具执行与能力市场
+│   ├── capabilities/       # 工具执行与能力市场（含反诈工具链）
 │   ├── scene/              # 场景系统
 │   ├── ui/                 # 前端 UI（brain-ui）
 │   ├── agents/             # Agent 注册与调度
 │   ├── skills/             # 技能注册
-│   ├── social/             # 社交连接器（飞书等）
+│   ├── social/             # 社交连接器（飞书、微信）
 │   ├── voice/              # 语音处理
 │   ├── providers/          # LLM Provider 实现
 │   └── ...
 ├── scripts/
-│   ├── start-web.mjs       # Web 模式启动脚本（拉后端 + 等待就绪）
+│   ├── start-web.mjs       # Web 模式启动脚本
 │   ├── web-runtime.mjs     # Web 运行时配置（端口、host、ready file）
 │   ├── coze-preview-build.sh  # 预览构建脚本
 │   ├── coze-preview-run.sh    # 预览运行脚本
@@ -55,19 +56,33 @@ xiao-dun/
 - **前端入口**：`index.html` → `src/ui/brain-ui/app.js`
 - **API 层**：`src/api.js`（HTTP 路由、SSE 推送、WebSocket）
 - **主循环**：`src/index.js` 中的意识循环（LLM 调用 → 工具执行 → 记忆注入）
+- **反诈 Prompt**：`src/prompt.js`（含反诈人物设定、工具规划流程、输出模板）
 - **配置**：`config.json`（LLM provider/TTS/社交）+ `.env`（API 密钥）
+
+## 反诈核心能力
+
+- **自主工具规划**：面对用户需求，先推理任务目标，再动态规划工具组合
+- **实时案例运营**：同步反诈案例库，自动拆解诈骗流程，主动推送预警
+- **风险研判**：用户提交对话/截图/链接/转账内容时，自主拆解信息、融合多工具结果给出分级风险结论
+- **可视化输出**：诈骗套路、可疑点均使用分步清单、流程化文字可视化呈现
+
+### 反诈工具链
+
+核心工具：反诈规则引擎、RAG 诈骗案例知识库
+拓展工具：OCR 图像解析、链接安全检测、资金行为识别、风险可视化生成、反诈知识库检索、历史记录查询、新型诈骗情报
 
 ## 运行与预览
 
-- **预览启动**：通过 `.coze` 的 `[dev]` 配置，执行 `bash xiao-dun/scripts/coze-preview-run.sh`
+- **预览启动**：通过 `.coze` 的 `[dev]` 配置，执行 `bash scripts/coze-preview-run.sh`
 - **端口**：从 `.preview` 读取 `expose_port`（默认 5000），通过 `XIAODUN_PORT` 环境变量传入
 - **绑定地址**：`0.0.0.0`（通过 `XIAODUN_HOST` 环境变量）
-- **部署启动**：通过 `.coze` 的 `[deploy]` 配置，执行 `bash xiao-dun/scripts/deploy_run.sh`，固定端口 5000
+- **部署启动**：通过 `.coze` 的 `[deploy]` 配置，执行 `bash scripts/deploy_run.sh`，固定端口 5000
 
 ## 用户偏好与长期约束
 
 - 包管理器为 npm（项目已有 `package-lock.json`），暂不迁移到 pnpm
 - 前端无框架，原生 HTML + JS + CSS
+- 智能体名称：小盾（XiaoDun），定位为反诈智能体
 
 ## 常见问题和预防
 
