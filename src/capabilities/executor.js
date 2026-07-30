@@ -8,7 +8,6 @@ import { getTerminalStreamSnapshot, recordTerminalStreamEvent } from '../termina
 import { streamToolFileWriteExecutionPreview } from '../write-file-preview.js'
 import { setCustomInterval as setTickerInterval, getStatus as getTickerStatus } from '../ticker.js'
 import { setHotspotPanelState, getHotspotPanelState } from '../hotspots.js'
-import { setWorldcupPanelState, getWorldcupPanelState } from '../worldcup.js'
 import { setDocPanelState, getDocPanelState } from '../docs.js'
 import { setUserLocation } from '../weather.js'
 import { getAgentById, isDelegationAllowed } from '../agents/registry.js'
@@ -267,8 +266,6 @@ async function executeToolUnchecked(name, args, context = {}) {
         return execMediaMode(args)
       case 'hotspot_mode':
         return execHotspotMode(args)
-      case 'worldcup_mode':
-        return execWorldcupMode(args)
       case 'cases_import_mode':
         return execCasesImportMode(args)
       case 'record_panel_mode':
@@ -609,37 +606,6 @@ function execHotspotMode(args = {}) {
   }
 
   return JSON.stringify({ ok: true, tool: 'hotspot_mode', state })
-}
-
-function execWorldcupMode(args = {}) {
-  const action = String(args.action || 'status').trim().toLowerCase()
-  if (!['show', 'open', 'hide', 'close', 'toggle', 'status'].includes(action)) {
-    return JSON.stringify({ ok: false, tool: 'worldcup_mode', error: 'unsupported action' })
-  }
-
-  let nextActive = null
-  if (action === 'show' || action === 'open') nextActive = true
-  if (action === 'hide' || action === 'close') nextActive = false
-  if (action === 'toggle') nextActive = !getWorldcupPanelState().active
-
-  const state = typeof nextActive === 'boolean'
-    ? setWorldcupPanelState({ active: nextActive, source: 'agent_tool' })
-    : getWorldcupPanelState()
-
-  if (typeof nextActive === 'boolean') {
-    emitEvent('worldcup_mode', {
-      action: state.active ? 'show' : 'hide',
-      active: state.active,
-      reason: typeof args.reason === 'string' ? args.reason : '',
-    })
-    emitEvent('action', {
-      tool: 'worldcup_mode',
-      summary: state.active ? '打开世界杯面板' : '关闭世界杯面板',
-      detail: args.reason || '',
-    })
-  }
-
-  return JSON.stringify({ ok: true, tool: 'worldcup_mode', state })
 }
 
 // 记录备案 / 案例导入面板：事件名与 brain-ui/app.js 监听一致（record_panel_mode / cases_import_mode）。

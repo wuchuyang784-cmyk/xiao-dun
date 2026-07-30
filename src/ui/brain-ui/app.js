@@ -6,8 +6,6 @@ import { initPanelCollapse } from "./panel-collapse.js";
 import { ThoughtStream } from "./thought-stream.js";
 import { initVoicePanel } from "./voice-panel.js";
 import { initHotspot, toggleHotspot, setHotspotMode, moveVoicePanelToBody, restoreVoicePanel } from "./hotspot.js";
-import { initWorldcup, toggleWorldcup, setWorldcupMode } from "./worldcup.js";
-import { initCasesImport, setCasesImportMode, toggleCasesImport } from "./cases-import.js";
 import { initRecord, setRecordMode, toggleRecord } from "./record.js";
 import { initDocPanel, setDocPanelMode } from "./doc.js";
 import { initFraudMap } from "./fraud-map.js";
@@ -673,9 +671,6 @@ function handle({ type, data = {} }) {
     case "hotspot_mode":
       setHotspotMode(!!data.active || data.action === "show" || data.action === "open", { source: "agent_event" });
       break;
-    case "worldcup_mode":
-      setWorldcupMode(!!data.active || data.action === "show" || data.action === "open", { source: "agent_event" });
-      break;
 
     case "doc_panel_mode":
       setDocPanelMode(!!data.active || data.action === "open", { topicId: data.topic || null, source: "agent_event" });
@@ -722,17 +717,13 @@ chat = initChat({
   onUserMessage: (text) => {
     const value = String(text || "");
     const hotspot = /\u70ed\u70b9|\u70ed\u641c|\u65b0\u95fb|\u8d8b\u52bf/i;
-    const worldcup = /\u4e16\u754c\u676f|\u7403\u8d5b|\u6bd4\u8d5b|\u79ef\u5206\u699c/i;
     if (document.body.classList.contains("hotspot-mode") && hotspot.test(value)) {
       toggleHotspot();
       return;
     }
-    if (document.body.classList.contains("worldcup-mode") && worldcup.test(value)) {
-      toggleWorldcup();
       return;
     }
     if (hotspot.test(value) && !document.body.classList.contains("hotspot-mode")) toggleHotspot();
-    if (worldcup.test(value) && !document.body.classList.contains("worldcup-mode")) toggleWorldcup();
     const casesImport = /案例|知识库|导入|rag|向量库|诈骗案例/i;
     if (casesImport.test(value) && !document.body.classList.contains("cases-import-mode")) toggleCasesImport();
     const record = /记录备案|备案|分析记录/i;
