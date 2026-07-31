@@ -1850,7 +1850,6 @@ initVoicePanel({
 // 鈹€鈹€ Hotspot mode 鈹€鈹€
 initHotspot().catch((err) => console.warn('[Hotspot] init failed:', err));
 
-// 鈹€鈹€ Worldcup mode 鈹€鈹€
 
 // 鈹€鈹€ Media modes (video / image) 鈹€鈹€
 (function initMediaModes() {
