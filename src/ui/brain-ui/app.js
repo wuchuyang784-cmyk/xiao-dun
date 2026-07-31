@@ -714,8 +714,6 @@ chat = initChat({
       toggleHotspot();
       return;
     }
-      return;
-    }
     if (hotspot.test(value) && !document.body.classList.contains("hotspot-mode")) toggleHotspot();
   },
 });
