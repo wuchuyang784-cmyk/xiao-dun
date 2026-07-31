@@ -30,6 +30,7 @@ import { execDowngradeMemory, execMergeMemories, execProbeMemory, execRecallMemo
 import { execManageReminder } from './tools/reminders.js'
 import { execAnalyzeImage, execManageApiCapability, execRunApiCapability } from './tools/api-capability.js'
 import { execManageRule } from './tools/rules.js'
+import { execFraudRuleScreen } from './tools/fraud-rule.js'
 import { execGenerateImage, execMediaMode } from './tools/media.js'
 import { runWorkReview } from '../review/reviewer.js'
 import { CAPABILITY_DEMO_INTRO, runCapabilityDemo } from '../capability-demo.js'
@@ -275,6 +276,8 @@ async function executeToolUnchecked(name, args, context = {}) {
         return execManagePrefetchTask(args)
       case 'manage_rule':
         return execManageRule(args)
+      case 'fraud_rule_screen':
+        return execFraudRuleScreen(args)
       case 'ui_set':
         return execUISet(args)
       case 'capability_demo':

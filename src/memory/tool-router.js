@@ -78,6 +78,7 @@ const ADMIN_TOOLS       = [
   'set_security', 'connect_wechat', 'connect_feishu',
   'set_location', 'set_agent_name', 'manage_rule',
   'manage_api_capability',
+  'fraud_rule_screen',
 ]
 
 // 多模态生成（按 mmCaps gate；关键词命中后才注入对应工具）

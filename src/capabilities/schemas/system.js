@@ -91,6 +91,24 @@ export const systemSchemas = {
     }
   },
 
+  fraud_rule_screen: {
+    type: 'function',
+    function: {
+      name: 'fraud_rule_screen',
+      description: '反诈规则引擎筛查：对用户提供的一段对话/聊天记录/转账邀请/链接文案做「诈骗话术专用」规则匹配，返回命中的诈骗类型、风险分(0-100)、风险等级、话术证据、套路分步拆解与处置建议。这是风险研判链中的确定性快速筛查环节，应与 RAG 相似案例检索、链接安全检测配合使用。',
+      parameters: {
+        type: 'object',
+        properties: {
+          text: {
+            type: 'string',
+            description: '待研判的原始文本（用户提交的对话内容、聊天截图文字、转账话术、可疑链接文案等）'
+          }
+        },
+        required: ['text']
+      }
+    }
+  },
+
   connect_wechat: {
     type: 'function',
     function: {
