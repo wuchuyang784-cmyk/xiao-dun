@@ -1,15 +1,10 @@
 import { emitEvent } from '../events.js'
-import {
-  getFraudCaseById,
-  getFraudProvinceStatistics,
-  insertFraudCase,
-  listFraudCases,
-  upsertFraudCase,
-  markCaseIndexed,
-  getPendingIndexCases,
-  countFraudCases,
-  countPendingIndex,
-} from '../db/repositories/fraud-cases.js'
+import { getFraudCaseStore } from '../db/stores/store-factory.js'
+// 旧字段临时桥接：markCaseIndexed / getPendingIndexCases 在 pgvector 迁移后移除
+import { markCaseIndexed, getPendingIndexCases } from '../db/repositories/fraud-cases.js'
+
+// 顶层 await 获取 store（ESM 支持，importer 自动等待）
+const store = await getFraudCaseStore()
 
 // ─────────────────────────────────────────────────────────────
 // RAG 接入 seam（端口/适配器）
@@ -161,7 +156,7 @@ function normalizeCase(input = {}) {
 function seedDemoCases() {
   for (const input of DEMO_CASES) {
     try {
-      insertFraudCase(normalizeCase(input), { ignoreConflict: true })
+      store.insert(normalizeCase(input))
     } catch (error) {
       console.warn('[fraud-case-service] demo seed skipped:', error.message)
     }
@@ -171,7 +166,7 @@ function seedDemoCases() {
 seedDemoCases()
 
 export function getFraudProvinceSnapshot() {
-  const statistics = getFraudProvinceStatistics()
+  const statistics = store.getProvinceStatistics()
   return {
     type: 'fraud_statistics_snapshot',
     version: 1,
@@ -189,19 +184,19 @@ export function getFraudProvinceSnapshot() {
 
 export function getFraudCases({ provinceCode = '', limit = 30 } = {}) {
   const normalizedLimit = Math.min(100000, Math.max(1, Number(limit) || 30))
-  return listFraudCases({ provinceCode: String(provinceCode || '').trim(), limit: normalizedLimit }).map(clone)
+  return store.list({ provinceCode: String(provinceCode || '').trim(), limit: normalizedLimit }).map(clone)
 }
 
 export function getFraudStats() {
-  const total = countFraudCases()
-  const pending = countPendingIndex()
+  const total = store.count()
+  const pending = store.pendingIndexCount()
   return { total, pending, indexed: Math.max(0, total - pending) }
 }
 
 export function createFraudCase(input) {
   const item = normalizeCase(input)
   try {
-    insertFraudCase(item)
+    store.insert(item)
   } catch (error) {
     if (String(error?.code || '').includes('SQLITE_CONSTRAINT')) {
       error.statusCode = 409
@@ -223,7 +218,7 @@ export function importFraudCases(payload) {
   for (let index = 0; index < inputCases.length; index += 1) {
     try {
       const item = normalizeCase(inputCases[index])
-      const operation = upsertFraudCase(item)
+      const operation = store.upsert(item)
       result[operation.created ? 'inserted' : 'updated'] += 1
       items.push(item)
       emitEvent('fraud_case_created', clone(item))
@@ -238,7 +233,7 @@ export function importFraudCases(payload) {
 }
 
 export function getFraudCase(caseId) {
-  return clone(getFraudCaseById(String(caseId || '').trim()))
+  return clone(store.getById(String(caseId || '').trim()))
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -293,13 +288,12 @@ export function startImportJob(payload) {
           }
         }
         for (const it of items) {
-          const op = upsertFraudCase(it)
+          const op = store.upsert(it)
           job[op.created ? 'inserted' : 'updated'] += 1
         }
         if (items.length) {
           try {
-            await indexer.bulkIndex(items)
-            for (const it of items) markCaseIndexed(it.caseId)
+            await store.bulkIndex(items)
           } catch (err) {
             console.warn('[fraud-case-service] bulk index failed:', err?.message || err)
           }
@@ -346,7 +340,7 @@ export function startReindexJob({ force = false } = {}) {
 
   Promise.resolve().then(async () => {
     try {
-      const cases = force ? listFraudCases({ limit: 100000 }) : getPendingIndexCases(100000)
+      const cases = force ? store.list({ limit: 100000 }) : getPendingIndexCases(100000)
       job.total = cases.length
       emitEvent('fraud_import_progress', jobSnapshot(job))
 
@@ -354,8 +348,7 @@ export function startReindexJob({ force = false } = {}) {
       for (let i = 0; i < cases.length; i += BATCH) {
         const slice = cases.slice(i, i + BATCH)
         try {
-          await indexer.bulkIndex(slice.map((c) => ({ ...c })))
-          for (const c of slice) markCaseIndexed(c.caseId)
+          await store.bulkIndex(slice.map((c) => ({ ...c })))
           job.inserted += slice.length
         } catch (err) {
           job.failed += slice.length
