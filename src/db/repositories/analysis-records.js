@@ -6,11 +6,6 @@ function toRecord(row) {
   try { rules = JSON.parse(row.rules_hit || '[]') } catch { rules = [] }
   return {
     recordId: row.record_id,
-    userId: row.user_id,
-    deviceId: row.device_id,
-    provinceCode: row.province_code,
-    provinceName: row.province_name,
-    channel: row.channel,
     inputSummary: row.input_summary,
     inputHash: row.input_hash,
     fraudType: row.fraud_type,
@@ -27,10 +22,9 @@ function toRecord(row) {
 
 const insertSql = `
   INSERT INTO analysis_records (
-    record_id, user_id, device_id, province_code, province_name,
-    channel, input_summary, input_hash, fraud_type, risk_level,
+    record_id, input_summary, input_hash, fraud_type, risk_level,
     rules_hit, model_used, latency_ms, alert_sent, feedback, source, created_at
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 export function insertAnalysisRecord(item, { ignoreConflict = false } = {}) {
@@ -38,11 +32,6 @@ export function insertAnalysisRecord(item, { ignoreConflict = false } = {}) {
   const sql = ignoreConflict ? insertSql.replace('INSERT INTO', 'INSERT OR IGNORE INTO') : insertSql
   const result = db.prepare(sql).run(
     item.recordId,
-    item.userId || '',
-    item.deviceId || '',
-    item.provinceCode || '',
-    item.provinceName || '未知',
-    item.channel || 'app',
     item.inputSummary || '',
     item.inputHash || '',
     item.fraudType || '未分类',
@@ -63,12 +52,10 @@ export function getAnalysisRecordById(recordId) {
 }
 
 /**
- * 管理员查询：支持省份 / 风险 / 渠道 / 时间范围 / 关键词 过滤 + 分页。
+ * 查询分析记录：支持风险等级 / 时间范围 / 关键词 过滤 + 分页。
  */
 export function listAnalysisRecords({
-  provinceCode = '',
   riskLevel = '',
-  channel = '',
   dateFrom = '',
   dateTo = '',
   keyword = '',
@@ -77,12 +64,10 @@ export function listAnalysisRecords({
 } = {}) {
   const where = []
   const params = []
-  if (provinceCode) { where.push('province_code = ?'); params.push(provinceCode) }
   if (riskLevel) { where.push('risk_level = ?'); params.push(riskLevel) }
-  if (channel) { where.push('channel = ?'); params.push(channel) }
   if (dateFrom) { where.push('created_at >= ?'); params.push(dateFrom) }
   if (dateTo) { where.push('created_at <= ?'); params.push(dateTo) }
-  if (keyword) { where.push('(input_summary LIKE ? OR fraud_type LIKE ? OR user_id LIKE ?)'); const k = `%${keyword}%`; params.push(k, k, k) }
+  if (keyword) { where.push('(input_summary LIKE ? OR fraud_type LIKE ?)'); const k = `%${keyword}%`; params.push(k, k) }
 
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : ''
   const safePage = Math.max(1, Number(page) || 1)
@@ -104,7 +89,7 @@ export function listAnalysisRecords({
 }
 
 /**
- * 统计：总量 / 今日 / 各风险等级计数 / 按省份聚合（供地图与卡片用）。
+ * 统计：总量 / 今日 / 各风险等级计数（个人分析记录统计）。
  */
 export function getAnalysisRecordStats() {
   const db = getDB()
@@ -120,16 +105,11 @@ export function getAnalysisRecordStats() {
     SELECT risk_level AS riskLevel, COUNT(*) AS count
     FROM analysis_records GROUP BY risk_level
   `).all()
-  const byProvince = db.prepare(`
-    SELECT province_code AS provinceCode, province_name AS provinceName, COUNT(*) AS count
-    FROM analysis_records GROUP BY province_code, province_name
-  `).all()
   return {
     total: Number(overview?.total || 0),
     today: Number(overview?.today || 0),
     highRisk: Number(overview?.highRisk || 0),
     alerted: Number(overview?.alerted || 0),
     byRisk: byRisk.map(r => ({ riskLevel: r.riskLevel, count: Number(r.count) })),
-    byProvince: byProvince.map(r => ({ provinceCode: r.provinceCode, provinceName: r.provinceName, count: Number(r.count) })),
   }
 }

@@ -704,10 +704,10 @@ Examples:
     prompt += `\n\n${CAPABILITY_DEMO_PROMPT_BLOCK}`
   }
 
-  // 能力工作流块 —— 已迁能力（weather / hotspot / worldcup / software-install）的 context
+  // 能力工作流块 —— 已迁能力（weather / hotspot / software-install）的 context
   //   由注册表按各自 detect 统一注入：关键词命中只递工作流规则，开不开面板 / 装不装软件由
   //   Agent 自决；工具仍走 tool-router/find_tool。顺序随 CAPABILITIES 数组（weather→hotspot
-  //   →worldcup→software-install），与原先逐段注入一致。
+  //   →software-install），与原先逐段注入一致。
   const capCtx = { text: String(userMessage || '').toLowerCase(), rawText: String(userMessage || ''), forcedCapabilityIds }
   for (const block of capabilityContextBlocks(capCtx)) {
     prompt += `\n\n${block}`

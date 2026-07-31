@@ -546,17 +546,12 @@ export function initializeSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_fraud_cases_vector_indexed ON fraud_cases(vector_indexed);
   `)
 
-  // AI 分析备案：App 每次调用 AI 分析都上报一条备案记录，供管理员审计与回溯。
-  // 目前 App 未开发，接口先预留（createAnalysisRecord），表结构与查询已就绪。
+  // AI 分析记录：本地个人使用的反诈分析历史记录
+  // 每次用户提交内容进行风险分析时记录，用于历史回溯和统计
   db.exec(`
     CREATE TABLE IF NOT EXISTS analysis_records (
       id            INTEGER PRIMARY KEY AUTOINCREMENT,
       record_id     TEXT NOT NULL UNIQUE,
-      user_id       TEXT NOT NULL DEFAULT '',
-      device_id     TEXT NOT NULL DEFAULT '',
-      province_code TEXT NOT NULL DEFAULT '',
-      province_name TEXT NOT NULL DEFAULT '未知',
-      channel       TEXT NOT NULL DEFAULT 'app',
       input_summary TEXT NOT NULL DEFAULT '',
       input_hash    TEXT NOT NULL DEFAULT '',
       fraud_type    TEXT NOT NULL DEFAULT '未分类',
@@ -573,9 +568,7 @@ export function initializeSchema(db) {
 
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_analysis_records_created_at   ON analysis_records(created_at);
-    CREATE INDEX IF NOT EXISTS idx_analysis_records_province_code ON analysis_records(province_code);
     CREATE INDEX IF NOT EXISTS idx_analysis_records_risk_level   ON analysis_records(risk_level);
-    CREATE INDEX IF NOT EXISTS idx_analysis_records_channel      ON analysis_records(channel);
     CREATE INDEX IF NOT EXISTS idx_analysis_records_input_hash    ON analysis_records(input_hash);
   `)
 

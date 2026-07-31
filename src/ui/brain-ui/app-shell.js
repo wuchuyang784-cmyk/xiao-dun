@@ -1,7 +1,4 @@
 import { createHotspotPanel } from './hotspot-panel.js';
-import { createWorldcupPanel } from './worldcup-panel.js';
-import { createCasesImportPanel } from './cases-import-panel.js';
-import { createRecordPanel } from './record-panel.js';
 import { createDocPanel } from './doc-panel.js';
 
 const createMapStage = () => `
@@ -672,9 +669,6 @@ export function createBrainUiMarkup() {
     createVideoPanel(),
     createImagePanel(),
     createHotspotPanel(),
-    createWorldcupPanel(),
-    createCasesImportPanel(),
-    createRecordPanel(),
     createDocPanel(),
   ].join("\n\n");
 }

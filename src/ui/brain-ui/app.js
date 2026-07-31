@@ -6,7 +6,6 @@ import { initPanelCollapse } from "./panel-collapse.js";
 import { ThoughtStream } from "./thought-stream.js";
 import { initVoicePanel } from "./voice-panel.js";
 import { initHotspot, toggleHotspot, setHotspotMode, moveVoicePanelToBody, restoreVoicePanel } from "./hotspot.js";
-import { initRecord, setRecordMode, toggleRecord } from "./record.js";
 import { initDocPanel, setDocPanelMode } from "./doc.js";
 import { initFraudMap } from "./fraud-map.js";
 import { initWechatPopup, showWechatPopup } from "./wechat-popup.js";
@@ -675,12 +674,6 @@ function handle({ type, data = {} }) {
     case "doc_panel_mode":
       setDocPanelMode(!!data.active || data.action === "open", { topicId: data.topic || null, source: "agent_event" });
       break;
-    case "cases_import_mode":
-      setCasesImportMode(!!data.active || data.action === "show" || data.action === "open", { source: "agent_event" });
-      break;
-    case "record_panel_mode":
-      setRecordMode(!!data.active || data.action === "show" || data.action === "open", { source: "agent_event" });
-      break;
     case "social_status":
       window.dispatchEvent(new CustomEvent("xiaodun:social_status", { detail: data }));
       break;
@@ -724,14 +717,6 @@ chat = initChat({
       return;
     }
     if (hotspot.test(value) && !document.body.classList.contains("hotspot-mode")) toggleHotspot();
-    const casesImport = /案例|知识库|导入|rag|向量库|诈骗案例/i;
-    if (casesImport.test(value) && !document.body.classList.contains("cases-import-mode")) toggleCasesImport();
-    const record = /记录备案|备案|分析记录/i;
-    if (document.body.classList.contains("record-mode") && record.test(value)) {
-      toggleRecord();
-      return;
-    }
-    if (record.test(value) && !document.body.classList.contains("record-mode")) toggleRecord();
   },
 });
 chat.applyActivationWarmupLock();
@@ -1866,9 +1851,6 @@ initVoicePanel({
 initHotspot().catch((err) => console.warn('[Hotspot] init failed:', err));
 
 // 鈹€鈹€ Worldcup mode 鈹€鈹€
-initWorldcup().catch((err) => console.warn('[Worldcup] init failed:', err));
-initCasesImport();
-initRecord();
 
 // 鈹€鈹€ Media modes (video / image) 鈹€鈹€
 (function initMediaModes() {
