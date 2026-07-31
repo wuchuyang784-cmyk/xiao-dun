@@ -2,7 +2,7 @@
   "tts": {
     "ttsProvider": "doubao",
     "ttsVoiceId": "zh_female_xiaohe_uranus_bigtts",
-    "doubaoKey": "0f9a6c2b-8d91-4f2b-92b0-531c357b24da"
+    "doubaoKey": ""
   },
   "embedding": {},
   "schemaVersion": 3,
@@ -10,8 +10,8 @@
   "temperature": 0.5,
   "social": {},
   "clawbot": {
-    "accountId": "ba07941f8007@im.bot",
-    "botToken": "ba07941f8007@im.bot:0600003643d3619b1a26374a91af5d39ccf804",
+    "accountId": "",
+    "botToken": "",
     "baseUrl": "https://ilinkai.weixin.qq.com"
   }
 }

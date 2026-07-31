@@ -1,7 +1,0 @@
-{
-  "provider": "custom",
-  "apiKey": "sk-wsxmB6qPImmbiDByQH5PPlKudG4lk6Gu6hpugNETsOYSgjFO",
-  "model": "gpt-5.5",
-  "baseURL": "https://supermoxi.cn/v1",
-  "activatedAt": "2026-07-29T09:44:46.015Z"
-}

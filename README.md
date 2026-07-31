@@ -167,6 +167,14 @@ pwsh -File scripts/start-lan.ps1 -Mode backend
 
 > ⚠️ **密钥提醒**：仓库内现有 `config.json` 已明文存放部分凭据（如 TTS key、ClawBot token）。正式部署应避免把密钥提交进版本库；尽量用 `.env` / `XIAODUN_USER_DIR` 外置数据目录管理，并加入 `.gitignore`。
 
+> 仓库现已将 `config.json`、`llm/*.json` 加入 `.gitignore`，避免密钥泄露；同时提供**脱敏模板** `config.example.json` 与 `llm/qwen.example.json`。他人 clone 后按以下方式生成自己的配置即可部署：
+
+> ```bash
+> cp config.example.json config.json
+> cp llm/qwen.example.json llm/qwen.json
+> # 填入你自己的密钥（或在 .env 中配置，启动即自动激活）
+> ```
+
 ---
 
 ## 6. 生产部署建议

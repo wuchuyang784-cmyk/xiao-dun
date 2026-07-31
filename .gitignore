@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 node_modules
 dist
 .DS_Store
@@ -93,7 +92,6 @@ logs/
 
 # CodeGraph index
 .codegraph
-=======
 # Logs
 logs
 *.log
@@ -245,7 +243,12 @@ dist
 .dev-test/
 .playwright-cli/
 .vite/
->>>>>>> ec9dce57278d81ae5c820444d7ef0b1044d50eb1
 
 # Coze preview
 .preview
+
+
+# ── 本地配置（含密钥，不进版本库；用 *.example.json 模板部署）──
+config.json
+llm/*.json
+!llm/*.example.json

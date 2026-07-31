@@ -3,6 +3,7 @@ import {
   insertAnalysisRecord,
   listAnalysisRecords as queryAnalysisRecords,
   getAnalysisRecordStats as queryAnalysisRecordStats,
+  getAnalysisRecordById as queryAnalysisRecordById,
 } from '../db/repositories/analysis-records.js'
 
 // ─────────────────────────────────────────────────────────────
@@ -87,5 +88,9 @@ export function listAnalysisRecords(filters = {}) {
 
 export function getAnalysisRecordStats() {
   return queryAnalysisRecordStats()
+}
+
+export function getAnalysisRecord(id) {
+  return queryAnalysisRecordById(id)
 }
 

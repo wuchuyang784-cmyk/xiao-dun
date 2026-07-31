@@ -19,6 +19,7 @@ const TOOL_RISK = {
   schedule_reminder: 'medium',
   manage_prefetch_task: 'medium',
   manage_rule: 'medium',
+  fraud_rule_screen: 'low',
   ui_set: 'medium',
   capability_demo: 'medium',
   terminal_stream: 'medium',

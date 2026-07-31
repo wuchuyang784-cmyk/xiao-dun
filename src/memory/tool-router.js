@@ -53,7 +53,7 @@ const TASK_CTRL_OPENER  = ['set_task']  // 没任务时只暴露 set_task
 // 无任务的临时成果，靠下面这组触发词 / find_tool 主动拉进来。
 const REVIEW_TOOLS      = ['review_work']
 
-// WEB_TOOLS 由能力注册表提供（见顶部 import），并被 media / fallback 复用。WORLDCUP_TOOLS /
+// WEB_TOOLS 由能力注册表提供（见顶部 import），并被 media / fallback 复用。
 const FILESYSTEM_TOOLS  = ['read_file', 'write_file', 'delete_file', 'list_dir', 'make_dir']
 const EXEC_TOOLS        = ['exec_command', 'exec_quick_command', 'exec_task_command', 'exec_background_command', 'download_file', 'kill_process', 'list_processes']
 const MEDIA_TOOLS       = ['media_mode']
@@ -78,6 +78,7 @@ const ADMIN_TOOLS       = [
   'set_security', 'connect_wechat', 'connect_feishu',
   'set_location', 'set_agent_name', 'manage_rule',
   'manage_api_capability',
+  'fraud_rule_screen',
 ]
 
 // 多模态生成（按 mmCaps gate；关键词命中后才注入对应工具）
