@@ -584,16 +584,6 @@ export function initChat({
       label: "查看全部命令", desc: "列出所有可用斜杠命令",
       run: showSlashHelp,
     },
-    {
-      cmd: "/cases", keys: ["cases", "案例", "导入", "知识库", "rag", "向量库"],
-      label: "案例导入 / 知识库", desc: "批量导入诈骗案例并同步建库（含 RAG 索引）",
-      run: () => window.xiaodunCasesImport?.toggle(),
-    },
-    {
-      cmd: "/records", keys: ["records", "备案", "记录", "分析记录"],
-      label: "记录备案", desc: "查看 App AI 分析的使用备案与审计记录",
-      run: () => window.xiaodunRecords?.toggle(),
-    },
   ];
 
   let slashItems = [];    // 当前过滤后的命令
