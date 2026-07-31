@@ -2325,12 +2325,9 @@ body.hotspot-mode #panel-l2 { transform: translateX(calc(100% + 20px)); }
 body.hotspot-mode .console  { top: 16px; bottom: 16px; left: calc(66vw + 8px); right: 16px; }
 body.hotspot-mode .panel-tab { opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
 
-/* ── 世界杯/案例导入/记录备案：与热点同款三栏联动 ── */
-/* ── 世界杯/案例导入/记录备案：复用热点同款 glitch-in 入场动画 ── */
-  will-change: transform, opacity, filter, clip-path;
-}
 
 @media (prefers-reduced-motion: reduce) {
+}
 
 /* ── 文档面板布局联动：两侧面板退出，聊天框居右半屏 ── */
 body.doc-panel-mode #panel-l1 { transform: translateX(calc(-100% - 20px)); }
@@ -3634,16 +3631,6 @@ body.video-mode   > #voice-panel #voice-canvas{
 .fraud-ranking-row em { color: var(--warm); font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 10px; font-style: normal; }
 .fraud-empty { padding: 8px 0; color: var(--dim); font-size: 10px; }
 
-/* ── 世界杯/案例导入/记录备案：聊天框统一为右侧 1/3 的「整条竖着」对话栏（与实时热点同款）──
-   放在所有面板自有 .console 浮动规则之后，靠源码顺序覆盖其 right/left/bottom；
-   用 top/bottom 顶满整列高度，max-height 取消世界杯的 520px 上限；
-   width 不强制，保留世界杯的折叠（.wc-collapsed）收缩能力 ── */
-  bottom: 16px;
-  left: calc(66vw + 8px);
-  right: 16px;
-  max-height: none;
-  justify-content: flex-end;
-}
 
 @media (max-width: 1180px) {
   /* 1180px 以下左右面板收窄到 280px，地图面板跟随缩进到 300px 留白 */
