@@ -212,7 +212,7 @@ const L1 = new ThoughtStream("si-l1", "cool", {
 });
 const L2 = new ThoughtStream("si-l2", "warm", {
   readCSSVar,
-  thinkingLabel: "鎬濊€冧腑",
+  thinkingLabel: "思考中",
   thinkingDoneLabel: "思考完成",
   toolDetailLength: 220,
 });
@@ -222,6 +222,83 @@ const L2 = new ThoughtStream("si-l2", "warm", {
 // routing to the correct panel is determined by the most recent message_received / tick event.
 let currentPath = "l2";
 function currentStream() { return currentPath === "l1" ? L1 : L2; }
+
+// ---- 执行规划面板 ----
+let planPath = "idle";          // "active" | "idle"
+let planSteps = [];             // [{ toolName, status, startTime }]
+let planCardEl = null;
+
+const PLAN_TOOL_ZH = {
+  send_message: "回复用户",  web_search: "搜索网页",  fetch_url: "抓取网页",
+  read_file: "读取文件",     write_file: "写入文件", search_memory: "检索记忆",
+  recall_memory: "唤起记忆",  fraud_rule_screen: "反诈规则筛查",
+};
+function planToolLabel(name) { return PLAN_TOOL_ZH[name] || name; }
+function escapeHtml(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+function openPlanCard(userText) {
+  planSteps = [];
+  const list = document.getElementById("plan-list");
+  if (!list) return;
+  closePlanCard();
+  planCardEl = document.createElement("div");
+  planCardEl.className = "plan-card";
+  const now = new Date();
+  const time = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`;
+  planCardEl.innerHTML = `<div class="plan-header"><span class="plan-title">${escapeHtml(userText.slice(0,40))}</span><span class="plan-time">${time}</span></div><div class="plan-steps"></div>`;
+  list.prepend(planCardEl);
+  const pill = document.getElementById("pill-l2");
+  if (pill) { pill.textContent = "执行中"; pill.className = "pill pill-warm"; }
+}
+
+function addPlanStep(toolName) {
+  if (!planCardEl) return;
+  const steps = planCardEl.querySelector(".plan-steps");
+  if (!steps) return;
+  const entry = { toolName, status: "pending", startTime: Date.now() };
+  planSteps.push(entry);
+  const stepEl = document.createElement("div");
+  stepEl.className = "plan-step";
+  stepEl.dataset.tool = toolName;
+  stepEl.innerHTML = `<span class="step-status">○</span><span class="step-name">${escapeHtml(planToolLabel(toolName))}</span><span class="step-time"></span>`;
+  steps.appendChild(stepEl);
+}
+
+function updatePlanStep(toolName, status) {
+  if (!planCardEl) return;
+  const safeName = toolName.replace(/"/g,"");
+  const stepEl = planCardEl.querySelector(`.plan-step[data-tool="${safeName}"]`);
+  if (!stepEl) return;
+  const entry = planSteps.find(s => s.toolName === toolName);
+  const elapsed = entry ? ((Date.now() - entry.startTime) / 1000).toFixed(1) + "s" : "";
+  stepEl.querySelector(".step-status").textContent = status === "done" ? "\u2713" : "\u2717";
+  stepEl.querySelector(".step-status").className = `step-status ${status}`;
+  stepEl.querySelector(".step-time").textContent = elapsed;
+}
+
+function closePlanCard() {
+  if (planCardEl) { planCardEl.classList.add("plan-done"); }
+  planCardEl = null;
+  planSteps = [];
+  const pill = document.getElementById("pill-l2");
+  if (pill) { pill.textContent = "等待指令"; pill.className = "pill"; }
+  const list = document.getElementById("plan-list");
+  const history = document.getElementById("plan-history");
+  if (list && history) {
+    const cards = list.querySelectorAll(".plan-card.plan-done");
+    cards.forEach(c => { history.prepend(c); history.hidden = false; });
+  }
+}
+
+// ---- 运行时长计时器 ----
+let uptimeStart = Date.now();
+setInterval(() => {
+  const el = document.getElementById("uptime");
+  if (!el) return;
+  const s = Math.floor((Date.now() - uptimeStart) / 1000);
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+  el.textContent = `${h}h ${m}m`;
+}, 30_000);
 
 function isBusyErrorMessage(message = "") {
   return /(429|rate limit|too many requests|busy|overload|temporarily unavailable|server busy|resource exhausted)/i.test(String(message || ""));
@@ -479,6 +556,7 @@ function handle({ type, data = {} }) {
   switch (type) {
     case "message_received": {
       currentPath = "l1";
+      planPath = "active";
       // 鍏滃簳锛氫笂涓€杞嫢琚墦鏂€乵essage/response 鍧囨湭鍒拌揪锛屽疄鏃舵皵娉′細鎴愬鍎裤€佹祦寮忎細璇濆彲鑳借繕鎸傜潃楹﹀厠椋?
       // 鈥斺€斿畾绋挎皵娉°€佹敹灏炬祦寮忎細璇濓紙鎭㈠楹﹀厠椋庯級銆佸浣嶇姸鎬侊紝鍐嶅紑鏂颁竴杞€?
       if (chat.hasLiveJarvisMsg()) chat.finalizeLiveJarvisMsg(null);
@@ -490,8 +568,7 @@ function handle({ type, data = {} }) {
         content: parsed.content,
         time: parsed.time || undefined,
       });
-      // Immediately show a "thinking" indicator so the gap between message_received
-      // and the first stream_start (injector + LLM TTFT, often 3鈥?0s) doesn't look frozen.
+      openPlanCard(parsed.content || "用户消息");
       L1.startThinkingSession();
       break;
     }
@@ -528,13 +605,14 @@ function handle({ type, data = {} }) {
       // 正文段结束：把残句先送去合成，降低尾句延迟（不结束会话，可能还有后续正文段）
       break;
     case "tool_preparing": {
-      // 鎬濊€冨姩鐢诲凡鍋滐紝浣嗗伐鍏峰皻鏈湡姝ｆ墽琛?鈥斺€?缁欎竴涓崰浣嶇姸鎬侀伩鍏?UI 姝诲瘋
+      if (currentPath === "l1") addPlanStep(data.name);
       const stream = currentStream();
       const label = data.name ? stream.toolLabel(data.name) : "";
       stream.setStatus(label ? "准备调用 " + label + "…" : "准备工具调用…", "busy");
       break;
     }
     case "tool_executing": {
+      if (currentPath === "l1") updatePlanStep(data.name, "running");
       const stream = currentStream();
       const label = data.name ? stream.toolLabel(data.name) : "工具";
       stream.setTimedStatus("正在执行 " + label + "…", "busy", {
@@ -544,11 +622,14 @@ function handle({ type, data = {} }) {
       break;
     }
     case "tool_call":
+      if (currentPath === "l1") updatePlanStep(data.name, data.ok ? "done" : "failed");
       currentStream().tool(data.name, data.args, data.result, data.ok);
       recordAiActivity(data.name);
       break;
     case "response":
-      // Round complete 鈥?stop all animations
+      // Round complete — stop all animations
+      if (currentPath === "l1") closePlanCard();
+      planPath = "idle";
       currentStream().end();
       // 鍏滃簳锛氭湰杞粨鏉熸椂锛坮esponse 蹇呭湪 message 涔嬪悗鍙戯級鑻ユ祦寮忓悎鎴愪細璇濅粛寮€鐫€鈥斺€旀瀬灏戣锛屾ā鍨嬪彧璋冧簡宸ュ叿
       // 娌′骇鍑哄彲鎶曢€掓鏂囥€乵essage 鏈埌杈锯€斺€旀爣璁版鏂囧凡灏借闃熷垪鏀惧畬鍗虫仮澶嶉害鍏嬮锛岄伩鍏嶉害鍏嬮涓€鐩存寕璧枫€?

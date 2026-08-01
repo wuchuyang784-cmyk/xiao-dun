@@ -64,12 +64,12 @@ const createSecondaryPanel = () => `
       <div class="stat-value live" id="conn-state"><span class="live-dot"></span>Token流</div>
     </div>
     <div class="stat">
-      <span class="stat-label">节点</span>
-      <div class="stat-value" id="node-count">0</div>
+      <span class="stat-label">模型</span>
+      <div class="stat-value" id="llm-provider-name">—</div>
     </div>
     <div class="stat">
-      <span class="stat-label">连线</span>
-      <div class="stat-value" id="link-count">0</div>
+      <span class="stat-label">运行</span>
+      <div class="stat-value" id="uptime">0h 0m</div>
     </div>
     <div class="stat">
       <span class="stat-label">tok/s</span>
@@ -85,19 +85,21 @@ const createSecondaryPanel = () => `
     </div>
   </header>
 
-  <!-- 专注帧 UI 已隐藏（后端 focus stack 仍在工作，给 LLM 注入上下文）。
-       要恢复观察面板时把对应 HTML 还原即可——app.js 渲染逻辑保留着，靠 getElementById 返回 null 自动 no-op。 -->
-
   <div class="stream-meta">
     <div>
-      <div class="stream-title-text">自主行动机制 · Tick</div>
-      <div class="stream-subtitle">心跳 · 思考 · 工具</div>
+      <div class="stream-title-text">执行规划</div>
+      <div class="stream-subtitle">工具链 · 步骤</div>
     </div>
-    <span class="pill pill-warm" id="pill-l2">流式传输</span>
+    <span class="pill" id="pill-l2">等待指令</span>
   </div>
 
-  <div class="stream">
-    <div class="stream-inner" id="si-l2"></div>
+  <div id="plan-list"></div>
+  <div id="plan-history" hidden></div>
+
+  <div class="tick-stream" id="tick-stream">
+    <div class="stream">
+      <div class="stream-inner" id="si-l2"></div>
+    </div>
   </div>
 </aside>
 `;
