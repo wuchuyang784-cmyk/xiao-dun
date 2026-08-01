@@ -95,7 +95,3 @@ export function getAnalysisRecordStats() {
   return queryAnalysisRecordStats()
 }
 
-export function getAnalysisRecord(id) {
-  return queryAnalysisRecordById(id)
-}
-

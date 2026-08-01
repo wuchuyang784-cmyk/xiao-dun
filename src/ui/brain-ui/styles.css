@@ -2174,19 +2174,11 @@ body.l2-collapsed .console {
 .plan-card.plan-done { opacity: 0.65; }
 .plan-card.plan-done .plan-header { background: transparent; }
 
-/* 历史规划区 */
-#plan-history { margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--line); }
-#plan-history:not([hidden])::before {
-  display: block; content: "历史规划";
-  font-size: 10px; color: var(--dim); margin-bottom: 6px;
-  text-transform: uppercase; letter-spacing: 0.08em;
-}
-
 /* 右下角缩小版自主行动 Tick 流 */
 #panel-l2 { display: flex; flex-direction: column; }
 #plan-list { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 150px; }
-#plan-history { max-height: 35%; overflow-y: auto; margin-top: 6px; }
 .tick-stream {
+  display: none;
   position: absolute; bottom: 8px; right: 8px;
   width: 200px; height: 120px; max-height: 120px;
   border-radius: 8px;
@@ -3603,17 +3595,6 @@ body.video-mode   > #voice-panel #voice-canvas{
   background: rgba(11, 18, 27, 0.28);
 }
 
-.fraud-map-summary-overlay {
-  position: absolute;
-  top: 68px;
-  right: 12px;
-  width: 220px;
-  margin: 0;
-  background: rgba(11, 18, 27, 0.88);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
-  backdrop-filter: blur(10px);
-}
-
 .fraud-summary-title,
 .fraud-ranking-label {
   margin-bottom: 8px;
@@ -3712,17 +3693,6 @@ body.video-mode   > #voice-panel #voice-canvas{
 }
 .fraud-risk-grid small { color: var(--dim); font-size: 9px; }
 .fraud-risk-high-text { color: var(--danger) !important; }
-
-.fraud-simulation-disclaimer {
-  margin: -3px 0 10px;
-  padding: 7px 8px;
-  border: 1px solid rgba(255, 190, 107, 0.28);
-  border-radius: 7px;
-  color: var(--warm);
-  background: rgba(255, 190, 107, 0.07);
-  font-size: 9px;
-  line-height: 1.5;
-}
 
 .fraud-ranking-list { display: grid; gap: 2px; }
 .fraud-ranking-row span { width: 14px; color: var(--dim); font-size: 10px; }

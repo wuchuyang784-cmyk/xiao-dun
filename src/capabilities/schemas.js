@@ -8,7 +8,6 @@ import { memorySchemas } from './schemas/memory.js'
 import { uiSchemas } from './schemas/ui.js'
 import { sceneSchemas } from './schemas/scene.js'
 import { taskSchemas } from './schemas/task.js'
-import { reviewSchemas } from './schemas/review.js'
 import { remindersSchemas } from './schemas/reminders.js'
 import { agentsSchemas } from './schemas/agents.js'
 import { systemSchemas } from './schemas/system.js'
@@ -27,7 +26,6 @@ export const TOOL_SCHEMAS = {
   ...uiSchemas,
   ...sceneSchemas,
   ...taskSchemas,
-  ...reviewSchemas,
   ...remindersSchemas,
   ...agentsSchemas,
   ...systemSchemas,

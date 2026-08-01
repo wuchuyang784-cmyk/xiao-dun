@@ -282,12 +282,6 @@ function closePlanCard() {
   planSteps = [];
   const pill = document.getElementById("pill-l2");
   if (pill) { pill.textContent = "等待指令"; pill.className = "pill"; }
-  const list = document.getElementById("plan-list");
-  const history = document.getElementById("plan-history");
-  if (list && history) {
-    const cards = list.querySelectorAll(".plan-card.plan-done");
-    cards.forEach(c => { history.prepend(c); history.hidden = false; });
-  }
 }
 
 // ---- 运行时长计时器 ----
@@ -318,6 +312,17 @@ const tokRateEl = document.getElementById("tok-rate");
 // 0 鍛戒腑鏁颁細璁╂暟瀛楀彉姗欐彁閱掞紙鍛戒腑鐜囦綆 = 鍙兘鏈夊彫鍥炴紡锛夛紱绾綉缁?鏈嶅姟澶辫触淇濇寔 鈥?涓嶅憡璀︺€?
 const memRecallEl = document.getElementById("mem-recall-rate");
 const memExtractEl = document.getElementById("mem-extract-rate");
+
+const llmProviderNameEl = document.getElementById("llm-provider-name");
+async function refreshLlmProviderName() {
+  if (!llmProviderNameEl) return;
+  try {
+    const data = await fetch(`${API}/settings`).then((r) => r.json());
+    const llm = data?.llm;
+    if (llm) llmProviderNameEl.textContent = `${llm.provider || "-"} / ${llm.model || "-"}`;
+  } catch {}
+}
+refreshLlmProviderName();
 
 // 鈹€鈹€ AI 褰撳墠姝ｅ湪鍋氫粈涔堬細娲剧敓灞曠ず 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 // 鍖楁瀬鏄燂紙[[feedback-ai-be-itself]]锛夛細閫氫俊闂闈犵晫闈晶娲剧敓鍙鍖栬В鍐筹紝涓嶉€?AI 瀛︿汉寮€鍙ｃ€?
@@ -1014,6 +1019,7 @@ initFeishuPopup();
       cachedLlm = llm;
       if (agentNameInput) agentNameInput.value = data.agent_name || agentName || DEFAULT_AGENT_NAME;
       refreshConfigSummary({ llm, minimax });
+      refreshLlmProviderName();
       populateProviderSelect(providers, llm.provider || "auto");
       if (providerSelect && llm.provider) providerSelect.value = llm.provider;
       applyCustomProviderUI(llm);

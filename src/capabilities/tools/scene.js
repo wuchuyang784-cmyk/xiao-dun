@@ -8,7 +8,14 @@ import { sceneStore } from '../../scene/scene-store.js'
 import { sceneClientCount } from '../../scene/scene-server.js'
 import { cancelSceneSurfaceRemoval, scheduleSceneSurfaceRemoval } from '../../scene/transient-surfaces.js'
 
-export function execUISet({ id, kind, data, intent, focus, order, remove } = {}) {
+export function execUISet({ id, kind, data, intent, focus, order, remove, remove_all } = {}) {
+  // 清空所有 surface
+  if (remove_all === true) {
+    cancelSceneSurfaceRemoval()
+    const changed = sceneStore.clear()
+    return changed ? '已清空所有 surface。' : '当前没有 surface,无变化。'
+  }
+
   if (!id || typeof id !== 'string') {
     return '错误：ui_set 需要一个非空字符串 id(surface 的稳定标识)。'
   }
