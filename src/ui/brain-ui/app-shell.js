@@ -12,6 +12,7 @@ const createMapStage = () => `
     <div class="fraud-map-status" id="fraud-map-status">\u6b63\u5728\u540c\u6b65</div>
   </div>
   <div id="fraud-map-chart" class="fraud-map-chart" aria-label="\u4e2d\u56fd\u7701\u7ea7\u8bc8\u9a97\u6848\u4f8b\u70ed\u529b\u56fe"></div>
+  <div id="fraud-right-summary" class="fraud-side-summary fraud-map-summary-overlay" aria-live="polite"></div>
   <div class="fraud-map-empty" id="fraud-map-empty" hidden>\u7b49\u5f85\u4e2d\u56fd\u7701\u7ea7\u5730\u56fe\u6570\u636e</div>
 </div>
 `;

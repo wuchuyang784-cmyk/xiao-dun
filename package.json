@@ -13,6 +13,7 @@
     "start:web": "node scripts/start-web.mjs",
     "start:backend": "node --env-file-if-exists=.env src/index.js",
     "dev": "node scripts/start-web.mjs",
+    "test": "node --test test/*.test.js",
     "lint": "node --check scripts/web-runtime.mjs && node --check scripts/start-web.mjs && node --check src/ui/brain-ui/app.js",
     "smoke:brain-ui": "node scripts/smoke-brain-ui.mjs",
     "build": "npm run lint && npm run format:check && npm run typecheck",

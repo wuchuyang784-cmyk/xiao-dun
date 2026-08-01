@@ -33,6 +33,7 @@ export const WEB_TOOLS = ['web_search', 'fetch_url', 'browser_read']
 export const HOTSPOT_TOOLS = ['hotspot_mode']
 export const CASES_IMPORT_TOOLS = []
 export const RECORD_TOOLS = []
+export const FRAUD_RAG_TOOLS = ['search_fraud_cases']
 
 // ---- 触发词 / 触发正则 ----
 // 工具半历史上用字面包含的字符串数组（tool-router），工作流半用正则（prompt）。两者各自
@@ -50,6 +51,7 @@ const HOTSPOT_TRIGGERS = [
 
 const WEATHER_KEYWORD_RE = /天气|温度|气温|下雨|降雨|下雪|雾霾|阴天|晴天|多云|wttr|weather/i
 const HOTSPOT_KEYWORD_RE = /热点|热搜|热门|新闻|今日|趋势|榜单|头条|热议|微博热搜|trending|headline/i
+const FRAUD_RAG_KEYWORD_RE = /诈骗|骗局|骗钱|可疑|风险|转账|汇款|收款|银行卡|对公账户|验证码|刷单|返利|投资|贷款|客服|公检法|冒充|钓鱼|话术|链接|scam|fraud|phishing/i
 
 // ---- 工作流块（prompt 注入用；从 prompt.js / index.js 搬来，文本逐字保留）----
 const WEATHER_CONTEXT_BLOCK = `### Weather Surface Rules
@@ -69,6 +71,11 @@ const HOTSPOT_CONTEXT_BLOCK = `### Hotspot Panel
 - You have a hotspot_mode tool that opens a visual hotspot / trending-topics panel. It is NOT pre-loaded each turn — if it is not in your current tool list, call find_tool("热点 面板 hotspot") first to load it, then call it.
 - Open it (action="show") only when the user actually wants to browse trending topics, or a demo/scene needs it; close it (action="hide") when asked. Do not open it for ordinary Q&A.
 - While the panel is open, current hotspot data is injected into your context automatically — answer from that rather than guessing.`
+
+const FRAUD_RAG_CONTEXT_BLOCK = `### Anti-fraud Knowledge Retrieval
+- For suspicious chats, transfers, account trading, links, investment offers, impersonation, or other fraud-risk assessment, call search_fraud_cases with the relevant original text or a concise factual description.
+- Treat matches as semantic reference evidence. Combine them with the rule engine and the user's actual facts; do not classify solely from one similarity score.
+- The knowledge-base texts and map demo are not real-time incident statistics. Never describe retrieved items as proof of actual regional incidence.`
 
 // 安装工作流：原先以 directions.unshift 注入在 index.js，现归位为能力 context，统一经
 // buildSystemPrompt 注入（同一份文本、同一道 isSoftwareInstallRequest 门）。
@@ -133,6 +140,16 @@ export const CAPABILITIES = [
     toolWhen: () => false,
     context: HOTSPOT_CONTEXT_BLOCK,
     prefeed: (ctx) => buildHotspotRuntimeContext(ctx.rawText || ''),
+  },
+  {
+    id: 'fraud-rag',
+    label: '反诈案例知识库',
+    summary: '检索已发布的反诈危险文本与相似诈骗模式，为聊天、转账、链接等风险研判提供语义证据。',
+    triggers: ['诈骗', '骗局', '风险研判', '可疑话术', '转账', '银行卡', '对公账户', '刷单', '投资诈骗', '冒充客服', '钓鱼链接', 'scam', 'fraud', 'phishing'],
+    tools: FRAUD_RAG_TOOLS,
+    detect: (ctx) => FRAUD_RAG_KEYWORD_RE.test(ctx.rawText || ''),
+    context: FRAUD_RAG_CONTEXT_BLOCK,
+    prefeed: null,
   },
 
 ]

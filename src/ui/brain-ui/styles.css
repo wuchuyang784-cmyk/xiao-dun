@@ -3518,6 +3518,8 @@ body.video-mode   > #voice-panel #voice-canvas{
 }
 
 .settings-map-link:hover { text-decoration: underline; }
+/* The fraud map replaces the former central memory graph with a data-driven surface. */
+/* (dev 执行规划面板样式见下方 .plan-card / .tick-stream，由 dev 分支新增，已合并保留) */
 .map-stage {
   position: fixed;
   z-index: 1;
@@ -3599,6 +3601,17 @@ body.video-mode   > #voice-panel #voice-canvas{
   border: 1px solid var(--line);
   border-radius: 10px;
   background: rgba(11, 18, 27, 0.28);
+}
+
+.fraud-map-summary-overlay {
+  position: absolute;
+  top: 68px;
+  right: 12px;
+  width: 220px;
+  margin: 0;
+  background: rgba(11, 18, 27, 0.88);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(10px);
 }
 
 .fraud-summary-title,
@@ -3699,6 +3712,17 @@ body.video-mode   > #voice-panel #voice-canvas{
 }
 .fraud-risk-grid small { color: var(--dim); font-size: 9px; }
 .fraud-risk-high-text { color: var(--danger) !important; }
+
+.fraud-simulation-disclaimer {
+  margin: -3px 0 10px;
+  padding: 7px 8px;
+  border: 1px solid rgba(255, 190, 107, 0.28);
+  border-radius: 7px;
+  color: var(--warm);
+  background: rgba(255, 190, 107, 0.07);
+  font-size: 9px;
+  line-height: 1.5;
+}
 
 .fraud-ranking-list { display: grid; gap: 2px; }
 .fraud-ranking-row span { width: 14px; color: var(--dim); font-size: 10px; }
