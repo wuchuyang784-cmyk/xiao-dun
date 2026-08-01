@@ -31,6 +31,7 @@ import { execManageReminder } from './tools/reminders.js'
 import { execAnalyzeImage, execManageApiCapability, execRunApiCapability } from './tools/api-capability.js'
 import { execManageRule } from './tools/rules.js'
 import { execGenerateImage, execMediaMode } from './tools/media.js'
+import { execSearchFraudCases } from './tools/fraud.js'
 import { runWorkReview } from '../review/reviewer.js'
 import { CAPABILITY_DEMO_INTRO, runCapabilityDemo } from '../capability-demo.js'
 import { deliverMessage } from '../runtime/delivery.js'
@@ -244,6 +245,8 @@ async function executeToolUnchecked(name, args, context = {}) {
         return await execFetchUrl(args, context)
       case 'browser_read':
         return await execBrowserRead(args, context)
+      case 'search_fraud_cases':
+        return await execSearchFraudCases(args)
       case 'search_memory':
         return await execSearchMemory(args)
       case 'probe_memory':

@@ -29,6 +29,7 @@ function getMapValue(row) {
 
 function createMapOptions(state) {
   const provinces = state.snapshot?.provinces || []
+  const isSimulated = state.snapshot?.isSimulated === true
   const maxValue = Math.max(10, ...provinces.map(getMapValue))
   const selected = state.selectedProvinceCode
   const selectedName = provinces.find(item => item.provinceCode === selected)?.provinceName
@@ -47,6 +48,9 @@ function createMapOptions(state) {
           return `<strong>${escapeHtml(item?.provinceName || params.name || '案件')}</strong><br>${escapeHtml(item?.fraudType || '')}<br>风险：${escapeHtml(riskLabel(item?.riskLevel))}<br>损失：${formatMoney(item?.lossAmount)}`
         }
         const row = provinces.find(item => item.provinceName === params.name)
+        if (isSimulated) {
+          return `<strong>${escapeHtml(params.name || '未知省份')}</strong><br>模拟样本：${row?.sampleCount || 0}<br><span style="color:#ffbe6b">比赛模拟数据 · 非真实案发率</span>`
+        }
         return `<strong>${escapeHtml(params.name || '未知省份')}</strong><br>案件：${row?.caseCount || 0}<br>高风险：${row?.highRiskCount || 0}<br>待复核：${row?.pendingCount || 0}`
       },
     },
@@ -87,7 +91,7 @@ function createMapOptions(state) {
     },
     series: [
       {
-        name: '诈骗案件',
+        name: isSimulated ? 'RAG 模拟样本' : '诈骗案件',
         type: 'map',
         map: 'china',
         geoIndex: 0,
@@ -129,8 +133,11 @@ function renderRightPanel(state) {
   const root = document.getElementById('fraud-right-summary')
   if (!root) return
   const row = state.snapshot?.provinces?.find(item => item.provinceCode === state.selectedProvinceCode)
+  const isSimulated = state.snapshot?.isSimulated === true
   const provinces = [...(state.snapshot?.provinces || [])].sort((a, b) => provinceRiskValue(b) - provinceRiskValue(a)).slice(0, 5)
-  const title = row ? `${row.provinceName}风险概览` : '全国风险概览'
+  const title = isSimulated
+    ? (row ? `${row.provinceName}模拟样本分布` : '全国 RAG 模拟分布')
+    : (row ? `${row.provinceName}风险概览` : '全国风险概览')
   const total = row || provinces.reduce((acc, item) => ({
     caseCount: acc.caseCount + item.caseCount,
     highRiskCount: acc.highRiskCount + item.highRiskCount,
@@ -140,19 +147,34 @@ function renderRightPanel(state) {
   root.innerHTML = `
     <div class="fraud-summary-title">${escapeHtml(title)}</div>
     <div class="fraud-risk-grid">
-      <span><b>${total.caseCount || 0}</b><small>案件</small></span>
-      <span><b class="fraud-risk-high-text">${total.highRiskCount || 0}</b><small>高风险</small></span>
-      <span><b>${total.pendingCount || 0}</b><small>待复核</small></span>
-      <span><b>${formatMoney(total.totalLossAmount)}</b><small>损失金额</small></span>
+      ${isSimulated ? `
+        <span><b>${row?.sampleCount ?? state.snapshot?.totalSamples ?? 0}</b><small>模拟样本</small></span>
+        <span><b>${state.snapshot?.provinces?.length || 0}</b><small>省级区域</small></span>
+        <span><b>RAG</b><small>数据来源</small></span>
+        <span><b>DEMO</b><small>数据性质</small></span>
+      ` : `
+        <span><b>${total.caseCount || 0}</b><small>案件</small></span>
+        <span><b class="fraud-risk-high-text">${total.highRiskCount || 0}</b><small>高风险</small></span>
+        <span><b>${total.pendingCount || 0}</b><small>待复核</small></span>
+        <span><b>${formatMoney(total.totalLossAmount)}</b><small>损失金额</small></span>
+      `}
     </div>
-    <div class="fraud-ranking-label">风险省份排行</div>
+    ${isSimulated ? `<div class="fraud-simulation-disclaimer">${escapeHtml(state.snapshot?.disclaimer || '比赛模拟数据，不代表真实案件发生率。')}</div>` : ''}
+    <div class="fraud-ranking-label">${isSimulated ? '模拟样本分布排行' : '风险省份排行'}</div>
     <div class="fraud-ranking-list">${provinces.map((item, index) => `<button class="fraud-ranking-row" data-fraud-province-code="${escapeHtml(item.provinceCode)}" type="button"><span>${index + 1}</span><strong>${escapeHtml(item.provinceName)}</strong><em>${provinceRiskValue(item)}</em></button>`).join('')}</div>`
 }
 
 function renderStatus(state) {
   const root = document.getElementById('fraud-map-status')
   if (!root) return
-  root.textContent = state.lastError ? `地图数据异常：${state.lastError}` : `每小时校准 · ${state.lastReconciledAt ? `上次同步 ${formatTime(state.lastReconciledAt)}` : '正在同步'}`
+  const isSimulated = state.snapshot?.isSimulated === true
+  const title = document.querySelector('.fraud-map-title')
+  if (title) title.textContent = isSimulated ? '中国反诈 RAG 模拟分布' : '中国诈骗案例统计'
+  root.textContent = state.lastError
+    ? `地图数据异常：${state.lastError}`
+    : isSimulated
+      ? `比赛模拟数据 · 非真实案件发生率 · ${state.lastReconciledAt ? `同步 ${formatTime(state.lastReconciledAt)}` : '正在同步'}`
+      : `每小时校准 · ${state.lastReconciledAt ? `上次同步 ${formatTime(state.lastReconciledAt)}` : '正在同步'}`
   root.dataset.error = state.lastError ? 'true' : 'false'
 }
 
@@ -180,10 +202,10 @@ export function initFraudMap() {
   async function reconcile() {
     const controller = new AbortController()
     try {
-      const [snapshot, items] = await Promise.all([
-        fetchFraudSnapshot({ signal: controller.signal }),
-        fetchFraudCases({ limit: 100, signal: controller.signal }),
-      ])
+      const snapshot = await fetchFraudSnapshot({ signal: controller.signal })
+      const items = snapshot?.isSimulated
+        ? []
+        : await fetchFraudCases({ limit: 100, signal: controller.signal })
       if (destroyed) return
       store.setSnapshot(snapshot)
       store.setCases(items)
@@ -196,13 +218,15 @@ export function initFraudMap() {
   function onSseEvent(event) {
     const { type, data } = event.detail || {}
     if (type === 'fraud_case_created' && data?.caseId) {
+      if (store.getState().snapshot?.isSimulated) return
       if (seenCases.has(data.caseId)) return
       seenCases.add(data.caseId)
       store.addCase(data)
       return
     }
     if (type === 'fraud_statistics_changed' || type === 'fraud_statistics_snapshot') {
-      store.setSnapshot(data)
+      if (store.getState().snapshot?.isSimulated) void reconcile()
+      else store.setSnapshot(data)
     }
   }
 
@@ -216,6 +240,7 @@ export function initFraudMap() {
 
   function onProvinceClick(provinceCode) {
     store.selectProvince(provinceCode)
+    if (store.getState().snapshot?.isSimulated) return
     void fetchFraudCases({ provinceCode, limit: 30 }).then(items => store.setCases(items)).catch(error => store.setError(error))
   }
 

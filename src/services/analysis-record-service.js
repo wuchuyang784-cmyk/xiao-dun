@@ -1,6 +1,7 @@
 import { emitEvent } from '../events.js'
 import {
   insertAnalysisRecord,
+  getAnalysisRecordById,
   listAnalysisRecords as queryAnalysisRecords,
   getAnalysisRecordStats as queryAnalysisRecordStats,
 } from '../db/repositories/analysis-records.js'
@@ -83,6 +84,10 @@ export function createAnalysisRecord(input) {
 
 export function listAnalysisRecords(filters = {}) {
   return queryAnalysisRecords(filters)
+}
+
+export function getAnalysisRecord(recordId) {
+  return clone(getAnalysisRecordById(String(recordId || '').trim()))
 }
 
 export function getAnalysisRecordStats() {

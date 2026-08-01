@@ -5,6 +5,7 @@ const TOOL_RISK = {
   list_dir: 'low',
   search_memory: 'low',
   probe_memory: 'low',
+  search_fraud_cases: 'low',
   list_processes: 'low',
   skip_recognition: 'low',
   send_message: 'medium',

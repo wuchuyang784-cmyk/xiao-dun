@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.2-pg17-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: xiaodun
+      POSTGRES_USER: xiaodun
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-xiaodun_dev_only}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - xiaodun_postgres_data:/var/lib/postgresql/data
+      - ./ai-engine/migrations/001_rag_schema.sql:/docker-entrypoint-initdb.d/001_rag_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xiaodun -d xiaodun"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  ai-engine:
+    build:
+      context: ./ai-engine
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://xiaodun:${POSTGRES_PASSWORD:-xiaodun_dev_only}@postgres:5432/xiaodun
+      EMBEDDING_MODEL_ID: ${EMBEDDING_MODEL_ID:-BAAI/bge-small-zh-v1.5}
+      KNOWLEDGE_BASE_VERSION: ${KNOWLEDGE_BASE_VERSION:-kb_chifraud_competition_v1}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-local}
+      LOCAL_EMBEDDING_MODEL: ${LOCAL_EMBEDDING_MODEL:-BAAI/bge-small-zh-v1.5}
+      EMBEDDING_DEVICE: ${EMBEDDING_DEVICE:-cpu}
+      MODEL_SERVICE_BASE_URL: ${MODEL_SERVICE_BASE_URL:-http://model-service:8002}
+    ports:
+      - "127.0.0.1:8001:8001"
+    volumes:
+      - ./data/risk-texts:/app/data/risk-texts:ro
+      - xiaodun_huggingface_cache:/root/.cache/huggingface
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  xiaodun_postgres_data:
+    external: true
+    name: compose_xiaodun_postgres_data
+  xiaodun_huggingface_cache:
+    external: true
+    name: compose_xiaodun_huggingface_cache
