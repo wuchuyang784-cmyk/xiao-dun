@@ -217,8 +217,6 @@ export function initFraudMap() {
   const seenCases = new Set()
 
   function render(state) {
-    renderRightPanel(state)
-    renderStatus(state)
     if (!chart || !mapReady) return
     chart.setOption(createMapOptions(state), { notMerge: true, lazyUpdate: true })
   }
