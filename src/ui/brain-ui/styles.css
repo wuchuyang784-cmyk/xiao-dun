@@ -3755,8 +3755,7 @@ body.video-mode   > #voice-panel #voice-canvas{
 .fraud-ranking-row em { color: var(--warm); font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 10px; font-style: normal; }
 .fraud-empty { padding: 8px 0; color: var(--dim); font-size: 10px; }
 
-/* /rag knowledge cockpit: dormant by default, activated only by the slash command. */
-body:not(.rag-mode) .map-stage { opacity: 0; transform: scale(.965); pointer-events: none; }
+/* 地图始终可见，RAG 模式仅切换布局与大小。 */
 .map-stage { transition: inset .46s cubic-bezier(.2,.8,.2,1), opacity .4s ease, transform .46s cubic-bezier(.2,.8,.2,1); }
 
 .rag-close, .rag-retry {
