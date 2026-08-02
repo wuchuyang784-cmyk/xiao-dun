@@ -337,7 +337,7 @@ const AI_TOOL_GROUPS = {
   "\u4e0a\u7f51": new Set(["fetch_url", "web_search", "browser_read"]),
   "\u8c03\u53d6\u8bb0\u5fc6": new Set(["search_memory", "recall_memory", "probe_memory", "upsert_memory", "merge_memories", "downgrade_memory"]),
   "推送界面": new Set(["ui_set", "focus_banner"]),
-  "媒体处理": new Set(["generate_image", "media_mode"]),
+  "媒体处理": new Set(["media_mode"]),
   "\u56de\u590d\u7528\u6237": new Set(["send_message", "express"]),
 };
 const aiActivityLog = [];
