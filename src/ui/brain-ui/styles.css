@@ -3767,6 +3767,7 @@ body.video-mode   > #voice-panel #voice-canvas{
   position: absolute; z-index: 7; inset: 0; display: grid; place-content: center; justify-items: center; gap: 12px;
   overflow: hidden; color: #d9fbff;
   background: linear-gradient(rgba(5,19,29,.93),rgba(4,14,24,.88)), repeating-linear-gradient(0deg,transparent 0 3px,rgba(82,226,255,.04) 4px);
+  opacity: 0; visibility: hidden; pointer-events: none;
   transition: opacity .55s ease, visibility .55s ease;
 }
 .rag-boot-overlay::before { content: ""; position: absolute; inset: -40% 0; background: linear-gradient(transparent 42%,rgba(68,232,255,.14) 50%,transparent 58%); animation: rag-scan 2.2s linear infinite; }
@@ -3801,6 +3802,7 @@ body.rag-mode .console {
 body.rag-mode #chat-history { max-height: none; height: 100%; }
 body.rag-mode #chat-messages { max-height: none; height: 100%; }
 body.rag-mode .fraud-map-header { right: 58px; }
+body.rag-mode .rag-boot-overlay { opacity: 1; visibility: visible; pointer-events: auto; }
 body.rag-mode .rag-map-summary {
   position: absolute; z-index: 4; left: 18px; bottom: 18px; width: min(360px,42%); margin: 0;
   backdrop-filter: blur(16px); background: rgba(5,23,32,.78); border-color: rgba(71,220,242,.32); box-shadow: 0 0 24px rgba(31,210,239,.12);
