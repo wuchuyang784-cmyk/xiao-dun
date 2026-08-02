@@ -74,6 +74,7 @@ const ADMIN_TOOLS       = [
   'set_location', 'set_agent_name', 'manage_rule',
   'manage_api_capability',
   'fraud_rule_screen',
+  'fraud_intel',
 ]
 const INLINE_IMAGE_RE = /!\[[^\]]*]\(|\/media\/chat\/|data:image\//i
 const API_KEY_RE = /\b(?:sk|ak|rk|pk|ark)-[A-Za-z0-9_\-.]{12,180}\b/i
@@ -151,6 +152,13 @@ const ADMIN_TRIGGERS = [
   'capability slot', 'api capability', 'vision model',
 ]
 
+const FRAUD_INTEL_TRIGGERS = [
+  '诈骗案例', '诈骗情报', '最新骗局', '最新诈骗', '新骗局', '新手法',
+  '诈骗新闻', '诈骗套路', '骗术', '骗局', '反诈情报', '反诈骗情报',
+  'fraud intel', 'fraud intelligence', 'scam news', 'latest scam',
+  'fraud cases', 'scam cases', '诈骗案例库', '案例采集', '情报采集',
+]
+
 // 触发词 → 工具组的单一数据源。selectTools（按轮注入）和 find_tool（模型主动搜工具）
 // 共用它，避免两处各维护一份中文关键词。注：CORE / task / memory / 多模态 mmCaps gate 等
 // 特殊注入逻辑仍在 selectTools 里，这里只收录"纯关键词触发的专业组"，正好是 find_tool 要搜的范围。
@@ -166,6 +174,7 @@ export const TOOL_GROUPS = [
   { triggers: TERMINAL_STREAM_TRIGGERS, tools: TERMINAL_STREAM_TOOLS },
   { triggers: CAPABILITY_DEMO_TRIGGERS, tools: CAPABILITY_DEMO_TOOLS },
   { triggers: ADMIN_TRIGGERS,        tools: ADMIN_TOOLS },
+  { triggers: FRAUD_INTEL_TRIGGERS,  tools: ['fraud_intel'] },
 ]
 
 // 通用辅助：消息正文里是否含有给定触发词之一（lower-case 包含）。
