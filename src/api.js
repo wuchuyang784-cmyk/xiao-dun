@@ -15,7 +15,9 @@ import { handleActivationRoutes } from './api/routes/activation.js'
 import { handleAdminRoutes } from './api/routes/admin.js'
 import { handleEmbeddingRoutes } from './api/routes/embedding.js'
 import { handleEventRoutes } from './api/routes/events.js'
-import { handleFraudRoutes } from './api/routes/fraud.js'
+import { handleFraudRoutes } from './api/routes/fraud.js'
+
+import { handleRagRoutes } from './api/routes/rag.js'
 import { handleRecordRoutes } from './api/routes/records.js'
 import { handleMediaRoutes } from './api/routes/media.js'
 import { handleMapRoutes } from './api/routes/map.js'
@@ -122,7 +124,9 @@ function setCorsHeaders(req, res, origin) {
 async function dispatchHttpRoutes(req, res, url, context) {
   if (await handleMessageRoutes(req, res, url)) return true
   if (await handleEventRoutes(req, res, url)) return true
-  if (await handleFraudRoutes(req, res, url)) return true
+  if (await handleRagRoutes(req, res, url)) return true
+
+  if (await handleFraudRoutes(req, res, url)) return true
   if (await handleRecordRoutes(req, res, url)) return true
   if (await handleMemoryRoutes(req, res, url)) return true
   if (await handlePanelRoutes(req, res, url, context)) return true

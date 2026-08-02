@@ -40,6 +40,7 @@ import { getFeishuStatusBlock } from './social/feishu-ws.js'
 import { collectSystemInfo, getSystemInfoBlock, getBatteryBlock } from './system-info.js'
 import { collectGeoWeather, getGeoWeatherBlock } from './geo-weather.js'
 import { collectTrending } from './trending.js'
+import { collectFraudIntel, startFraudIntelScheduler } from './fraud-intel.js'
 import { collectAgents, buildAgentContextBlock, buildDelegationDiscoveryContext } from './agents/registry.js'
 import { refreshSkills, selectSkillsForMessage, formatSkillsForContext } from './skills/registry.js'
 import { tryAutoConfigureKey } from './key-auto-config.js'
@@ -112,6 +113,13 @@ reportStartupProgress('geo', 'done', '天气位置已刷新', '天气位置已�
 reportStartupProgress('trending', 'running', '加载今日热点源', '正在采集热点')
 await withStartupTimeout(collectTrending(geoResult?.location?.country_code), 12000, '[startup] trending')
 reportStartupProgress('trending', 'done', '热点采集完成', '热点采集完成')
+
+// Collect fraud intelligence (latest scam cases; 6h cache)
+reportStartupProgress('fraud-intel', 'running', '采集诈骗案例情报', '正在采集诈骗情报')
+await withStartupTimeout(collectFraudIntel(), 15000, '[startup] fraud-intel')
+reportStartupProgress('fraud-intel', 'done', '诈骗情报采集完成', '诈骗情报采集完成')
+// Start periodic fraud intel scheduler (every 6h, auto-push new cases to user)
+startFraudIntelScheduler(6)
 
 // Scan locally installed AI agents (Claude Code, Codex, Hermes, OpenClaw, etc.) and persist to known_agents table
 reportStartupProgress('agents', 'running', 'Claude Code / Codex / Hermes', '正在扫描本地 Agent')

@@ -109,6 +109,38 @@ export const systemSchemas = {
     }
   },
 
+  fraud_intel: {
+    type: 'function',
+    function: {
+      name: 'fraud_intel',
+      description: '诈骗案例与套路情报：定时采集最新骗局与手法，主动推送给用户。支持三个 action：fetch（联网采集最新诈骗案例，搜索公开渠道并结构化存储）、list（查看已缓存的情报摘要，不联网）、push（把情报整理成可直接推给用户的文本摘要）。发现与用户当前对话相关的新骗局手法时应主动调用 push 推送提醒。建议在 TICK 心跳或用户空闲时定时调 fetch 刷新情报库。',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            enum: ['fetch', 'list', 'push'],
+            description: 'fetch=联网采集最新情报，list=查看缓存摘要，push=生成推送文案'
+          },
+          force: {
+            type: 'boolean',
+            description: 'fetch 时是否强制刷新缓存（忽略 6 小时 TTL）。默认 false。'
+          },
+          category_ids: {
+            type: 'array',
+            items: { type: 'string' },
+            description: '限定采集/推送的诈骗类型 ID。空=全部。可用值: brushing(刷单返利), refund_customer(冒充客服退款), impersonate_police(冒充公检法), fake_investment(虚假投资理财), pig_butchering(杀猪盘), loan_scam(贷款诈骗), prize_scam(中奖诈骗), nude_extortion(裸聊敲诈)'
+          },
+          limit: {
+            type: 'number',
+            description: 'push 时每个类型推送几条案例，默认 3，最大 8'
+          }
+        },
+        required: ['action']
+      }
+    }
+  },
+
   connect_wechat: {
     type: 'function',
     function: {

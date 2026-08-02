@@ -58,45 +58,6 @@ export const uiSchemas = {
     }
   },
 
-  focus_banner: {
-    type: 'function',
-    function: {
-      name: 'focus_banner',
-      description: 'Show a translucent desktop focus banner sticker reminding the user what to focus on. Call when the user says they want to focus on something, enter focus mode, or asks for help focusing on X. The banner can expand to show a task list with checkboxes.',
-      parameters: {
-        type: 'object',
-        properties: {
-          action: {
-            type: 'string',
-            enum: ['show', 'update', 'hide'],
-            description: 'show displays the banner; update changes content when it already exists; hide closes it.'
-          },
-          task: {
-            type: 'string',
-            description: 'Main task title, one short sentence.'
-          },
-          current_step: {
-            type: 'string',
-            description: 'Optional current step, shown under the main task when collapsed.'
-          },
-          tasks: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                text: { type: 'string', description: 'Subtask text.' },
-                done: { type: 'boolean', description: 'Whether completed, default false.' }
-              },
-              required: ['text']
-            },
-            description: 'Optional subtask list shown when the banner is expanded.'
-          }
-        },
-        required: ['action']
-      }
-    }
-  },
-
   terminal_stream: {
     type: 'function',
     function: {

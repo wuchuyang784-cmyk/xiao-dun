@@ -2130,6 +2130,73 @@ body.l2-collapsed .console {
   right: 24px;
 }
 
+/* ---- 执行规划面板 ---- */
+.plan-card {
+  margin: 0 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--panel) 98%, transparent);
+  overflow: hidden;
+}
+.plan-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--warm) 6%, transparent);
+}
+.plan-title {
+  font-size: 12px; font-weight: 600; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 72%;
+}
+.plan-time {
+  font-size: 9px; color: var(--dim);
+  font-family: "JetBrains Mono",ui-monospace,monospace;
+}
+.plan-steps { padding: 4px 0; }
+.plan-step {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 10px; font-size: 11px;
+}
+.plan-step .step-status {
+  width: 14px; flex-shrink: 0; text-align: center;
+  font-size: 11px; font-weight: 600;
+}
+.plan-step .step-status.pending { color: var(--dim); }
+.plan-step .step-status.running { color: var(--warm); }
+.plan-step .step-status.done { color: #7fcf8f; }
+.plan-step .step-status.failed { color: #e7a4a4; }
+.plan-step .step-name { flex: 1; color: var(--ink2); }
+.plan-step .step-time {
+  font-size: 9px; color: var(--dim);
+  font-family: "JetBrains Mono",ui-monospace,monospace;
+}
+.plan-card.plan-done { opacity: 0.65; }
+.plan-card.plan-done .plan-header { background: transparent; }
+
+/* 右下角缩小版自主行动 Tick 流 */
+#panel-l2 { display: flex; flex-direction: column; }
+#plan-list { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 150px; }
+.tick-stream {
+  display: none;
+  position: absolute; bottom: 8px; right: 8px;
+  width: 200px; height: 120px; max-height: 120px;
+  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
+  opacity: 0.85; overflow: hidden;
+  transition: opacity 0.25s, max-height 0.25s;
+  z-index: 100;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.tick-stream:hover { opacity: 1; max-height: 260px; height: auto; z-index: 101; }
+.tick-stream .stream { height: 100%; overflow-y: auto; }
+.tick-stream .stream-line { padding: 2px 8px; font-size: 9px; }
+.tick-stream .line-type { font-size: 7px; letter-spacing: 0.1em; }
+.tick-stream .line-time { font-size: 7px; }
+.tick-stream .line-status { font-size: 7px; padding: 1px 5px; }
+
 @media (max-width: 1180px) {
   .panel { width: 300px; }
   #panel-l2 { right: 20px; }
@@ -3443,6 +3510,8 @@ body.video-mode   > #voice-panel #voice-canvas{
 }
 
 .settings-map-link:hover { text-decoration: underline; }
+/* The fraud map replaces the former central memory graph with a data-driven surface. */
+/* (dev 执行规划面板样式见下方 .plan-card / .tick-stream，由 dev 分支新增，已合并保留) */
 .map-stage {
   position: fixed;
   z-index: 1;

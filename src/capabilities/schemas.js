@@ -8,11 +8,11 @@ import { memorySchemas } from './schemas/memory.js'
 import { uiSchemas } from './schemas/ui.js'
 import { sceneSchemas } from './schemas/scene.js'
 import { taskSchemas } from './schemas/task.js'
-import { reviewSchemas } from './schemas/review.js'
 import { remindersSchemas } from './schemas/reminders.js'
 import { agentsSchemas } from './schemas/agents.js'
 import { systemSchemas } from './schemas/system.js'
 import { apiCapabilitySchemas } from './schemas/api-capabilities.js'
+import { fraudSchemas } from './schemas/fraud.js'
 
 // 所有工具的 schema 定义（按类别拆分到 ./schemas/*.js，此处合并）。
 // 调用方按需用 getToolSchemas(toolNames) 取子集，合并顺序不影响输出顺序。
@@ -26,11 +26,11 @@ export const TOOL_SCHEMAS = {
   ...uiSchemas,
   ...sceneSchemas,
   ...taskSchemas,
-  ...reviewSchemas,
   ...remindersSchemas,
   ...agentsSchemas,
   ...systemSchemas,
   ...apiCapabilitySchemas,
+  ...fraudSchemas,
 }
 
 function normalizeToolPromptHints(toolPromptHints = null) {

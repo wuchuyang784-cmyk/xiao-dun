@@ -71,6 +71,7 @@ export const API_PATHS = {
       import: apiPath(`${API_BASE}/fraud-cases/import`),
       importAsync: apiPath(`${API_BASE}/fraud-cases/import-async`),
       reindex: apiPath(`${API_BASE}/fraud-cases/reindex`),
+      search: apiPath(`${API_BASE}/fraud-cases/search`),
       importJobs: (jobId: string) => apiPath(`${API_BASE}/fraud-cases/import-jobs/${jobId}`),
       detail: (caseId: string) => apiPath(`${API_BASE}/fraud-cases/${caseId}`),
     },

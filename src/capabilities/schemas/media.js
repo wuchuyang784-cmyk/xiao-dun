@@ -1,4 +1,4 @@
-// 媒体类工具 schema：media_mode / generate_image
+// 媒体类工具 schema：media_mode
 export const mediaSchemas = {
   media_mode: {
     type: 'function',
@@ -29,23 +29,6 @@ Pressing V only pauses and collapses the video panel while preserving content; c
           currentTime: { type: 'number', description: 'Seconds to seek to.' },
         },
         required: ['mode']
-      }
-    }
-  },
-
-  generate_image: {
-    type: 'function',
-    function: {
-      name: 'generate_image',
-      description: 'Generate images from a text description. Daily image generation limit is 50.',
-      parameters: {
-        type: 'object',
-        properties: {
-          prompt: { type: 'string', description: 'Image description. More detail is better.' },
-          aspect_ratio: { type: 'string', description: 'Aspect ratio, optional values: 1:1 default, 16:9, 4:3, 3:4, 9:16.' },
-          n: { type: 'number', description: 'Number of images to generate, 1-4, default 1.' },
-        },
-        required: ['prompt']
       }
     }
   },

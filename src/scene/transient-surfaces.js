@@ -19,6 +19,11 @@ export function scheduleSceneSurfaceRemoval(id, { kind = null, ttlMs = WEATHER_S
 }
 
 export function cancelSceneSurfaceRemoval(id) {
+  if (!id) {
+    for (const timer of timers.values()) clearTimeout(timer)
+    timers.clear()
+    return
+  }
   const timer = timers.get(id)
   if (!timer) return
   clearTimeout(timer)

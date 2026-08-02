@@ -43,6 +43,10 @@ export const sceneSchemas = {
             type: 'boolean',
             description: 'Set true to remove the surface with this id, instead of showing/updating it.',
           },
+          remove_all: {
+            type: 'boolean',
+            description: 'Set true to clear ALL surfaces from the screen at once. Use when the user asks to close/exit/clear/dismiss all visual surfaces, or says "退出投影UI" / "关闭所有卡片" / "清屏". When remove_all=true, id can be any value (ignored).',
+          },
         },
         required: ['id'],
       },

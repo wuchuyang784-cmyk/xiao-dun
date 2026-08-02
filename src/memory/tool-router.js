@@ -46,12 +46,8 @@ const CORE_TOOLS = [
   'voice_retire',
 ]
 
-const TASK_CTRL_FULL    = ['set_task', 'complete_task', 'update_task_step', 'review_work']
+const TASK_CTRL_FULL    = ['set_task', 'complete_task', 'update_task_step']
 const TASK_CTRL_OPENER  = ['set_task']  // 没任务时只暴露 set_task
-
-// 成果审视：有任务时随 TASK_CTRL_FULL 常驻（"完成任务前找第二双眼睛"的主场景）；
-// 无任务的临时成果，靠下面这组触发词 / find_tool 主动拉进来。
-const REVIEW_TOOLS      = ['review_work']
 
 // WEB_TOOLS 由能力注册表提供（见顶部 import），并被 media / fallback 复用。
 const FILESYSTEM_TOOLS  = ['read_file', 'write_file', 'delete_file', 'list_dir', 'make_dir']
@@ -70,7 +66,6 @@ const STARTUP_SELF_CHECK_TOOLS = [
   ...MEDIA_TOOLS,
   'hotspot_mode',
 ]
-const FOCUS_BANNER_TOOLS = ['focus_banner']
 const TERMINAL_STREAM_TOOLS = ['terminal_stream']
 const CAPABILITY_DEMO_TOOLS = ['capability_demo']
 const ADMIN_TOOLS       = [
@@ -79,12 +74,8 @@ const ADMIN_TOOLS       = [
   'set_location', 'set_agent_name', 'manage_rule',
   'manage_api_capability',
   'fraud_rule_screen',
+  'fraud_intel',
 ]
-
-// 多模态生成（按 mmCaps gate；关键词命中后才注入对应工具）
-const MM_GEN_TOOLS = {
-  image: 'generate_image',
-}
 const INLINE_IMAGE_RE = /!\[[^\]]*]\(|\/media\/chat\/|data:image\//i
 const API_KEY_RE = /\b(?:sk|ak|rk|pk|ark)-[A-Za-z0-9_\-.]{12,180}\b/i
 const API_DOCS_RE = /https?:\/\/|api|docs?|platform|capability|endpoint|base[-_\s]?url|model|auth|\u6587\u6863|\u63a5\u53e3|\u914d\u7f6e|\u80fd\u529b/i
@@ -134,11 +125,6 @@ const TICKER_TRIGGERS = [
   'heartbeat', 'interval',
 ]
 
-const FOCUS_BANNER_TRIGGERS = [
-  '专注', '沉浸', '小目标', '目标定', '横幅', '锁定', '别打扰', '勿扰',
-  'focus mode', 'banner', 'do not disturb', 'dnd', 'immersive',
-]
-
 const TERMINAL_STREAM_TRIGGERS = [
   '行动可视化', '文本流', '命令行窗口', '终端窗口', '黑底白字', '写文件过程', '写入过程',
   'terminal stream', 'terminal window', 'command line window', 'progress stream',
@@ -166,18 +152,11 @@ const ADMIN_TRIGGERS = [
   'capability slot', 'api capability', 'vision model',
 ]
 
-// 多模态生成专用触发（关键词必须足够具体——单字"说""画"在中文里太宽泛
-// 会被"没说""画面"误命中。优先用 2+ 字组合 / 明确动词短语。）
-const IMAGE_GEN_TRIGGERS = [
-  '画个', '画一张', '画一幅', '画张', '帮我画',
-  '生成图', '生成图片', '出张图', '配图',
-  // 注：曾包含 '画图'，但常被"没说画图"等反语命中——改用更强限定的词组
-  'draw', 'paint', 'generate image', 'image of', 'picture of',
-]
-const REVIEW_TRIGGERS = [
-  '检查成果', '检查一下成果', '审视', '复查', '核对', '把关', '验收', '自检',
-  '检查工作', '检查我做的', '再检查', '复核', '查验',
-  'review', 'double-check', 'double check', 'verify the work', 'check my work', 'sanity check',
+const FRAUD_INTEL_TRIGGERS = [
+  '诈骗案例', '诈骗情报', '最新骗局', '最新诈骗', '新骗局', '新手法',
+  '诈骗新闻', '诈骗套路', '骗术', '骗局', '反诈情报', '反诈骗情报',
+  'fraud intel', 'fraud intelligence', 'scam news', 'latest scam',
+  'fraud cases', 'scam cases', '诈骗案例库', '案例采集', '情报采集',
 ]
 
 // 触发词 → 工具组的单一数据源。selectTools（按轮注入）和 find_tool（模型主动搜工具）
@@ -192,12 +171,10 @@ export const TOOL_GROUPS = [
   { triggers: REMINDER_TRIGGERS,     tools: REMINDER_TOOLS },
   { triggers: PREFETCH_TRIGGERS,     tools: PREFETCH_TOOLS },
   { triggers: TICKER_TRIGGERS,       tools: TICKER_TOOLS },
-  { triggers: FOCUS_BANNER_TRIGGERS, tools: FOCUS_BANNER_TOOLS },
   { triggers: TERMINAL_STREAM_TRIGGERS, tools: TERMINAL_STREAM_TOOLS },
   { triggers: CAPABILITY_DEMO_TRIGGERS, tools: CAPABILITY_DEMO_TOOLS },
   { triggers: ADMIN_TRIGGERS,        tools: ADMIN_TOOLS },
-  { triggers: IMAGE_GEN_TRIGGERS,    tools: [MM_GEN_TOOLS.image] },
-  { triggers: REVIEW_TRIGGERS,       tools: REVIEW_TOOLS },
+  { triggers: FRAUD_INTEL_TRIGGERS,  tools: ['fraud_intel'] },
 ]
 
 // 通用辅助：消息正文里是否含有给定触发词之一（lower-case 包含）。
@@ -287,9 +264,6 @@ export function selectTools(ctx = {}) {
   const capCtx = { text: body, rawText: messageBody, isTick, mmCaps, hasTask }
   for (const t of capabilityToolsFor(capCtx)) out.add(t)
   if (INLINE_IMAGE_RE.test(messageBody)) out.add('analyze_image')
-  if (hits(body, FOCUS_BANNER_TRIGGERS) || hasTask) {
-    for (const t of FOCUS_BANNER_TOOLS) out.add(t)
-  }
   if (hits(body, TERMINAL_STREAM_TRIGGERS)) {
     for (const t of TERMINAL_STREAM_TOOLS) out.add(t)
   }
@@ -305,17 +279,10 @@ export function selectTools(ctx = {}) {
   ) {
     out.add('manage_api_capability')
   }
-  // 成果审视：有任务时已随 TASK_CTRL_FULL 注入；这里覆盖"无任务但用户明确要求检查/验收成果"的临时场景。
-  if (hits(body, REVIEW_TRIGGERS)) {
-    for (const t of REVIEW_TOOLS) out.add(t)
-  }
   // Tick 不再因为"它是 Tick"就预先装载 web/filesystem/reminder/prefetch/hotspot。
   // 主模型先判断要做什么，再通过常驻 find_tool 加载所需能力。记忆和 cadence
   // 控制保留在基线中，因为它们直接构成心跳自身的认知与节奏。
 
-  // —— 多模态生成：mmCaps gate + 关键词命中 ——
-  // 没配能力就别暴露工具（暴露了 agent 也调不通）。
-  if (mmCaps.includes('image')  && hits(body, IMAGE_GEN_TRIGGERS)) out.add(MM_GEN_TOOLS.image)
   // —— ActionLog 保活 ——
   // 上轮（或最近 10 次）调用过的工具强制带上：跨轮工作流不能因为关键词没命中就断链。
   // 保活只覆盖小盾的"已知工具"——installed 工具走单独的全注入路径。
