@@ -45,8 +45,7 @@ const WEB_TRIGGERS = [
   'web', 'browser', 'browse', 'website', '.com', '.cn', '.org', '.io',
 ]
 const HOTSPOT_TRIGGERS = [
-  '热点', '热搜', '热门', '新闻', '今日', '趋势', '榜单', '头条', 'trending',
-  'news', 'hot ', 'top ', '微博热搜', '热议',
+  '/hot',
 ]
 
 const WEATHER_KEYWORD_RE = /天气|温度|气温|下雨|降雨|下雪|雾霾|阴天|晴天|多云|wttr|weather/i
@@ -69,7 +68,7 @@ const WEATHER_CONTEXT_BLOCK = `### Weather Surface Rules
 
 const HOTSPOT_CONTEXT_BLOCK = `### Hotspot Panel
 - You have a hotspot_mode tool that opens a visual hotspot / trending-topics panel. It is NOT pre-loaded each turn — if it is not in your current tool list, call find_tool("热点 面板 hotspot") first to load it, then call it.
-- Open it (action="show") only when the user actually wants to browse trending topics, or a demo/scene needs it; close it (action="hide") when asked. Do not open it for ordinary Q&A.
+- Open it (action="show") only when the current user message is exactly "/hot". Natural-language requests, demos, scenes, and autonomous turns must not open it. Close it (action="hide") when asked.
 - While the panel is open, current hotspot data is injected into your context automatically — answer from that rather than guessing.`
 
 const FRAUD_RAG_CONTEXT_BLOCK = `### Anti-fraud Knowledge Retrieval
@@ -129,7 +128,7 @@ export const CAPABILITIES = [
   {
     id: 'hotspot',
     label: '热点面板',
-    summary: '打开热搜/趋势可视化面板（hotspot_mode）；面板开启时实时热点数据自动预喂。',
+    summary: '仅通过 /hot 打开热搜/趋势可视化面板（hotspot_mode）；面板开启时实时热点数据自动预喂。',
     triggers: HOTSPOT_TRIGGERS,
     tools: HOTSPOT_TOOLS,
     // 面板不再走关键词自动开：detect 恒 false，关键词只保留给 find_tool 发现用。

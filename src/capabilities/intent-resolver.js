@@ -23,11 +23,10 @@ import {
   getCapability,
   listCapabilities,
 } from './capability-registry.js'
+import { isHotspotOpenCommand } from './hotspot-command.js'
 
 // 显式斜杠指令 → 能力 id 的快车道映射。
 const EXPLICIT_COMMANDS = {
-  '/hotspot': 'hotspot',
-  '/热点': 'hotspot',
   '/weather': 'weather',
   '/天气': 'weather',
   '/web': 'web',
@@ -40,6 +39,7 @@ const GREETING_RE = /^(你好|您好|hi|hello|hey|在吗|在么|在不在|谢谢
 
 export function resolveExplicitCommand(message = '') {
   const m = String(message || '').trim()
+  if (isHotspotOpenCommand(m)) return 'hotspot'
   if (!m.startsWith('/')) return null
   const head = m.split(/\s+/)[0].toLowerCase()
   return EXPLICIT_COMMANDS[head] || null
@@ -114,6 +114,7 @@ export async function resolveCapabilityIntent(message, { callLLM, signal } = {})
       parsed &&
       parsed.capability &&
       parsed.capability !== 'none' &&
+      parsed.capability !== 'hotspot' &&
       getCapability(parsed.capability)
     ) {
       return { capabilityId: parsed.capability, via: 'llm' }

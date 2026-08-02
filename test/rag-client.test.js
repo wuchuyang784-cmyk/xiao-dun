@@ -3,10 +3,66 @@ import test from 'node:test'
 
 import {
   RagServiceError,
+  addRiskText,
   getRagMapStats,
+  getRagReadiness,
   getRagConfig,
   searchRiskTexts,
 } from '../src/services/rag-client.js'
+
+test('addRiskText sends a manual item for server-side document embedding', async () => {
+  let captured
+  const fetchImpl = async (url, options) => {
+    captured = { url, options, body: JSON.parse(options.body) }
+    return new Response(JSON.stringify({
+      code: 0,
+      request_id: 'add-1',
+      data: { risk_text_id: 'manual_1', text_count: 9976, vector_count: 9976, embedding_dimension: 512 },
+    }), { status: 201, headers: { 'content-type': 'application/json' } })
+  }
+  const result = await addRiskText({
+    title: '冒充客服退款',
+    text: '对方要求开启屏幕共享并转账到所谓安全账户。',
+    categoryCode: 'new_risk_type',
+    riskSignals: '屏幕共享，安全账户',
+    keyPhrases: '退款理赔',
+    piiConfirmed: true,
+    requestId: 'add-1',
+  }, { fetchImpl })
+
+  assert.equal(captured.url, 'http://127.0.0.1:8001/internal/v1/rag/items')
+  assert.equal(captured.body.query_embedding, undefined)
+  assert.deepEqual(captured.body.risk_signals, ['屏幕共享', '安全账户'])
+  assert.equal(captured.body.pii_confirmed, true)
+  assert.equal(result.vector_count, 9976)
+})
+
+test('getRagReadiness verifies all seeded texts and vectors before UI activation', async () => {
+  let requestedUrl = ''
+  const fetchImpl = async (url) => {
+    requestedUrl = url
+    return new Response(JSON.stringify({
+      code: 0,
+      data: {
+        ready: true,
+        status: 'ready',
+        knowledge_base_version: 'kb_chifraud_competition_v1',
+        expected_count: 9975,
+        text_count: 9975,
+        vector_count: 9975,
+        embedding_model: 'BAAI/bge-small-zh-v1.5',
+        embedding_dimension: 512,
+      },
+    }), { status: 200, headers: { 'content-type': 'application/json' } })
+  }
+
+  const readiness = await getRagReadiness({ fetchImpl })
+  assert.equal(requestedUrl, 'http://127.0.0.1:8001/internal/v1/rag/readiness')
+  assert.equal(readiness.ready, true)
+  assert.equal(readiness.textCount, 9975)
+  assert.equal(readiness.vectorCount, 9975)
+  assert.equal(readiness.embeddingDimension, 512)
+})
 
 test('getRagConfig defaults to the existing local AI Engine', () => {
   assert.deepEqual(getRagConfig({}), {

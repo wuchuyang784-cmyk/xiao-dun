@@ -52,6 +52,61 @@ test('POST fraud case search is a Node business route over the internal RAG serv
   assert.equal(envelope.data.items[0].risk_category_code, 'fake_bank_card')
 })
 
+test('POST RAG activation exposes readiness without reimporting vectors', async () => {
+  const req = requestWithJson({})
+  const res = responseRecorder()
+  let checks = 0
+  const handled = await handleRagRoutes(
+    req,
+    res,
+    new URL('http://localhost/api/v1/rag/activate'),
+    {
+      getReadiness: async () => {
+        checks += 1
+        return { ready: true, expectedCount: 9975, textCount: 9975, vectorCount: 9975 }
+      },
+    },
+  )
+
+  assert.equal(handled, true)
+  assert.equal(checks, 1)
+  assert.equal(res.statusCode, 200)
+  assert.equal(JSON.parse(res.body).data.vectorCount, 9975)
+})
+
+test('POST RAG items is a Node business route over AI Engine indexing', async () => {
+  const req = requestWithJson({
+    title: '冒充客服退款',
+    text: '对方要求开启屏幕共享并转账到所谓安全账户。',
+    categoryCode: 'new_risk_type',
+    piiConfirmed: true,
+  })
+  const res = responseRecorder()
+  let received
+  const handled = await handleRagRoutes(req, res, new URL('http://localhost/api/v1/rag/items'), {
+    addItem: async input => {
+      received = input
+      return { requestId: 'add-1', risk_text_id: 'manual_1', text_count: 9976, vector_count: 9976 }
+    },
+  })
+
+  assert.equal(handled, true)
+  assert.equal(received.categoryCode, 'new_risk_type')
+  assert.equal(received.piiConfirmed, true)
+  assert.equal(res.statusCode, 201)
+  assert.equal(JSON.parse(res.body).data.vector_count, 9976)
+})
+
+test('POST RAG activation refuses an incomplete knowledge base', async () => {
+  const req = requestWithJson({})
+  const res = responseRecorder()
+  await handleRagRoutes(req, res, new URL('http://localhost/api/v1/rag/activate'), {
+    getReadiness: async () => ({ ready: false, expectedCount: 9975, textCount: 9975, vectorCount: 8000 }),
+  })
+  assert.equal(res.statusCode, 503)
+  assert.equal(JSON.parse(res.body).code, 'RAG_NOT_READY')
+})
+
 test('RAG route does not consume unrelated requests', async () => {
   const handled = await handleRagRoutes(
     { method: 'GET' },
