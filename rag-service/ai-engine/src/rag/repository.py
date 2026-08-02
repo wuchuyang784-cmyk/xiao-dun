@@ -16,6 +16,12 @@ class RiskTextRepository(Protocol):
     def list_map_stats(self) -> dict:
         """Return the explicitly simulated province aggregates for map display."""
 
+    def get_readiness(self) -> dict:
+        """Return knowledge-base row counts used by the UI activation gate."""
+
+    def add_risk_text(self, item: dict, embedding: tuple[float, ...]) -> dict:
+        """Add one publishable manual item and its normalized embedding."""
+
 
 class InMemoryRiskTextRepository:
     def __init__(
@@ -45,3 +51,33 @@ class InMemoryRiskTextRepository:
             "disclaimer": "simulated data",
             "provinces": [],
         }
+
+    def get_readiness(self) -> dict:
+        count = len(self._candidates)
+        return {
+            "ready": True,
+            "status": "ready",
+            "knowledge_base_version": self.knowledge_base_version,
+            "expected_count": count,
+            "text_count": count,
+            "vector_count": count,
+            "embedding_model": self.embedding_model,
+            "embedding_dimension": 0,
+        }
+
+    def add_risk_text(self, item: dict, embedding: tuple[float, ...]) -> dict:
+        del embedding
+        risk_text_id = str(item["risk_text_id"])
+        self._candidates.append(CandidateRiskText(
+            risk_text_id=risk_text_id,
+            title=str(item["title"]),
+            risk_category_code=str(item["category_code"]),
+            risk_category_name=str(item["category_name"]),
+            normalized_text=str(item["text"]),
+            risk_signals=tuple(item.get("risk_signals") or ()),
+            key_phrases=tuple(item.get("key_phrases") or ()),
+            year=item.get("year"),
+            source_dataset=str(item.get("source_dataset") or "manual"),
+        ))
+        count = len(self._candidates)
+        return {"risk_text_id": risk_text_id, "text_count": count, "vector_count": count}

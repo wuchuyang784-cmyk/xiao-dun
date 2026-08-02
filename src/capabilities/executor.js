@@ -16,6 +16,7 @@ import { execManageToolFactory } from './tool-factory.js'
 import { TOOL_SCHEMAS } from './schemas.js'
 import { TOOL_GROUPS } from '../memory/tool-router.js'
 import { findCapabilitiesByQuery } from './capability-registry.js'
+import { HOTSPOT_OPEN_COMMAND, isHotspotOpenCommand } from './hotspot-command.js'
 import { throwIfAborted } from './abort-utils.js'
 import { execUISet } from './tools/scene.js'
 import { SANDBOX_ROOT } from './sandbox.js'
@@ -269,7 +270,7 @@ async function executeToolUnchecked(name, args, context = {}) {
       case 'media_mode':
         return execMediaMode(args)
       case 'hotspot_mode':
-        return execHotspotMode(args)
+        return execHotspotMode(args, context)
       case 'open_doc_panel':
         return execOpenDocPanel(args)
       case 'schedule_reminder':
@@ -581,7 +582,7 @@ function execCapabilityDemo(args = {}, context = {}) {
   })
 }
 
-function execHotspotMode(args = {}) {
+function execHotspotMode(args = {}, context = {}) {
   const action = String(args.action || 'status').trim().toLowerCase()
   if (!['show', 'open', 'hide', 'close', 'toggle', 'status'].includes(action)) {
     return JSON.stringify({ ok: false, tool: 'hotspot_mode', error: 'unsupported action' })
@@ -591,6 +592,14 @@ function execHotspotMode(args = {}) {
   if (action === 'show' || action === 'open') nextActive = true
   if (action === 'hide' || action === 'close') nextActive = false
   if (action === 'toggle') nextActive = !getHotspotPanelState().active
+
+  if (nextActive === true && !isHotspotOpenCommand(context.currentUserMessage)) {
+    return JSON.stringify({
+      ok: false,
+      tool: 'hotspot_mode',
+      error: `hotspot panel can only be opened with ${HOTSPOT_OPEN_COMMAND}`,
+    })
+  }
 
   const state = typeof nextActive === 'boolean'
     ? setHotspotPanelState({ active: nextActive, source: 'agent_tool' })

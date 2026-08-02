@@ -22,7 +22,11 @@ export function initChat({
   getAgentName,
   defaultInputPlaceholder,
   onUserMessage = null,
-  openSettings = null,
+  openSettings = null,
+
+  openHotspot = null,
+  openRag = null,
+  openRagManager = null,
 } = {}) {
   const chatHistory = document.getElementById("chat-history");
   const chatMessages = document.getElementById("chat-messages");
@@ -580,7 +584,29 @@ export function initChat({
       run: () => openSettings?.("voice"),
     },
     {
-      cmd: "/help", keys: ["help", "帮助", "命令"],
+      cmd: "/hot", keys: ["hot", "热点", "实时热点", "全球热点"],
+
+      label: "实时热点", desc: "打开全球实时热点",
+
+      run: () => openHotspot?.(),
+
+    },
+
+    {
+
+      cmd: "/rag", keys: ["rag", "知识库", "向量库", "反诈地图"],
+      label: "RAG 知识库", desc: "导入RAG数据并且展示",
+      run: () => openRag?.(),
+    },
+
+    {
+      cmd: "/rag-manage", keys: ["rag-manage", "manager", "管理", "添加数据"],
+      label: "RAG Manager", desc: "管理RAG知识库并添加数据",
+      run: () => openRagManager?.(),
+    },
+
+    {
+      cmd: "/help", keys: ["help", "帮助", "命令"],
       label: "查看全部命令", desc: "列出所有可用斜杠命令",
       run: showSlashHelp,
     },

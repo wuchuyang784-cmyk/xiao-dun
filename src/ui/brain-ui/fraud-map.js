@@ -213,6 +213,7 @@ export function initFraudMap() {
   let destroyed = false
   let reconcileTimer = null
   let pulseTimer = null
+  let active = false
   const seenCases = new Set()
 
   function render(state) {
@@ -222,7 +223,7 @@ export function initFraudMap() {
     chart.setOption(createMapOptions(state), { notMerge: true, lazyUpdate: true })
   }
 
-  async function reconcile() {
+  async function reconcile({ throwOnError = false } = {}) {
     const controller = new AbortController()
     try {
       const snapshot = await fetchFraudSnapshot({ signal: controller.signal })
@@ -233,12 +234,16 @@ export function initFraudMap() {
       store.setSnapshot(snapshot)
       store.setCases(items)
       items.forEach(item => seenCases.add(item.caseId))
+      return snapshot
     } catch (error) {
       if (!destroyed) store.setError(error)
+      if (throwOnError) throw error
+      return null
     }
   }
 
   function onSseEvent(event) {
+    if (!active) return
     const { type, data } = event.detail || {}
     if (type === 'fraud_case_created' && data?.caseId) {
       if (store.getState().snapshot?.isSimulated) return
@@ -298,8 +303,6 @@ export function initFraudMap() {
     }).catch(error => store.setError(error))
   }
 
-  void reconcile()
-  reconcileTimer = setInterval(reconcile, SNAPSHOT_RECONCILE_INTERVAL_MS)
   pulseTimer = setInterval(() => {
     const state = store.getState()
     if (state.recentPulses.length) store.clearPulses()

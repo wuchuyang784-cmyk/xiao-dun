@@ -61,6 +61,10 @@ export const API_PATHS = {
     feedback: (reportId: string) => apiPath(`${API_BASE}/reports/${reportId}/feedback`),
   },
   fraud: {
+    rag: {
+      activate: apiPath(`${API_BASE}/rag/activate`),
+      items: apiPath(`${API_BASE}/rag/items`),
+    },
     statistics: {
       provinces: apiPath(`${API_BASE}/fraud-statistics/provinces`),
     },
@@ -131,6 +135,8 @@ export const INTERNAL_API_PATHS = {
   },
   rag: {
     search: internalPath(`${INTERNAL_API_BASE}/rag/search`),
+    readiness: internalPath(`${INTERNAL_API_BASE}/rag/readiness`),
+    items: internalPath(`${INTERNAL_API_BASE}/rag/items`),
   },
   model: {
     chat: internalPath(`${INTERNAL_API_BASE}/model/chat`),

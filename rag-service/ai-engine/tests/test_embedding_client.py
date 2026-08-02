@@ -29,6 +29,17 @@ class SentenceTransformerEmbeddingClientTest(unittest.TestCase):
         self.assertEqual(vector, (0.6, 0.8))
         self.assertTrue(fake.kwargs["normalize_embeddings"])
 
+    def test_document_embedding_matches_seed_corpus_without_query_instruction(self):
+        client = SentenceTransformerEmbeddingClient()
+        fake = FakeModel()
+        client._model = fake
+
+        vector = client.embed_document("标题 分类 危险文本", "req_2")
+
+        self.assertEqual(fake.last_text, "标题 分类 危险文本")
+        self.assertEqual(vector, (0.6, 0.8))
+        self.assertTrue(fake.kwargs["normalize_embeddings"])
+
 
 if __name__ == "__main__":
     unittest.main()
