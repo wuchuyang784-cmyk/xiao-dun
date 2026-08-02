@@ -18,8 +18,6 @@ function toCase(row) {
     reviewStatus: row.review_status || 'approved',
     version: row.version || 1,
     source: row.source || '',
-    vectorIndexed: Number(row.vector_indexed || 0) === 1,
-    indexedAt: row.indexed_at || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -29,9 +27,9 @@ const insertSql = `
   INSERT INTO fraud_cases (
     case_id, province_code, province_name, longitude, latitude,
     fraud_type, risk_level, loss_amount, status, occurred_at,
-    summary, content, review_status, version, source, vector_indexed,
+    summary, content, review_status, version, source,
     created_at, updated_at
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 export function insertFraudCase(item, { ignoreConflict = false } = {}) {
@@ -62,15 +60,15 @@ export function insertFraudCase(item, { ignoreConflict = false } = {}) {
 
 export function upsertFraudCase(item) {
   const db = getDB()
-  const existing = db.prepare('SELECT case_id, created_at, vector_indexed FROM fraud_cases WHERE case_id = ?').get(item.caseId)
+  const existing = db.prepare('SELECT case_id, created_at FROM fraud_cases WHERE case_id = ?').get(item.caseId)
   const now = new Date().toISOString()
   db.prepare(`
     INSERT INTO fraud_cases (
       case_id, province_code, province_name, longitude, latitude,
       fraud_type, risk_level, loss_amount, status, occurred_at,
-      summary, content, review_status, version, source, vector_indexed,
+      summary, content, review_status, version, source,
       created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(case_id) DO UPDATE SET
       province_code = excluded.province_code,
       province_name = excluded.province_name,
@@ -88,10 +86,23 @@ export function upsertFraudCase(item) {
       source = excluded.source,
       updated_at = excluded.updated_at
   `).run(
-    item.caseId, item.provinceCode, item.provinceName, item.longitude, item.latitude,
-    item.fraudType, item.riskLevel, item.lossAmount, item.status, item.occurredAt,
-    item.summary, item.content || '', item.reviewStatus || 'approved', item.version || 1, item.source || '',
-    existing?.created_at || now, now,
+    item.caseId,
+    item.provinceCode,
+    item.provinceName,
+    item.longitude,
+    item.latitude,
+    item.fraudType,
+    item.riskLevel,
+    item.lossAmount,
+    item.status,
+    item.occurredAt,
+    item.summary,
+    item.content || '',
+    item.reviewStatus || 'approved',
+    item.version || 1,
+    item.source || '',
+    existing?.created_at || now,
+    now,
   )
   return { created: !existing, updated: Boolean(existing) }
 }
@@ -132,20 +143,6 @@ export function getFraudProvinceStatistics() {
   }]))
 }
 
-export function markCaseIndexed(caseId) {
-  getDB().prepare('UPDATE fraud_cases SET vector_indexed = 1, indexed_at = ? WHERE case_id = ?')
-    .run(new Date().toISOString(), caseId)
-}
-
-export function getPendingIndexCases(limit = 100000) {
-  return getDB().prepare('SELECT * FROM fraud_cases WHERE vector_indexed = 0 ORDER BY id ASC LIMIT ?')
-    .all(limit).map(toCase)
-}
-
 export function countFraudCases() {
   return Number(getDB().prepare('SELECT COUNT(*) AS n FROM fraud_cases').get()?.n || 0)
-}
-
-export function countPendingIndex() {
-  return Number(getDB().prepare('SELECT COUNT(*) AS n FROM fraud_cases WHERE vector_indexed = 0').get()?.n || 0)
 }

@@ -11,9 +11,13 @@ export async function handleRagRoutes(req, res, url, {
       const data = await getMapStats()
       jsonResponse(res, 200, { code: 0, message: 'success', data })
       return true
-    } catch {
-      // Let the existing SQLite fraud route provide a resilient fallback.
-      return false
+    } catch (error) {
+      jsonResponse(res, error?.statusCode || 503, {
+        code: error?.code || 'RAG_MAP_STATS_FAILED',
+        message: error?.message || 'anti-fraud statistics are unavailable',
+        data: null,
+      })
+      return true
     }
   }
 

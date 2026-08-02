@@ -114,6 +114,10 @@ def create_app(
 
     @app.get("/internal/v1/ai/health")
     def health() -> dict:
+        try:
+            risk_text_repository.list_map_stats()
+        except RuntimeError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
         return {
             "code": 0,
             "message": "success",
