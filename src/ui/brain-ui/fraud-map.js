@@ -297,7 +297,8 @@ export function initFraudMap() {
       if (destroyed) return
       charting.registerMap('china', geoJson)
       mapReady = true
-      render(store.getState())
+      // 首次加载即拉取数据，避免等 1 小时定时器
+      void reconcile().then(() => render(store.getState())).catch(() => render(store.getState()))
     }).catch(error => store.setError(error))
   }
 
