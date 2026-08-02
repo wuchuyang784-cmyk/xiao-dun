@@ -17,7 +17,6 @@ import { mediaSchemas } from '../capabilities/schemas/media.js'
 import { memorySchemas } from '../capabilities/schemas/memory.js'
 import { uiSchemas } from '../capabilities/schemas/ui.js'
 import { taskSchemas } from '../capabilities/schemas/task.js'
-import { reviewSchemas } from '../capabilities/schemas/review.js'
 import { remindersSchemas } from '../capabilities/schemas/reminders.js'
 import { agentsSchemas } from '../capabilities/schemas/agents.js'
 import { systemSchemas } from '../capabilities/schemas/system.js'
@@ -33,7 +32,6 @@ const TOOL_CATEGORIES = [
   { label: '记忆', schemas: memorySchemas },
   { label: '界面 / 面板', schemas: uiSchemas },
   { label: '任务与节奏', schemas: taskSchemas },
-  { label: '成果审视', schemas: reviewSchemas },
   { label: '提醒与预取', schemas: remindersSchemas },
   { label: 'Agent 委派 / 工具市场', schemas: agentsSchemas },
   { label: '系统与规则', schemas: systemSchemas },
