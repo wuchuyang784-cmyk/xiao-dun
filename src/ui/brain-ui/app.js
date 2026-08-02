@@ -166,6 +166,8 @@ function applyTheme(theme) {
   document.querySelectorAll(".theme-dot").forEach(el => {
     el.classList.toggle("active", el.dataset.t === theme);
   });
+  // 主题色变了，ECharts 渲染的地图配色需要重读 CSS 变量
+  fraudMap?.refresh?.();
 }
 
 (function initTheme() {

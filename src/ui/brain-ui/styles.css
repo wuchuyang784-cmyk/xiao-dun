@@ -25,6 +25,21 @@
   --shadow-console: 0 12px 32px rgba(0, 0, 0, 0.22);
   --shadow-pop: 0 8px 22px rgba(0, 0, 0, 0.20);
   --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  /* 诈骗案例地图色阶（热力图 + 省份填充） */
+  --map-low: #142b4a;
+  --map-mid: #1d5f79;
+  --map-high: #ffbe6b;
+  --map-area: #142437;
+  --map-border: rgba(130, 180, 224, 0.44);
+  --map-hover: #286d91;
+  --map-selected: #ff9f1c;
+  --map-selected-border: #ffe4a3;
+  --map-pulse: #ff9f1c;
+  --map-risk-low: #4f8cff;
+  --map-risk-medium: #ffbe6b;
+  --map-risk-high: #ff7b72;
+  --map-risk-critical: #ff3d71;
+  --map-risk-unknown: #a2adbd;
 }
 
 [data-theme="phosphor"] {
@@ -38,6 +53,14 @@
   --glow-tint1: rgba(140, 220, 140, 0.08);
   --glow-tint2: rgba(240, 200, 102, 0.05);
   --link-stroke: rgba(140, 220, 140, 0.18);
+  --map-low: #0a2018; --map-mid: #2d6b48; --map-high: #f0c866;
+  --map-area: #0a160e; --map-border: rgba(159, 224, 154, 0.40);
+  --map-hover: #3a8a5a;
+  --map-selected: #f0c866; --map-selected-border: #fff6c2;
+  --map-pulse: #f0c866;
+  --map-risk-low: #9fe09a; --map-risk-medium: #f0c866;
+  --map-risk-high: #ffa066; --map-risk-critical: #ff5c4a;
+  --map-risk-unknown: #4a6b4e;
 }
 
 [data-theme="violet"] {
@@ -51,6 +74,14 @@
   --glow-tint1: rgba(170, 140, 240, 0.09);
   --glow-tint2: rgba(120, 224, 200, 0.06);
   --link-stroke: rgba(170, 140, 240, 0.20);
+  --map-low: #1a1238; --map-mid: #5e4a9a; --map-high: #b098f0;
+  --map-area: #150f2a; --map-border: rgba(176, 152, 240, 0.40);
+  --map-hover: #6a52b8;
+  --map-selected: #b098f0; --map-selected-border: #e4deff;
+  --map-pulse: #b098f0;
+  --map-risk-low: #b098f0; --map-risk-medium: #78e0c8;
+  --map-risk-high: #f08aaa; --map-risk-critical: #ff5c8a;
+  --map-risk-unknown: #645b8a;
 }
 
 [data-theme="rose"] {
@@ -64,6 +95,14 @@
   --glow-tint1: rgba(230, 160, 170, 0.08);
   --glow-tint2: rgba(242, 194, 122, 0.06);
   --link-stroke: rgba(230, 160, 170, 0.20);
+  --map-low: #2a1620; --map-mid: #7a4660; --map-high: #f2c27a;
+  --map-area: #22101a; --map-border: rgba(232, 154, 168, 0.40);
+  --map-hover: #8a4a66;
+  --map-selected: #f2c27a; --map-selected-border: #fff0d0;
+  --map-pulse: #f2c27a;
+  --map-risk-low: #e89aa8; --map-risk-medium: #f2c27a;
+  --map-risk-high: #ff7b72; --map-risk-critical: #ff3d71;
+  --map-risk-unknown: #7a5a61;
 }
 
 [data-theme="arctic"] {
@@ -77,6 +116,14 @@
   --glow-tint1: rgba(58, 106, 143, 0.05);
   --glow-tint2: rgba(184, 90, 58, 0.04);
   --link-stroke: rgba(40, 60, 85, 0.18);
+  --map-low: #2a4a6e; --map-mid: #5a8ab0; --map-high: #b85a3a;
+  --map-area: #dfe4ea; --map-border: rgba(40, 60, 85, 0.32);
+  --map-hover: #8aafd0;
+  --map-selected: #b85a3a; --map-selected-border: #fff0d0;
+  --map-pulse: #b85a3a;
+  --map-risk-low: #3a6a8f; --map-risk-medium: #d49a4a;
+  --map-risk-high: #c85040; --map-risk-critical: #b03030;
+  --map-risk-unknown: #8a98a8;
   --shadow-soft: 0 14px 36px rgba(30, 45, 65, 0.10);
   --shadow-console: 0 10px 28px rgba(30, 45, 65, 0.12);
   --shadow-pop: 0 6px 18px rgba(30, 45, 65, 0.12);
@@ -93,6 +140,14 @@
   --glow-tint1: rgba(122, 90, 44, 0.06);
   --glow-tint2: rgba(200, 80, 46, 0.05);
   --link-stroke: rgba(70, 55, 35, 0.18);
+  --map-low: #8a6a44; --map-mid: #c0865a; --map-high: #c8502e;
+  --map-area: #eae2d2; --map-border: rgba(70, 55, 35, 0.30);
+  --map-hover: #d8b890;
+  --map-selected: #c8502e; --map-selected-border: #ffd8a8;
+  --map-pulse: #c8502e;
+  --map-risk-low: #7a5a2c; --map-risk-medium: #c0865a;
+  --map-risk-high: #c8502e; --map-risk-critical: #a03020;
+  --map-risk-unknown: #9e917c;
   --shadow-soft: 0 14px 36px rgba(70, 55, 35, 0.10);
   --shadow-console: 0 10px 28px rgba(70, 55, 35, 0.12);
   --shadow-pop: 0 6px 18px rgba(70, 55, 35, 0.12);
