@@ -580,11 +580,50 @@ export function initChat({
       run: () => openSettings?.("voice"),
     },
     {
+      cmd: "/每日提醒", keys: ["daily_tip", "每日", "提醒", "反诈科普", "today tip"],
+      label: "每日反诈提醒", desc: "获取今日反诈知识与科普",
+      run: () => send({ text: "/每日提醒" }),
+    },
+    {
+      cmd: "/诈骗情报", keys: ["fraud_intel", "诈骗情报", "新型诈骗", "诈骗案例", "诈骗趋势"],
+      label: "诈骗情报采集", desc: "查看最新诈骗案例与趋势预警",
+      run: () => send({ text: "/诈骗情报" }),
+    },
+    {
+      cmd: "/举报", keys: ["report_fraud", "举报", "报案", "投诉", "fraud report"],
+      label: "反诈举报指引", desc: "获取举报渠道与证据保全指引",
+      run: () => send({ text: "/举报" }),
+    },
+    {
+      cmd: "/查法规", keys: ["search_law", "法规", "法律", "条文", "量刑", "law"],
+      label: "反诈法律查询", desc: "搜索反诈相关法律条文（可跟关键词）",
+      run: () => fillSlash("/查法规 "),
+    },
+    {
+      cmd: "/查二维码", keys: ["check_qrcode", "二维码", "扫码", "链接安全", "qrcode"],
+      label: "二维码/链接检测", desc: "检测二维码或链接的安全性（可跟链接）",
+      run: () => fillSlash("/查二维码 "),
+    },
+    {
+      cmd: "/核实身份", keys: ["verify_identity", "核实身份", "身份核实", "号码查询", "归属地"],
+      label: "身份风险核实", desc: "核实可疑身份、号码或对话的风险（可跟内容）",
+      run: () => fillSlash("/核实身份 "),
+    },
+    {
       cmd: "/help", keys: ["help", "帮助", "命令"],
       label: "查看全部命令", desc: "列出所有可用斜杠命令",
       run: showSlashHelp,
     },
   ];
+
+  // 填充斜杠命令到输入框，等待用户补充参数后发送
+  function fillSlash(cmd) {
+    msgInput.value = cmd;
+    autoGrowInput();
+    msgInput.focus();
+    const len = msgInput.value.length;
+    msgInput.setSelectionRange(len, len);
+  }
 
   let slashItems = [];    // 当前过滤后的命令
   let slashActive = -1;   // 当前高亮索引

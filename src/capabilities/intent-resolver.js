@@ -32,6 +32,21 @@ const EXPLICIT_COMMANDS = {
   '/天气': 'weather',
   '/web': 'web',
   '/上网': 'web',
+  // 反诈功能 #2 — 诈骗情报
+  '/fraud_intel': 'fraud-intel',
+  '/诈骗情报': 'fraud-intel',
+  // 反诈功能 #3 — 每日提醒
+  '/daily_tip': 'daily-tip',
+  '/每日提醒': 'daily-tip',
+  // 反诈功能 #4 — 反诈工具箱（4 个工具共用一个能力）
+  '/report_fraud': 'fraud-toolkit',
+  '/举报': 'fraud-toolkit',
+  '/search_law': 'fraud-toolkit',
+  '/查法规': 'fraud-toolkit',
+  '/check_qrcode': 'fraud-toolkit',
+  '/查二维码': 'fraud-toolkit',
+  '/verify_identity': 'fraud-toolkit',
+  '/核实身份': 'fraud-toolkit',
 }
 
 // 纯闲聊 / 无意义短消息：这些永远不需要打开面板，直接跳过 LLM 兜底分类以省延迟。
