@@ -32,6 +32,8 @@ import { execAnalyzeImage, execManageApiCapability, execRunApiCapability } from 
 import { execManageRule } from './tools/rules.js'
 import { execFraudRuleScreen } from './tools/fraud-rule.js'
 import { execFraudIntel } from './tools/fraud-intel.js'
+import { execGetDailyTip } from './tools/daily-tip.js'
+import { execReportFraud, execSearchLaw, execCheckQrcode, execVerifyIdentity } from './tools/fraud-toolkit.js'
 import { execGenerateImage, execMediaMode } from './tools/media.js'
 import { execSearchFraudCases } from './tools/fraud.js'
 import { runWorkReview } from '../review/reviewer.js'
@@ -284,6 +286,16 @@ async function executeToolUnchecked(name, args, context = {}) {
         return execFraudRuleScreen(args)
       case 'fraud_intel':
         return await execFraudIntel(args)
+      case 'get_daily_tip':
+        return execGetDailyTip(args)
+      case 'report_fraud':
+        return execReportFraud(args)
+      case 'search_law':
+        return execSearchLaw(args)
+      case 'check_qrcode':
+        return execCheckQrcode(args)
+      case 'verify_identity':
+        return execVerifyIdentity(args)
       case 'ui_set':
         return execUISet(args)
       case 'capability_demo':

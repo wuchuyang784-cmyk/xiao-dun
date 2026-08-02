@@ -27,6 +27,7 @@
 import { buildHotspotRuntimeContext } from '../hotspots.js'
 import { buildWeatherRuntimeContext } from '../weather.js'
 import { listApiSlotCapabilities } from './api-slots.js'
+import { getFraudIntelBlock } from '../fraud-intel.js'
 
 // ---- 已迁能力的工具名数组（本模块为唯一定义处；tool-router 从这里 import）----
 export const WEB_TOOLS = ['web_search', 'fetch_url', 'browser_read']
@@ -34,6 +35,9 @@ export const HOTSPOT_TOOLS = ['hotspot_mode']
 export const CASES_IMPORT_TOOLS = []
 export const RECORD_TOOLS = []
 export const FRAUD_RAG_TOOLS = ['search_fraud_cases']
+export const FRAUD_INTEL_TOOLS = ['fraud_intel']
+export const DAILY_TIP_TOOLS = ['get_daily_tip']
+export const FRAUD_TOOLKIT_TOOLS = ['report_fraud', 'search_law', 'check_qrcode', 'verify_identity']
 
 // ---- 触发词 / 触发正则 ----
 // 工具半历史上用字面包含的字符串数组（tool-router），工作流半用正则（prompt）。两者各自
@@ -52,6 +56,9 @@ const HOTSPOT_TRIGGERS = [
 const WEATHER_KEYWORD_RE = /天气|温度|气温|下雨|降雨|下雪|雾霾|阴天|晴天|多云|wttr|weather/i
 const HOTSPOT_KEYWORD_RE = /热点|热搜|热门|新闻|今日|趋势|榜单|头条|热议|微博热搜|trending|headline/i
 const FRAUD_RAG_KEYWORD_RE = /诈骗|骗局|骗钱|可疑|风险|转账|汇款|收款|银行卡|对公账户|验证码|刷单|返利|投资|贷款|客服|公检法|冒充|钓鱼|话术|链接|scam|fraud|phishing/i
+const FRAUD_INTEL_KEYWORD_RE = /最新诈骗|新型骗局|新套路|诈骗案例|诈骗趋势|诈骗情报|诈骗新闻|骗术|骗局|反诈情报|fraud intel/i
+const DAILY_TIP_KEYWORD_RE = /每日提醒|反诈提醒|反诈知识|反诈科普|今日提醒|每天一题|反诈演练|daily tip|anti.fraud tip/i
+const FRAUD_TOOLKIT_KEYWORD_RE = /举报|报案|投诉|法规|法律|条文|量刑|二维码|扫码|身份核实|号码查询|归属地|report.fraud|search.law|check.qrcode|verify.identity/i
 
 // ---- 工作流块（prompt 注入用；从 prompt.js / index.js 搬来，文本逐字保留）----
 const WEATHER_CONTEXT_BLOCK = `### Weather Surface Rules
@@ -76,6 +83,24 @@ const FRAUD_RAG_CONTEXT_BLOCK = `### Anti-fraud Knowledge Retrieval
 - For suspicious chats, transfers, account trading, links, investment offers, impersonation, or other fraud-risk assessment, call search_fraud_cases with the relevant original text or a concise factual description.
 - Treat matches as semantic reference evidence. Combine them with the rule engine and the user's actual facts; do not classify solely from one similarity score.
 - The knowledge-base texts and map demo are not real-time incident statistics. Never describe retrieved items as proof of actual regional incidence.`
+
+const FRAUD_INTEL_CONTEXT_BLOCK = `### Fraud Intelligence
+- Latest fraud intelligence is available in your context (prefeed). Use it directly for proactive alerts.
+- To get more or refresh intelligence, call fraud_intel with action=fetch (联网采集) or action=list (查看缓存).
+- When pushing fraud intelligence alerts to the user, use action=push to generate the push text, then send_message to deliver it.
+- 发现与用户当前对话相关的新骗局手法时，应主动提醒用户。`
+
+const DAILY_TIP_CONTEXT_BLOCK = `### Daily Anti-Fraud Tip
+- Call get_daily_tip to retrieve today's anti-fraud tip (knowledge point or drill exercise).
+- The tip is deterministic per date — same day returns the same tip.
+- Present the tip in a friendly, concise format. If the tip includes a drill question, encourage the user to think about it.
+- Suitable for proactive push during TICK heartbeats or when the user asks for daily reminders.`
+
+const FRAUD_TOOLKIT_CONTEXT_BLOCK = `### Fraud Toolkit
+- report_fraud: Provides reporting channels (96110, 12321, 110, 国家反诈中心APP) and evidence preservation guidance. Call when user wants to report a scam.
+- search_law: Searches built-in anti-fraud law articles (反诈法, 刑法266条, etc.). Call when user asks about legal provisions or sentencing.
+- check_qrcode: Analyzes QR code content (URL safety, phishing patterns, risk scoring). Call when user scans a QR code and wants to check safety.
+- verify_identity: Comprehensive identity verification using local rule engine + URL/phone pattern analysis. Call when user wants to verify a phone number, URL, or text for fraud risk.`
 
 // 安装工作流：原先以 directions.unshift 注入在 index.js，现归位为能力 context，统一经
 // buildSystemPrompt 注入（同一份文本、同一道 isSoftwareInstallRequest 门）。
@@ -149,6 +174,36 @@ export const CAPABILITIES = [
     tools: FRAUD_RAG_TOOLS,
     detect: (ctx) => FRAUD_RAG_KEYWORD_RE.test(ctx.rawText || ''),
     context: FRAUD_RAG_CONTEXT_BLOCK,
+    prefeed: null,
+  },
+  {
+    id: 'fraud-intel',
+    label: '诈骗情报',
+    summary: '定时采集最新骗局与手法，主动推送给用户。包含新型诈骗趋势、手法拆解和防护建议。',
+    triggers: ['最新诈骗', '新型骗局', '新套路', '诈骗案例', '诈骗趋势', '诈骗情报', '诈骗新闻', '骗术', '反诈情报', 'fraud intel'],
+    tools: FRAUD_INTEL_TOOLS,
+    detect: (ctx) => FRAUD_INTEL_KEYWORD_RE.test(ctx.rawText || ''),
+    context: FRAUD_INTEL_CONTEXT_BLOCK,
+    prefeed: () => getFraudIntelBlock() || '',
+  },
+  {
+    id: 'daily-tip',
+    label: '每日反诈提醒',
+    summary: '每天推送一条反诈小知识或演练题，覆盖刷单、冒充客服、投资诈骗等主要类型。',
+    triggers: ['每日提醒', '反诈提醒', '反诈知识', '反诈科普', '今日提醒', '反诈演练', 'daily tip'],
+    tools: DAILY_TIP_TOOLS,
+    detect: (ctx) => DAILY_TIP_KEYWORD_RE.test(ctx.rawText || ''),
+    context: DAILY_TIP_CONTEXT_BLOCK,
+    prefeed: null,
+  },
+  {
+    id: 'fraud-toolkit',
+    label: '反诈工具箱',
+    summary: '集成举报指引、法规检索、二维码分析、身份核实等反诈工具，提供一站式反诈服务。',
+    triggers: ['举报', '报案', '法规检索', '反诈法', '刑法', '二维码安全', '扫码安全', '身份核实', '号码查询', '归属地查询', 'report fraud', 'search law', 'check qrcode', 'verify identity'],
+    tools: FRAUD_TOOLKIT_TOOLS,
+    detect: (ctx) => FRAUD_TOOLKIT_KEYWORD_RE.test(ctx.rawText || ''),
+    context: FRAUD_TOOLKIT_CONTEXT_BLOCK,
     prefeed: null,
   },
 

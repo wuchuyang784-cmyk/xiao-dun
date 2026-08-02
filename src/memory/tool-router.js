@@ -75,6 +75,11 @@ const ADMIN_TOOLS       = [
   'manage_api_capability',
   'fraud_rule_screen',
   'fraud_intel',
+  'get_daily_tip',
+  'report_fraud',
+  'search_law',
+  'check_qrcode',
+  'verify_identity',
 ]
 const INLINE_IMAGE_RE = /!\[[^\]]*]\(|\/media\/chat\/|data:image\//i
 const API_KEY_RE = /\b(?:sk|ak|rk|pk|ark)-[A-Za-z0-9_\-.]{12,180}\b/i
@@ -159,6 +164,20 @@ const FRAUD_INTEL_TRIGGERS = [
   'fraud cases', 'scam cases', '诈骗案例库', '案例采集', '情报采集',
 ]
 
+const DAILY_TIP_TRIGGERS = [
+  '每日提醒', '反诈提醒', '反诈知识', '反诈科普', '今日提醒',
+  '每天一题', '反诈演练', '今天提醒', '每日一题',
+  'daily tip', 'anti fraud tip', 'daily reminder',
+]
+
+const FRAUD_TOOLKIT_TRIGGERS = [
+  '举报诈骗', '报案', '报警', '举报', '投诉诈骗',
+  '法规检索', '反诈法', '刑法', '法律条文', '量刑标准', '诈骗罪',
+  '二维码安全', '扫码安全', '二维码检测',
+  '身份核实', '号码查询', '归属地查询', '号码安全',
+  'report fraud', 'search law', 'check qrcode', 'verify identity',
+]
+
 // 触发词 → 工具组的单一数据源。selectTools（按轮注入）和 find_tool（模型主动搜工具）
 // 共用它，避免两处各维护一份中文关键词。注：CORE / task / memory / 多模态 mmCaps gate 等
 // 特殊注入逻辑仍在 selectTools 里，这里只收录"纯关键词触发的专业组"，正好是 find_tool 要搜的范围。
@@ -175,6 +194,8 @@ export const TOOL_GROUPS = [
   { triggers: CAPABILITY_DEMO_TRIGGERS, tools: CAPABILITY_DEMO_TOOLS },
   { triggers: ADMIN_TRIGGERS,        tools: ADMIN_TOOLS },
   { triggers: FRAUD_INTEL_TRIGGERS,  tools: ['fraud_intel'] },
+  { triggers: DAILY_TIP_TRIGGERS,    tools: ['get_daily_tip'] },
+  { triggers: FRAUD_TOOLKIT_TRIGGERS, tools: ['report_fraud', 'search_law', 'check_qrcode', 'verify_identity'] },
 ]
 
 // 通用辅助：消息正文里是否含有给定触发词之一（lower-case 包含）。
