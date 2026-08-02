@@ -772,6 +772,23 @@ function handle({ type, data = {} }) {
     case "key_configured":
       chat.deleteLastUserMsg();
       break;
+    case "fraud_intel_update": {
+      // 诈骗情报定时采集发现新案例，主动推送给用户
+      const cases = data.cases || [];
+      if (cases.length === 0) break;
+      const lines = ["【反诈情报更新】检测到 " + data.new_count + " 条新诈骗案例："];
+      cases.forEach((c, i) => {
+        lines.push("");
+        lines.push((i + 1) + ". [" + c.type + "] " + c.title);
+        if (c.summary) lines.push("   " + c.summary.slice(0, 150));
+        if (c.source) lines.push("   来源：" + c.source);
+      });
+      lines.push("");
+      lines.push("请留意以上新型诈骗手法，保护好个人信息和资金安全。");
+      addMsg("jarvis", lines.join("\n"), { source: "fraud_intel" });
+      openChat(true);
+      break;
+    }
     default:
       break;
   }

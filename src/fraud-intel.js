@@ -23,6 +23,8 @@
 import fs from 'fs'
 import path from 'path'
 import { paths } from './paths.js'
+import { emitEvent } from './events.js'
+import { pushMessage } from './inbound-message.js'
 
 const INTEL_FILE     = path.join(paths.dataDir, 'fraud-intel.json')
 const INTEL_VERSION  = 1
@@ -366,4 +368,122 @@ export function getFraudIntelCache() {
  */
 export function getFraudCategories() {
   return FRAUD_CATEGORIES.map(c => ({ id: c.id, type: c.type }))
+}
+
+// ─── 定时调度器：定时采集 + 主动推送 ────────────────────────────────────────
+
+let _schedulerTimer = null
+let _lastCaseTitles = null  // 上次采集的案例标题集合，用于检测新增
+
+// 从采集结果中提取所有案例标题，用于对比是否有新案例
+function extractCaseTitles(result) {
+  if (!result?.categories) return new Set()
+  const titles = new Set()
+  for (const cat of result.categories) {
+    for (const item of cat.cases || []) {
+      if (item.title) titles.add(item.title)
+    }
+  }
+  return titles
+}
+
+// 找出新案例（当前有但上次没有的）
+function findNewCases(lastTitles, result) {
+  if (!lastTitles || lastTitles.size === 0) return []
+  const newCases = []
+  for (const cat of result.categories || []) {
+    for (const item of cat.cases || []) {
+      if (item.title && !lastTitles.has(item.title)) {
+        newCases.push({ ...item, category: cat.type })
+      }
+    }
+  }
+  return newCases
+}
+
+// 把新案例整理成推送文案
+function buildPushText(newCases) {
+  if (newCases.length === 0) return ''
+  const lines = ['【反诈情报更新】检测到 ' + newCases.length + ' 条新诈骗案例：']
+  newCases.slice(0, 5).forEach((c, i) => {
+    lines.push((i + 1) + '. [' + c.category + '] ' + c.title)
+    if (c.summary) lines.push('   ' + c.summary.slice(0, 120))
+  })
+  if (newCases.length > 5) lines.push('...及其他 ' + (newCases.length - 5) + ' 条')
+  lines.push('')
+  lines.push('请留意以上新型诈骗手法，保护好个人信息和资金安全。')
+  return lines.join('\n')
+}
+
+/**
+ * 启动定时采集调度器。
+ * 每 intervalHours 小时强制刷新一次，发现新案例时主动推送给用户。
+ * @param {number} intervalHours  采集间隔（小时），默认 6
+ */
+export function startFraudIntelScheduler(intervalHours = 6) {
+  if (_schedulerTimer) {
+    console.log('[fraud-intel] 调度器已在运行，跳过')
+    return
+  }
+
+  const intervalMs = intervalHours * 60 * 60 * 1000
+
+  // 立即采集一次（如果缓存过期）
+  collectFraudIntel().then(result => {
+    if (result?.categories) {
+      _lastCaseTitles = extractCaseTitles(result)
+      console.log('[fraud-intel] 初始采集完成，记录 ' + _lastCaseTitles.size + ' 条案例基线')
+    }
+  }).catch(() => {})
+
+  // 定时采集
+  _schedulerTimer = setInterval(async () => {
+    try {
+      console.log('[fraud-intel] 定时采集触发...')
+      const result = await collectFraudIntel({ force: true })
+      const newTitles = extractCaseTitles(result)
+      const newCases = findNewCases(_lastCaseTitles, result)
+
+      if (newCases.length > 0) {
+        // 1. SSE 事件推给前端（实时通知卡片）
+        emitEvent('fraud_intel_update', {
+          new_count: newCases.length,
+          total_cases: result.total_cases,
+          fetched_at: result.fetched_at,
+          cases: newCases.slice(0, 5).map(c => ({
+            type: c.category,
+            title: c.title,
+            source: c.source,
+            summary: (c.summary || '').slice(0, 200),
+          })),
+        })
+        // 2. pushMessage 让 Agent 在下个 TICK 看到，可主动在对话里提醒用户
+        const pushText = buildPushText(newCases)
+        pushMessage('SYSTEM', pushText, 'FRAUD_INTEL', {})
+        console.log('[fraud-intel] 检测到 ' + newCases.length + ' 条新案例，已推送')
+      } else {
+        console.log('[fraud-intel] 定时采集完成，无新案例')
+      }
+
+      _lastCaseTitles = newTitles
+    } catch (err) {
+      console.log('[fraud-intel] 定时采集失败: ' + (err?.message || err))
+    }
+  }, intervalMs)
+
+  // 防止 setInterval 阻止进程退出
+  if (_schedulerTimer.unref) _schedulerTimer.unref()
+
+  console.log('[fraud-intel] 定时调度器已启动，每 ' + intervalHours + ' 小时采集一次')
+}
+
+/**
+ * 停止定时调度器。
+ */
+export function stopFraudIntelScheduler() {
+  if (_schedulerTimer) {
+    clearInterval(_schedulerTimer)
+    _schedulerTimer = null
+    console.log('[fraud-intel] 定时调度器已停止')
+  }
 }
