@@ -881,7 +881,7 @@ initFeishuPopup();
   let volcAsrKeyVisible = false;
   let volcAsrSaveTimer = null;
   let volcAsrSaveRequest = 0;
-  const agentNameRe = /^[\\p{L}\\p{N} _-]+$/u;
+  const agentNameRe = /^[\p{L}\p{N} _-]+$/u;
   const CUSTOM_MODEL_VALUE = "__custom_model__";
 
   overlay.querySelectorAll(".settings-nav-item").forEach(btn => {
@@ -1688,6 +1688,7 @@ initFeishuPopup();
 
   function openSettings(tab = null) {
     overlay.hidden = false;
+    overlay.querySelectorAll(".theme-switcher").forEach(el => el.classList.add("visible"));
     loadSettings();
     loadVoiceSettings();
     if (tab) {
