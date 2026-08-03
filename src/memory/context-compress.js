@@ -11,7 +11,7 @@ const HARD_LIMIT = 24
 /**
  * 估计文本的近似 token 数（按 1 中文字符 ≈ 1.5 token，1 英文词 ≈ 1.3 token）
  */
-function estimateTokens(text) {
+export function estimateTokens(text) {
   if (!text) return 0
   const cjk = (text.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g) || []).length
   const words = (text.match(/[a-zA-Z]+/g) || []).length
