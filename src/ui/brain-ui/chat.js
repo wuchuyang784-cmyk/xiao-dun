@@ -1463,9 +1463,11 @@ export function initChat({
         addMsg('jarvis',
           `✅ **上下文已压缩**\n\n` +
           `· 压缩前：${d.before} 条\n` +
-          `· 压缩后：${d.after} 条\n` +
-          `· 删除：${d.removed} 条\n\n` +
-          `下次 LLM 调用将使用更短的上下文，幻觉概率降低。`,
+          `· 压缩后：${d.after} 条（保留最近 8）\n` +
+          `· 已提炼：${d.removed} 条旧消息\n` +
+          `· 摘要已存入短期记忆（mem_id: \`${d.mem_id || '?'}\`）\n\n` +
+          `> 📝 **摘要预览**：${d.summary_preview || '...'}\n\n` +
+          `下次 LLM 调用会从记忆系统检索此摘要，同时使用精简的原始上下文。`,
           { alert: false, pending: false })
       } else {
         addMsg('jarvis', `ℹ️ ${d.reason || '无需压缩'}（${d.before} 条）`, { alert: false, pending: false })
