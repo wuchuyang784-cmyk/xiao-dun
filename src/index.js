@@ -18,6 +18,7 @@ import { runMemoryRefreshLoop } from './memory/refresh-loop.js'
 import { startConsolidationLoop } from './memory/consolidation-loop.js'
 import { recordSelfEvolutionFromMemories } from './memory/self-evolution.js'
 import { runRuntimeInjector } from './context/runtime-injector.js'
+import { collectGuards, enqueueGuardInjection, drainGuardInjections } from './runtime/hallucination-guard.js'
 import { selectContextSections } from './context/section-gate.js'
 import { getDB, getConfig, setConfig, getKnownEntities, getOrInitBirthTime, insertConversation, insertMemory, getRecentConversationPartners, getDueReminders, markReminderFired, advanceReminderDueAt, getNextPendingReminder, getMemoryCount, getRecentConversationTimeline, loadFocusStack, loadThreadState, saveThreadState, setCurrentFocusTopic, setCurrentThreadId, updateUserMessageFocusTopic, reassignConversationsThread, insertActionLog } from './db.js'
 import { calculateNextDueAt, detectOpenFollowupQuestion } from './capabilities/executor.js'
@@ -1116,11 +1117,17 @@ directions.push('If the user asks you to read, repeat, or output exact text for 
 
     // 2. Build system prompt (stable hard-floor) + context block (per-round dynamic)
     const persona = getConfig('persona') || ''
+    const personaAgeMs = persona ? (Date.now() - (parseInt(getConfig('persona_updated_at') || '0') || Date.now())) : 0
+    const personaAgeHours = personaAgeMs > 0 ? Math.round(personaAgeMs / 3600000) : 0
     const agentName = getConfig('agent_name') || '小盾'
     const entities = getKnownEntities()
     const hasActiveTask = !!state.task
     const terminalStreamContext = formatTerminalStreamContext()
-    const extraContextJoined = [presenceText, runtimeInjection.contextText, terminalStreamContext, prefetchText, injection.uiSignalSummary, formatSceneManifest(sceneStore.manifest())].filter(Boolean).join('\n\n')
+    // Persona freshness: warn if stale (> 12h)
+    const personaFreshnessNote = personaAgeHours >= 12
+      ? `Note: Your self-description was last set ${personaAgeHours}h ago. It may be stale. If your behavior has drifted, revise with [UPDATE_PERSONA: ...].`
+      : ''
+    const extraContextJoined = [presenceText, runtimeInjection.contextText, terminalStreamContext, prefetchText, injection.uiSignalSummary, formatSceneManifest(sceneStore.manifest()), personaFreshnessNote].filter(Boolean).join('\n\n')
     const skillSelection = selectSkillsForMessage(msg?.content || input || '')
     const agentSkillsText = formatSkillsForContext(skillSelection)
     if (skillSelection.active.length > 0 || skillSelection.catalogRequested) {
@@ -1220,7 +1227,10 @@ directions.push('If the user asks you to read, repeat, or output exact text for 
       console.log(`[排除层] ${summary} | 参照系="${gateResult.meta.referenceFrame}"`)
     }
 
-    let contextBlock = buildContextBlock(gateResult.args)
+    let contextBlock = buildContextBlock({
+      ...gateResult.args,
+      guardInjections: drainGuardInjections(),
+    })
     const strictEvaluation = resolveStrictEvaluationMode(msg?.content || input || '', {
       strictEvaluation: msg?.strictEvaluation,
       forbiddenTools: msg?.forbiddenTools,
@@ -1286,6 +1296,7 @@ directions.push('If the user asks you to read, repeat, or output exact text for 
             ...gateResult.args,
             memories: enrichedMemoriesText,
             roundInfo: { round: refreshResult.roundsRun },
+            guardInjections: [],
           })
           llmMessages = buildMessagesWithContext(contextBlock)
           console.log(`[memory refresh] Done — ${refreshResult.roundsRun} round(s), appended ${refreshResult.additionalMemories.length} memory/memories`)
@@ -1384,6 +1395,7 @@ directions.push('If the user asks you to read, repeat, or output exact text for 
       tools: turnTools,
       temperature: voiceTurn ? Math.min(config.temperature, 0.35) : config.temperature,
       thinking: config.thinking === true,
+      maxTokens: 4096, // 反幻觉：硬截断单轮输出
       signal: controller.signal,
       toolContext,
       mustReply: !!msg?.fromId && !silentSignal,
@@ -1476,6 +1488,14 @@ directions.push('If the user asks you to read, repeat, or output exact text for 
 
   const response = llmResult.content
 
+  // ===== 反幻觉守卫 =====
+  const calledTools = new Set(toolCallLog.map(t => t.name))
+  const guardInjections = collectGuards(response, calledTools)
+  for (const injection of guardInjections) {
+    console.warn('[hallucination-guard]', injection.slice(0, 80))
+    enqueueGuardInjection(injection)
+  }
+
   // Store tool result for injection on the next TICK
   state.lastToolResult = llmResult.toolResult || null
 
@@ -1537,6 +1557,7 @@ directions.push('If the user asks you to read, repeat, or output exact text for 
   if (markers.updatePersona !== null) {
     const newPersona = markers.updatePersona.trim()
     setConfig('persona', newPersona)
+    setConfig('persona_updated_at', String(Date.now()))
     console.log('[system] Persona updated')
     emitEvent('persona_updated', { persona: newPersona.slice(0, 200) })
   }

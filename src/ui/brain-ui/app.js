@@ -564,6 +564,20 @@ function connectSSE() {
 }
 
 function handle({ type, data = {} }) {
+  // 反幻觉前端守卫：检测 agent 回复中是否含反诈模板关键词循环
+  if (type === 'agent_response' && typeof data.content === 'string') {
+    const hits = ['刷单返利', '冒充客服', '公检法', '投资理财', '杀猪盘', '贷款诈骗', '裸聊敲诈', '网络约炮', '虚假贷款']
+      .filter(k => data.content.includes(k)).length
+    if (hits >= 3) {
+      appState._boilerHits = (appState._boilerHits || 0) + 1
+      if (appState._boilerHits >= 3) {
+        console.warn('[boilerplate-guard] 连续 3 轮检测到诈骗关键词堆砌，建议 /clear 重置对话')
+        appState._boilerHits = 0
+      }
+    } else {
+      appState._boilerHits = 0
+    }
+  }
   switch (type) {
     case "message_received": {
       currentPath = "l1";

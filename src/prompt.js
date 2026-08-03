@@ -810,6 +810,7 @@ export function buildContextBlock({
   // 与 selfPerception 不同：snapshot 在正常情况下也出现，是 agent 的 proprioception。
   selfSnapshot = null,
   selfEvolution = '',
+  guardInjections = [],
 } = {}) {
   const sections = []
 
@@ -1113,6 +1114,11 @@ Use the same independent judgment as any other heartbeat. Exploration, reflectio
     sections.push(`<memory-refresh round="${roundInfo.round}">
 The system completed ${roundInfo.round} round(s) of memory pre-retrieval before this response. The memories above were specifically recalled to fill identified knowledge gaps for this question — they are not random background. Prioritize them when answering.
 </memory-refresh>`)
+  }
+
+  // 反幻觉守卫：每轮 LLM 回复后检测到异常时，注入提示
+  if (guardInjections && guardInjections.length > 0) {
+    sections.push(`<guard>\n${guardInjections.join('\n\n')}\n</guard>`)
   }
 
   if (sections.length === 0) return ''
