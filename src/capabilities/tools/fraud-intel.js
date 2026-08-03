@@ -12,6 +12,8 @@ import {
   getFraudIntelCache,
   getFraudCategories,
 } from '../../fraud-intel.js'
+import { getAllClawbotTokens } from '../../db.js'
+import { dispatchSocialMessage } from '../../social/dispatch.js'
 
 function toolJson(obj, ok = true) {
   return JSON.stringify({ ok, ...obj }, null, 2)
@@ -144,12 +146,33 @@ export async function execFraudIntel(args = {}) {
     }
     textLines.push('> 以上为系统自动采集的最新诈骗案例，请提高警惕。如有疑问请拨打 96110。')
 
+    const pushText = textLines.join('\n')
+
+    // 同步推送到所有已绑定的微信会话（clawbot）
+    const tokens = getAllClawbotTokens()
+    const wechatResults = []
+    for (const { from_user_id } of tokens) {
+      try {
+        const r = await dispatchSocialMessage(`wechat:clawbot:${from_user_id}`, { text: pushText })
+        wechatResults.push({ user: from_user_id, ok: !!r?.ok, reason: r?.reason || r?.error || null })
+      } catch (err) {
+        wechatResults.push({ user: from_user_id, ok: false, reason: err.message })
+      }
+    }
+
     return toolJson({
       action: 'push',
       push_count: pushes.length,
       items: pushes,
-      push_text: textLines.join('\n'),
-      hint: '已生成推送摘要。下一步调 send_message 把 push_text 推给用户（可按需精简文案）。',
+      push_text: pushText,
+      wechat_pushed: wechatResults.filter(r => r.ok).length,
+      wechat_total: tokens.length,
+      wechat_results: wechatResults,
+      hint: wechatResults.some(r => r.ok)
+        ? `已推送 ${wechatResults.filter(r => r.ok).length} 个微信会话。可在对话中告知用户"反诈提醒已发到您微信"。`
+        : (tokens.length === 0
+          ? '暂无绑定的微信会话，推送文案已在下方，可直接回复用户。'
+          : '微信推送未成功，推送文案已在下方，可直接回复用户。'),
     })
   }
 
