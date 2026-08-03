@@ -129,18 +129,18 @@ function compressContext({ keepRecent = 8 } = {}) {
   const memId = `ctx-summary-${Date.now()}`
   upsertMemoryByMemId({
     mem_id: memId,
-    source: 'context_compression',
-    scope: 'short_term',
+    event_type: 'context_compression',
     content: summary,
-    salience: 0.3, // 低紧迫但高相关性
-    meta: JSON.stringify({
-      type: 'conversation_summary',
-      title: summaryTitle,
+    title: summaryTitle,
+    salience: 30, // 低紧迫但高相关性（0-100 整数）
+    detail: JSON.stringify({
       compressed_count: older.length,
       time_range: essence.timeRange,
       top_words: essence.topWords,
     }),
+    source_ref: 'context_compressor',
     timestamp: new Date().toISOString(),
+    visibility: 1,
   })
 
   // 3. 删除旧原始消息
