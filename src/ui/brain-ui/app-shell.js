@@ -86,6 +86,10 @@ const createSecondaryPanel = () => `
       <span class="stat-label">抽取/h</span>
       <div class="stat-value" id="mem-extract-rate">—</div>
     </div>
+    <div class="stat" id="ctx-stat" title="LLM 上下文估算 token 数。超过 16000 建议 /compress。点击压缩">
+      <span class="stat-label">上下文</span>
+      <div class="stat-value" id="ctx-token-count">—</div>
+    </div>
   </header>
 
   <div class="stream-meta">

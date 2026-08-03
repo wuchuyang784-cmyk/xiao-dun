@@ -318,6 +318,8 @@ const tokRateEl = document.getElementById("tok-rate");
 // 0 鍛戒腑鏁颁細璁╂暟瀛楀彉姗欐彁閱掞紙鍛戒腑鐜囦綆 = 鍙兘鏈夊彫鍥炴紡锛夛紱绾綉缁?鏈嶅姟澶辫触淇濇寔 鈥?涓嶅憡璀︺€?
 const memRecallEl = document.getElementById("mem-recall-rate");
 const memExtractEl = document.getElementById("mem-extract-rate");
+const ctxTokenCountEl = document.getElementById("ctx-token-count");
+const ctxStatEl = document.getElementById("ctx-stat");
 
 const llmProviderNameEl = document.getElementById("llm-provider-name");
 async function refreshLlmProviderName() {
@@ -431,6 +433,41 @@ async function refreshMemoryAuditStats() {
 }
 refreshMemoryAuditStats();
 setInterval(refreshMemoryAuditStats, 60_000);
+
+async function refreshContextStats() {
+  if (!ctxTokenCountEl) return;
+  try {
+    const res = await fetch("/api/v1/context/stats", { cache: "no-store" });
+    if (!res.ok) return;
+    const env = await res.json();
+    const d = env.data || {};
+    const tokens = Number(d.estimatedTokens || 0);
+    if (!tokens) {
+      ctxTokenCountEl.textContent = "—";
+      ctxTokenCountEl.className = "stat-value";
+      return;
+    }
+    const formatted = tokens >= 1000 ? (tokens / 1000).toFixed(1) + "k" : String(tokens);
+    ctxTokenCountEl.textContent = formatted;
+    if (tokens >= 16000) ctxTokenCountEl.className = "stat-value ctx-high";
+    else if (tokens >= 8000) ctxTokenCountEl.className = "stat-value ctx-mid";
+    else ctxTokenCountEl.className = "stat-value ctx-low";
+  } catch {}
+}
+refreshContextStats();
+setInterval(refreshContextStats, 30_000);
+if (ctxStatEl) {
+  ctxStatEl.addEventListener("click", () => {
+    if (typeof window.__triggerContextCompress === 'function') {
+      window.__triggerContextCompress();
+    } else {
+      fetch("/api/v1/context/compress", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+        .then(r => r.json())
+        .then(env => alert("✅ " + (env.data?.before || 0) + " → " + (env.data?.after || 0) + " 条消息已清理"))
+        .catch(e => alert("❌ 压缩失败：" + e.message));
+    }
+  });
+}
 
 function bumpTokens(text) {
   tokenAccum += (text || "").length / 3.4;

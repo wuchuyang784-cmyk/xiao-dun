@@ -286,6 +286,13 @@ body {
 
 .stat-value.live { color: var(--warm); }
 
+/* 上下文 token 用量指示器 */
+.stat-value.ctx-low { color: var(--ok); }
+.stat-value.ctx-mid { color: var(--warn); }
+.stat-value.ctx-high { color: var(--danger); }
+#ctx-stat { cursor: pointer; transition: background .2s ease; }
+#ctx-stat:hover { background: rgba(255,255,255,.04); }
+
 .stat-value .live-dot {
   width: 6px;
   height: 6px;
