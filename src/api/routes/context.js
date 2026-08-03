@@ -127,21 +127,24 @@ function compressContext({ keepRecent = 8 } = {}) {
 
   // 2. 存入短期记忆（mem_id 唯一，后续检索自动被 memory/injector 注入上下文）
   const memId = `ctx-summary-${Date.now()}`
-  upsertMemoryByMemId({
-    mem_id: memId,
-    event_type: 'context_compression',
-    content: summary,
-    title: summaryTitle,
-    salience: 30, // 低紧迫但高相关性（0-100 整数）
-    detail: JSON.stringify({
-      compressed_count: older.length,
-      time_range: essence.timeRange,
-      top_words: essence.topWords,
-    }),
-    source_ref: 'context_compressor',
-    timestamp: new Date().toISOString(),
-    visibility: 1,
-  })
+  try {
+    upsertMemoryByMemId({
+      mem_id: memId,
+      event_type: 'context_compression',
+      content: summary,
+      title: summaryTitle,
+      salience: 3,
+      detail: JSON.stringify({
+        compressed_count: older.length,
+        time_range: essence.timeRange,
+        top_words: essence.topWords,
+      }),
+      source_ref: 'context_compressor',
+      timestamp: new Date().toISOString(),
+    })
+  } catch (err) {
+    console.error('[context/compress] 记忆写入失败:', err.message)
+  }
 
   // 3. 删除旧原始消息
   const removeStmt = db.prepare('DELETE FROM conversations WHERE id = ?')
