@@ -49,7 +49,6 @@ export function initChat({
   openSettings = null,
 
   openHotspot = null,
-  openRag = null,
   openRagManager = null,
 } = {}) {
 
@@ -1181,13 +1180,6 @@ export function initChat({
 
       run: () => openHotspot?.(),
 
-    },
-
-    {
-
-      cmd: "/rag", keys: ["rag", "知识库", "向量库", "反诈地图"],
-      label: "RAG 知识库", desc: "导入RAG数据并且展示",
-      run: () => openRag?.(),
     },
 
     {
