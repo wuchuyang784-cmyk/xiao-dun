@@ -642,7 +642,7 @@ async function playTts(text) {
 }
 
 function handle({ type, data = {} }) {
-  if (type === 'agent_response' && typeof data.content === 'string') {
+  if (type === 'message' && typeof data.content === 'string') {
     const hits = ['刷单返利', '冒充客服', '公检法', '投资理财', '杀猪盘', '贷款诈骗', '裸聊敲诈', '网络约炮', '虚假贷款']
       .filter(k => data.content.includes(k)).length
     if (hits >= 3) {
