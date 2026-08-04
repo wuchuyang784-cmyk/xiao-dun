@@ -1912,6 +1912,7 @@ body {
 }
 .voice-status.listening   { color: #78c8ff; }
 .voice-status.recognizing { color: #a0e0ff; }
+.voice-status.speaking    { color: #d5b4ff; }
 .voice-status.processing  { color: #b898f8; }
 
 #voice-whisper-svc-status[data-state="running"]  { color: #6fcf97; }

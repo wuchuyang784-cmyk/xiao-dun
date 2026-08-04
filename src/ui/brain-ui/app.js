@@ -601,6 +601,12 @@ function connectSSE() {
 // TTS 音频播放：检测已配置则请求合成并播放，失败抛错
 let _ttsAudioEl = null
 let _ttsConfigured = null
+let _ttsPlaybackToken = 0
+
+function setTtsPlaybackState(active) {
+  window.xiaodunVoice?.setPlaybackState?.(active)
+}
+
 async function playTts(text) {
   if (!text || !text.trim()) return
   // 缓存配置检查，避免每条消息都查
@@ -616,9 +622,15 @@ async function playTts(text) {
   if (!_ttsConfigured) return
 
   // 停止上一个播放
-  if (_ttsAudioEl) { try { _ttsAudioEl.pause() } catch {} }
+  // Stop the previous playback and reset the orb state.
+  if (_ttsAudioEl) {
+    setTtsPlaybackState(false)
+    try { _ttsAudioEl.pause() } catch {}
+    _ttsAudioEl = null
+  }
 
   const url = '/tts/synthesize'
+  const playbackToken = ++_ttsPlaybackToken
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -632,11 +644,23 @@ async function playTts(text) {
     }
     const blob = await res.blob()
     const audioUrl = URL.createObjectURL(blob)
-    _ttsAudioEl = new Audio(audioUrl)
-    _ttsAudioEl.onended = () => { URL.revokeObjectURL(audioUrl); _ttsAudioEl = null }
-    _ttsAudioEl.onerror = () => { URL.revokeObjectURL(audioUrl); _ttsAudioEl = null }
-    await _ttsAudioEl.play()
+    const audioEl = new Audio(audioUrl)
+    _ttsAudioEl = audioEl
+    const finish = () => {
+      URL.revokeObjectURL(audioUrl)
+      if (_ttsAudioEl === audioEl && _ttsPlaybackToken === playbackToken) {
+        _ttsAudioEl = null
+        setTtsPlaybackState(false)
+      }
+    }
+    audioEl.onended = finish
+    audioEl.onerror = finish
+    await audioEl.play()
+    if (_ttsAudioEl === audioEl && _ttsPlaybackToken === playbackToken) {
+      setTtsPlaybackState(true)
+    }
   } catch (err) {
+    if (_ttsPlaybackToken === playbackToken) setTtsPlaybackState(false)
     console.warn('[tts] 播放失败:', err.message)
   }
 }
