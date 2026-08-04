@@ -884,9 +884,56 @@ chat.restoreChatHistory();
 chat.unlockAudioOnFirstGesture();
 
 bootstrapScene();  // Scene 鏋舵瀯 shell(/scene):澹版槑寮?Agent-UI 鎶曞奖灞傘€?
+initNarrowScreenPanelDefaults();
 initPanelCollapse();
+initCrossMenuButton();
 initWechatPopup();
 initFeishuPopup();
+
+/**
+ * 窄屏下左右面板是覆盖式抽屉，默认展开会盖住地图与对话框，
+ * 因此进入窄屏时强制收起两侧面板；用户仍可用左上/右上角的 tab 按钮随时召出。
+ *
+ * 必须在 initPanelCollapse() 之前调用：initPanelCollapse 只会按 localStorage
+ * 追加 collapsed 类、不会移除，所以这里预置的收起状态会被保留。
+ */
+function initNarrowScreenPanelDefaults() {
+  // 窄屏断点：与 styles.css 中面板抽屉化的媒体查询保持一致
+  const NARROW_SCREEN_QUERY = "(max-width: 780px)";
+  const mediaQuery = window.matchMedia?.(NARROW_SCREEN_QUERY);
+  if (!mediaQuery) return;
+
+  const collapseBothPanels = (query) => {
+    if (!query.matches) return;
+    document.body.classList.add("l1-collapsed", "l2-collapsed");
+  };
+
+  collapseBothPanels(mediaQuery);
+  // 桌面 → 窄屏的实时缩放同样需要收起，避免抽屉盖住对话框
+  mediaQuery.addEventListener?.("change", collapseBothPanels);
+}
+
+/**
+ * 对话框左下角"十字架"按钮：调出与输入 "/" 完全一致的命令列表。
+ * 列表内容、样式与执行路径全部复用 chat.js 内的斜杠命令实现。
+ */
+function initCrossMenuButton() {
+  const crossBtn = document.getElementById("cross-menu-btn");
+  if (!crossBtn) return;
+
+  // 用 mousedown（与 .slash-item 一致）抢在输入框 blur 之前触发，避免菜单被 blur 关掉
+  crossBtn.addEventListener("mousedown", (event) => {
+    event.preventDefault();
+    chat?.openSlashMenuFromButton?.();
+  });
+
+  // 键盘可达性：Tab 聚焦后 Enter / Space 也能打开
+  crossBtn.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    chat?.openSlashMenuFromButton?.();
+  });
+}
 
 // 鈹€鈹€ Settings modal 鈹€鈹€
 (function initSettings() {

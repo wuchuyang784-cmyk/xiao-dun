@@ -109,6 +109,7 @@ const createConsole = () => `
   <div id="paste-attachments" class="paste-attachments" hidden></div>
   <div id="input-row">
     <div id="slash-menu" class="slash-menu" role="listbox" aria-label="命令" hidden></div>
+    <button id="cross-menu-btn" class="cross-btn" type="button" aria-label="命令菜单" title="命令菜单（等同于输入 /）" aria-haspopup="listbox" aria-controls="slash-menu"></button>
     <span class="prompt-mark">▸</span>
     <textarea id="msg-input" rows="1" placeholder="向小盾发送消息…（输入 / 调出命令，Shift+Enter 换行）" autocomplete="off"></textarea>
     <button id="send-btn" type="button">发送</button>
@@ -662,6 +663,7 @@ export function createBrainUiMarkup() {
     createMapStage(),
     createPrimaryPanel(),
     createSecondaryPanel(),
+    createPanelTabs(),
     createConsole(),
     createTooltip(),
     createSettingsModal(),

@@ -1215,6 +1215,11 @@ export function initChat({
 
   let slashActive = -1;   // 当前高亮索引
 
+  // document 级 outside-click 监听器引用；null 表示当前未挂载。
+  // 仅在"十字架按钮"这类非输入框触发路径下使用：此时输入框未必聚焦，
+  // 无法依赖 blur 里的 setTimeout(hideSlashMenu) 关闭菜单。
+  let slashOutsideCloseHandler = null;
+
 
 
   function slashQuery() {
@@ -1334,6 +1339,79 @@ export function initChat({
     slashItems = [];
 
     slashActive = -1;
+
+    detachSlashOutsideClose();
+
+  }
+
+
+
+  /**
+   * 挂载 document 级 outside-click 关闭监听（幂等）。
+   *
+   * 用捕获阶段：本函数是在"打开菜单"那次 mousedown 的目标阶段里被调用的，
+   * 该事件的 document 捕获阶段已经过去，因此不会自开自关。
+   */
+  function attachSlashOutsideClose() {
+
+    if (slashOutsideCloseHandler) return;
+
+    slashOutsideCloseHandler = (event) => {
+
+      const target = event.target;
+
+      if (target instanceof Element &&
+          (target.closest("#slash-menu") || target.closest("#cross-menu-btn"))) return;
+
+      hideSlashMenu();
+
+    };
+
+    document.addEventListener("mousedown", slashOutsideCloseHandler, true);
+
+  }
+
+
+
+  /** 卸载 outside-click 监听，避免菜单关闭后残留全局监听器。 */
+  function detachSlashOutsideClose() {
+
+    if (!slashOutsideCloseHandler) return;
+
+    document.removeEventListener("mousedown", slashOutsideCloseHandler, true);
+
+    slashOutsideCloseHandler = null;
+
+  }
+
+
+
+  /**
+   * 由"十字架"按钮触发的命令菜单开关。
+   *
+   * 与输入 "/" 的唯一区别是跳过 slashQuery() 的 "/" 前缀检查，
+   * 其余（列表内容、渲染、键盘导航、执行路径 runSlash）完全复用同一套逻辑，
+   * 因此点击列表项的效果与"输入 / 再点该项"完全一致。
+   */
+  function openSlashMenuFromButton() {
+
+    if (!slashMenu) return;
+
+    // 再次点击按钮 = 收起，符合常规菜单按钮直觉
+    if (!slashMenu.hidden) { hideSlashMenu(); return; }
+
+    slashItems = SLASH_COMMANDS.slice();
+
+    slashActive = slashItems.length ? 0 : -1;
+
+    renderSlashMenu();
+
+    slashMenu.hidden = false;
+
+    attachSlashOutsideClose();
+
+    // 聚焦输入框：让 ↑↓ / Enter / Esc 走与 "/" 路径完全相同的 handleSlashKeydown
+    try { msgInput.focus({ preventScroll: true }); } catch { msgInput.focus(); }
 
   }
 
@@ -1717,6 +1795,8 @@ export function initChat({
     isTyping,
 
     openChat,
+
+    openSlashMenuFromButton,
 
     restoreChatHistory,
 

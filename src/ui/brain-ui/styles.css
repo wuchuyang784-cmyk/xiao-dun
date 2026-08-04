@@ -1223,6 +1223,58 @@ body {
   color: var(--dim);
 }
 
+/* ── 对话框左下角"十字架"命令按钮 ─────────────────────────
+   点击后向上弹出 #slash-menu，内容与输入 "/" 完全一致。
+   十字用两条伪元素横竖线绘制，不依赖字体字形，跨平台一致。 */
+.cross-btn {
+  position: relative;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: color-mix(in srgb, var(--cool) 10%, transparent);
+  color: var(--ink2);
+  cursor: pointer;
+  font-size: 0;
+  line-height: 0;
+  transition:
+    color 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.cross-btn::before,
+.cross-btn::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  background: currentColor;
+  border-radius: 1px;
+  transform: translate(-50%, -50%);
+}
+.cross-btn::before { width: 11px; height: 1.5px; }
+.cross-btn::after  { width: 1.5px; height: 11px; }
+
+.cross-btn:hover {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--cool) 24%, transparent);
+  border-color: color-mix(in srgb, var(--cool) 55%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--cool) 28%, transparent);
+  transform: translateY(-1px);
+}
+.cross-btn:active { transform: translateY(0) scale(0.92); }
+
+.cross-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--cool) 65%, transparent);
+  outline-offset: 2px;
+  color: var(--ink);
+}
+
 .prompt-mark {
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 13px;
@@ -2113,10 +2165,11 @@ body.image-mode .panel-tab {
 
 /* ═══════════════ 面板折叠 tab 按钮 ═══════════════ */
 
+/* 顶部对齐：展开态贴在各自面板上沿，折叠态落到屏幕左上角 / 右上角，
+   同一个按钮既是"缩进收起"也是"展开"，展开后自动回到面板边缘、不再占用角位。 */
 .panel-tab {
   position: fixed;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 20px;
   z-index: 10;
   width: 20px;
   height: 60px;
@@ -2137,13 +2190,29 @@ body.image-mode .panel-tab {
     color 0.18s ease,
     background 0.18s ease,
     border-color 0.18s ease,
-    background 0.6s ease;
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
 }
 
 .panel-tab:hover {
   color: var(--ink);
-  background: color-mix(in srgb, var(--panel) 85%, var(--cool) 15%);
-  border-color: color-mix(in srgb, var(--cool) 40%, transparent);
+  background: color-mix(in srgb, var(--panel) 78%, var(--cool) 22%);
+  border-color: color-mix(in srgb, var(--cool) 55%, transparent);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--cool) 30%, transparent);
+}
+
+/* hover 时向"收起方向"轻微位移，给出方向暗示 */
+.panel-tab-left:hover  { transform: translateX(-2px); }
+.panel-tab-right:hover { transform: translateX(2px); }
+body.l1-collapsed .panel-tab-left:hover  { transform: translateX(2px); }
+body.l2-collapsed .panel-tab-right:hover { transform: translateX(-2px); }
+
+.panel-tab:active { transform: scale(0.94); }
+
+.panel-tab:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--cool) 65%, transparent);
+  outline-offset: 2px;
+  color: var(--ink);
 }
 
 /* 左面板 tab：紧贴面板右边缘，右侧圆角 */
@@ -2278,10 +2347,33 @@ body.l2-collapsed .console {
   body.l2-collapsed .console { right: 16px; }
 }
 
+/* 窄屏：左右面板改为「覆盖式抽屉」而不是直接隐藏，
+   这样 .panel-tab 在手机端依然可见可点（JS 侧在进入窄屏时默认收起两侧面板）。
+   仅新增 ≤780px 规则，不改动 >780px 的既有布局。 */
 @media (max-width: 780px) {
-  .panel { display: none; }
-  .panel-tab { display: none; }
+  .panel {
+    width: min(86vw, 340px);
+    z-index: 60;           /* 盖在 .console(4) 之上，低于设置弹层(200)/文档面板(300) */
+  }
+  #panel-l1 { left: 12px; }
+  #panel-l2 { right: 12px; }
+
   .console { left: 16px; right: 16px; }
+  body.l1-collapsed .console { left: 16px; }
+  body.l2-collapsed .console { right: 16px; }
+
+  /* 展开态：贴在抽屉外沿；折叠态由下方规则拉回屏幕角落 */
+  .panel-tab {
+    top: 12px;
+    width: 24px;
+    height: 52px;
+    z-index: 61;
+  }
+  .panel-tab-left  { left: calc(min(86vw, 340px) + 12px); }
+  .panel-tab-right { right: calc(min(86vw, 340px) + 12px); }
+
+  /* 窄屏下输入行更紧凑，保证十字架按钮 + 提示符 + 发送键不挤压输入区 */
+  #input-row { gap: 8px; padding: 10px 12px; }
 }
 
 /* ── 黑胶旋转动画 ── */
