@@ -49,6 +49,7 @@ import { handleMessageRoutes } from './api/routes/message.js'
 import { handlePanelRoutes } from './api/routes/panels.js'
 
 import { handleSettingsRoutes } from './api/routes/settings.js'
+import { handleTtsRoutes } from './api/routes/tts.js'
 
 import { handleSocialRoutes } from './api/routes/social.js'
 
@@ -265,6 +266,7 @@ async function dispatchHttpRoutes(req, res, url, context) {
   if (await handleActivationRoutes(req, res, url, context)) return true
 
   if (await handleSettingsRoutes(req, res, url, context)) return true
+  if (await handleTtsRoutes(req, res, url)) return true
 
   if (await handleEmbeddingRoutes(req, res, url)) return true
 

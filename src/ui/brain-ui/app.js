@@ -598,9 +598,51 @@ function connectSSE() {
   };
 }
 
+// TTS 音频播放：检测已配置则请求合成并播放，失败抛错
+let _ttsAudioEl = null
+let _ttsConfigured = null
+async function playTts(text) {
+  if (!text || !text.trim()) return
+  // 缓存配置检查，避免每条消息都查
+  if (_ttsConfigured === null) {
+    try {
+      const r = await fetch('/settings/tts')
+      const d = await r.json().catch(() => ({}))
+      _ttsConfigured = !!(d.tts && d.tts.configured)
+    } catch {
+      _ttsConfigured = false
+    }
+  }
+  if (!_ttsConfigured) return
+
+  // 停止上一个播放
+  if (_ttsAudioEl) { try { _ttsAudioEl.pause() } catch {} }
+
+  const url = '/tts/synthesize'
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text.slice(0, 1000) }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      console.warn('[tts] 服务异常:', err.error || res.status)
+      return
+    }
+    const blob = await res.blob()
+    const audioUrl = URL.createObjectURL(blob)
+    _ttsAudioEl = new Audio(audioUrl)
+    _ttsAudioEl.onended = () => { URL.revokeObjectURL(audioUrl); _ttsAudioEl = null }
+    _ttsAudioEl.onerror = () => { URL.revokeObjectURL(audioUrl); _ttsAudioEl = null }
+    await _ttsAudioEl.play()
+  } catch (err) {
+    console.warn('[tts] 播放失败:', err.message)
+  }
+}
+
 function handle({ type, data = {} }) {
-  // 反幻觉前端守卫：检测 agent 回复中是否含反诈模板关键词循环
-  if (type === 'agent_response' && typeof data.content === 'string') {
+  if (type === 'message' && typeof data.content === 'string') {
     const hits = ['刷单返利', '冒充客服', '公检法', '投资理财', '杀猪盘', '贷款诈骗', '裸聊敲诈', '网络约炮', '虚假贷款']
       .filter(k => data.content.includes(k)).length
     if (hits >= 3) {
@@ -611,6 +653,10 @@ function handle({ type, data = {} }) {
       }
     } else {
       appState._boilerHits = 0
+    }
+    // TTS 自动播放（仅当已配置且未在 PTT 录音时）
+    if (!appState._pttActive && data.content) {
+      playTts(data.content).catch(err => console.warn('[tts] play failed:', err.message))
     }
   }
   switch (type) {
@@ -1711,6 +1757,58 @@ function initCrossMenuButton() {
     applyVoiceProviderUI(savedProvider);
   }
 
+  // === TTS Settings ===
+  async function loadTtsSettings() {
+    const provSel = document.getElementById('tts-provider-select')
+    const keyInp = document.getElementById('tts-apikey')
+    const key2Row = document.getElementById('tts-apikey2-row')
+    const key2Inp = document.getElementById('tts-apikey2')
+    const voiceSel = document.getElementById('tts-voice-select')
+    const speedInp = document.getElementById('tts-speed')
+    const speedVal = document.getElementById('tts-speed-val')
+    const toggleApikey2 = () => {
+      const isTencent = provSel?.value === 'tencent'
+      if (key2Row) key2Row.style.display = isTencent ? '' : 'none'
+      if (keyInp) keyInp.placeholder = isTencent ? 'SecretId' : '输入 API Key'
+    }
+    try {
+      const r = await fetch('/settings/tts')
+      const d = await r.json().catch(() => ({}))
+      if (r.ok && d.tts) {
+        if (provSel) provSel.value = d.tts.provider || 'doubao'
+        if (keyInp) keyInp.value = d.tts.apiKey || ''
+        if (key2Inp) key2Inp.value = d.tts.apiKey2 || ''
+        if (speedInp && d.tts.speed) { speedInp.value = String(d.tts.speed); if (speedVal) speedVal.textContent = d.tts.speed }
+      }
+    } catch {}
+    if (provSel) {
+      provSel.addEventListener('change', () => { toggleApikey2(); fetchTtsVoices(provSel.value, voiceSel) })
+      toggleApikey2()
+      fetchTtsVoices(provSel.value, voiceSel)
+    }
+    if (speedInp && speedVal) {
+      speedInp.addEventListener('input', () => { speedVal.textContent = speedInp.value })
+    }
+  }
+
+  async function fetchTtsVoices(provider, voiceSel) {
+    if (!voiceSel) return
+    voiceSel.innerHTML = '<option value="">加载中…</option>'
+    try {
+      const r = await fetch('/tts/voices?provider=' + encodeURIComponent(provider))
+      const d = await r.json().catch(() => ({}))
+      if (r.ok && Array.isArray(d.voices)) {
+        voiceSel.innerHTML = d.voices.map(v => `<option value="${v.id}">${v.label}</option>`).join('')
+      } else {
+        voiceSel.innerHTML = '<option value="">服务异常</option>'
+      }
+    } catch {
+      voiceSel.innerHTML = '<option value="">服务异常</option>'
+    }
+  }
+
+  loadTtsSettings()
+
   if (voiceThreshSlider && voiceThreshVal) {
     voiceThreshSlider.addEventListener("input", () => {
       voiceThreshVal.textContent = parseFloat(voiceThreshSlider.value).toFixed(3);
@@ -1784,6 +1882,28 @@ function initCrossMenuButton() {
         finally { saveVoiceBtn.disabled = false; }
       } else {
         showFeedback(voiceFeedback, "已保存");
+      }
+
+      // 同时保存 TTS 配置
+      const ttsProvider = document.getElementById('tts-provider-select')?.value || ''
+      const ttsApiKey = document.getElementById('tts-apikey')?.value?.trim() || ''
+      const ttsApiKey2 = document.getElementById('tts-apikey2')?.value?.trim() || ''
+      const ttsVoiceId = document.getElementById('tts-voice-select')?.value || ''
+      const ttsSpeed = document.getElementById('tts-speed')?.value || '1.0'
+      if (ttsProvider && (ttsApiKey || ttsApiKey2)) {
+        try {
+          await fetch('/settings/tts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              provider: ttsProvider,
+              apiKey: ttsApiKey,
+              apiKey2: ttsApiKey2,
+              voiceId: ttsVoiceId,
+              speed: ttsSpeed,
+            }),
+          })
+        } catch {}
       }
     });
   }
