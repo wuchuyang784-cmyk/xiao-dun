@@ -450,6 +450,34 @@ const createSettingsModal = () => `
             </div>
           </div>
 
+          <!-- TTS 语音合成 -->
+          <div class="settings-section">
+            <div class="settings-section-label">\u8bed\u97f3\u5408\u6210\uff08TTS\uff09</div>
+            <p class="settings-hint">Agent \u56de\u590d\u81ea\u52a8\u8f6c\u4e3a\u8bed\u97f3\u6b64\u53d1\u3002\u9009\u62e9\u5382\u5546\u5e76\u586b\u5199 API Key \u540e\u751f\u6548\u3002</p>
+            <div class="settings-row">
+              <label class="settings-label" for="tts-provider-select">\u5382\u5546</label>
+              <select class="settings-select" id="tts-provider-select">
+                <option value="doubao">\u8c46\u5305 TTS\uff08\u706b\u5c71\u5f15\u64ce\uff09</option>
+                <option value="openai">OpenAI TTS</option>
+              </select>
+            </div>
+            <div class="settings-row">
+              <label class="settings-label" for="tts-apikey">API Key</label>
+              <input class="settings-input" id="tts-apikey" type="password" placeholder="\u8f93\u5165 API Key" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="settings-row">
+              <label class="settings-label" for="tts-voice-select">\u97f3\u8272</label>
+              <select class="settings-select" id="tts-voice-select">
+                <option value="">\u9009\u62e9\u97f3\u8272</option>
+              </select>
+            </div>
+            <div class="settings-row">
+              <label class="settings-label" for="tts-speed">\u8bed\u901f</label>
+              <input type="range" id="tts-speed" min="0.5" max="2.0" step="0.1" value="1.0" style="flex:1;cursor:pointer;">
+              <span id="tts-speed-val" style="min-width:2.4em;text-align:right;color:var(--ink2);font-size:13px;">1.0</span>
+            </div>
+          </div>
+
           <div class="settings-section settings-section-action">
             <button class="settings-save-btn" id="settings-save-voice" type="button">保存</button>
             <span class="settings-feedback" id="settings-voice-feedback"></span>
