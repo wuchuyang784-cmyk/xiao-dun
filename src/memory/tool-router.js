@@ -75,6 +75,8 @@ const ADMIN_TOOLS       = [
   'manage_api_capability',
   'fraud_rule_screen',
   'fraud_intel',
+  'check_link',
+  'check_sms',
 ]
 const INLINE_IMAGE_RE = /!\[[^\]]*]\(|\/media\/chat\/|data:image\//i
 const API_KEY_RE = /\b(?:sk|ak|rk|pk|ark)-[A-Za-z0-9_\-.]{12,180}\b/i

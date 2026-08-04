@@ -6,6 +6,8 @@ const TOOL_RISK = {
   search_memory: 'low',
   probe_memory: 'low',
   search_fraud_cases: 'low',
+  check_link: 'low',
+  check_sms: 'low',
   list_processes: 'low',
   skip_recognition: 'low',
   send_message: 'medium',

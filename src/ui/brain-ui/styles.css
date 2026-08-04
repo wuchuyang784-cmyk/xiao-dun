@@ -195,8 +195,13 @@ body {
   position: fixed;
   top: 20px;
   bottom: 20px;
-  width: 362px;
-  z-index: 3;
+  /* --panel-w 是面板宽度的唯一真源：折叠按钮的迁移坐标由它推导，
+     响应式断点只覆盖这个变量，按钮位置就会自动跟随面板宽度，无需逐断点重写坐标。 */
+  --panel-w: 362px;
+  --tab-size: 32px;  /* 折叠按钮边长（正方形纯图标按钮） */
+  --tab-inset: 14px; /* 按钮距面板内角的留白 */
+  width: var(--panel-w);
+  z-index: 5; /* 高于 .console(4)，保证折叠态的 tab 按钮不被对话框盖住；低于 tick-stream(100)/settings(200)/doc(300) */
   padding: 16px 18px;
   border-radius: 16px;
   border: 1px solid var(--line-strong);
@@ -206,7 +211,7 @@ body {
   box-shadow: var(--shadow-soft), var(--shadow-inset);
   display: flex;
   flex-direction: column;
-  overflow: hidden auto;
+  overflow: hidden;
   overscroll-behavior: contain;
   transition: background 0.6s ease, border-color 0.6s ease, transform 0.38s cubic-bezier(0.4,0,0.2,1);
 }
@@ -214,11 +219,25 @@ body {
 #panel-l1 { left: 20px; }
 #panel-l2 { right: 20px; }
 
+/* 面板可滚动内容区：折叠时只让 .panel-body 滑动，角落的收起按钮留在原处 */
+.panel-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  transition: transform 0.38s cubic-bezier(0.4,0,0.2,1);
+}
+
 .panel-identity {
   display: flex;
   align-items: center;
   gap: 14px;
   padding-bottom: 14px;
+  /* 为右上角的折叠按钮让位（--tab-inset 14 + --tab-size 32 = 46，留 6px 余量），
+     否则展开态下按钮会压住 ⚙ 设置按钮 */
+  padding-right: 52px;
   margin-bottom: 14px;
   border-bottom: 1px solid var(--line);
 }
@@ -2165,14 +2184,22 @@ body.image-mode .panel-tab {
 
 /* ═══════════════ 面板折叠 tab 按钮 ═══════════════ */
 
-/* 顶部对齐：展开态贴在各自面板上沿，折叠态落到屏幕左上角 / 右上角，
-   同一个按钮既是"缩进收起"也是"展开"，展开后自动回到面板边缘、不再占用角位。 */
+/* tab 按钮随面板状态在「面板内角 ⇄ 主视口外角」之间迁移：
+     · 展开态：左按钮贴左面板内部右上角，右按钮贴右面板内部左上角；
+     · 折叠态：左按钮滑到主视口左上角，右按钮滑到主视口右上角。
+   两个按钮都是 .panel 的绝对定位子节点，坐标以面板的 padding box 为参照，
+   因此天然跟随 --panel-w 的断点变化；状态切换只需过渡 left / right 单个属性，
+   与 .panel-body 的收起位移共用同一条缓动曲线，动画完全同步。 */
 .panel-tab {
-  position: fixed;
-  top: 20px;
+  position: absolute;
+  top: var(--tab-inset);
   z-index: 10;
-  width: 20px;
-  height: 60px;
+  /* 展开态下按钮外沿到面板「远端内边」的距离 = 面板宽 − 左右各 1px 边框 − 留白 − 按钮宽 */
+  --tab-far: calc(var(--panel-w) - 2px - var(--tab-inset) - var(--tab-size));
+  width: var(--tab-size);
+  height: var(--tab-size);
+  padding: 0;
+  border-radius: 9px;
   background: var(--panel);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -2182,16 +2209,15 @@ body.image-mode .panel-tab {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
-  font-family: "JetBrains Mono", monospace;
+  font-size: 0; /* 纯图标按钮：杜绝任何文本节点占位 */
   transition:
-    left 0.38s cubic-bezier(0.4,0,0.2,1),
-    right 0.38s cubic-bezier(0.4,0,0.2,1),
     color 0.18s ease,
     background 0.18s ease,
     border-color 0.18s ease,
     box-shadow 0.18s ease,
-    transform 0.18s ease;
+    transform 0.18s ease,
+    left 0.38s cubic-bezier(0.4,0,0.2,1),
+    right 0.38s cubic-bezier(0.4,0,0.2,1);
 }
 
 .panel-tab:hover {
@@ -2215,50 +2241,99 @@ body.l2-collapsed .panel-tab-right:hover { transform: translateX(-2px); }
   color: var(--ink);
 }
 
-/* 左面板 tab：紧贴面板右边缘，右侧圆角 */
-.panel-tab-left {
-  left: 382px;
-  border-radius: 0 8px 8px 0;
-  border-left: none;
+/* 展开态坐标：按钮停在面板「远离屏幕边缘」的那个内角 */
+.panel-tab-left  { left:  var(--tab-far); }
+.panel-tab-right { right: var(--tab-far); }
+
+/* 右按钮改为绝对定位后不再占据 flex 行，用等高外边距为它保留顶部空档，
+   统计行 / 规划区的纵向排版与改动前完全一致（留白 + 按钮高度）。 */
+#panel-l2 .panel-body { margin-top: calc(var(--tab-inset) + var(--tab-size)); }
+
+/* ── 图标：圆角矩形 + 一侧竖线，纯 CSS 绘制，颜色跟随 currentColor ──
+   外框 = ::before 的 border；侧栏条 = 同一元素的 linear-gradient 背景，
+   背景裁剪到 padding box，因此圆角自动跟随外框。
+   展开态侧栏条为实心块（侧栏可见），折叠态收成 1.5px 细线（侧栏已收起）；
+   过渡中实心块的「内侧边缘」坐标恒定不动，观感就是侧栏被抽走 / 推回。 */
+.panel-tab::before {
+  content: "";
+  display: block;
+  box-sizing: border-box;
+  width: 18px;
+  height: 14px;
+  border: 1.5px solid currentColor;
+  border-radius: 4px;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-clip: padding-box;
+  background-size: 6px 100%;
+  transition:
+    background-size 0.38s cubic-bezier(0.4,0,0.2,1),
+    background-position 0.38s cubic-bezier(0.4,0,0.2,1),
+    border-color 0.18s ease;
 }
 
-/* 右面板 tab：紧贴面板左边缘，左侧圆角 */
-.panel-tab-right {
-  right: 382px;
-  border-radius: 8px 0 0 8px;
-  border-right: none;
-}
-
-/* 箭头：CSS content 根据状态自动切换方向 */
-.panel-tab-left::before  { content: "‹"; }
-.panel-tab-right::before { content: "›"; }
+/* 左面板按钮：侧栏条画在图标左侧；右面板按钮：画在右侧 */
+.panel-tab-left::before  { background-position: left center; }
+.panel-tab-right::before { background-position: right center; }
 
 /* ═══════════════ 折叠状态 ═══════════════ */
 
-body.l1-collapsed #panel-l1 {
+body.l1-collapsed #panel-l1 .panel-body {
   transform: translateX(calc(-100% - 20px));
 }
+/* 折叠态：左按钮迁移到主视口左上角（面板 padding box 的左内边 = 视口左侧 21px 处） */
 body.l1-collapsed .panel-tab-left {
   left: 0;
 }
+/* 侧栏条收成细线，停在原实心块的内侧边缘 */
 body.l1-collapsed .panel-tab-left::before {
-  content: "›";
+  background-size: 1.5px 100%;
+  background-position: 4.5px center;
 }
 body.l1-collapsed .console {
   left: 24px;
 }
 
-body.l2-collapsed #panel-l2 {
+body.l2-collapsed #panel-l2 .panel-body {
   transform: translateX(calc(100% + 20px));
 }
+/* 折叠态：右按钮迁移到主视口右上角 */
 body.l2-collapsed .panel-tab-right {
   right: 0;
 }
 body.l2-collapsed .panel-tab-right::before {
-  content: "‹";
+  background-size: 1.5px 100%;
+  background-position: calc(100% - 4.5px) center;
 }
 body.l2-collapsed .console {
   right: 24px;
+}
+
+/* 折叠态：面板容器变透明且不拦截点击，仅保留角落的收起/展开按钮可点 */
+body.l1-collapsed #panel-l1,
+body.l2-collapsed #panel-l2 {
+  background: transparent;
+  border-color: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+  pointer-events: none;
+}
+body.l1-collapsed #panel-l1 .panel-tab,
+body.l2-collapsed #panel-l2 .panel-tab {
+  pointer-events: auto;
+}
+
+/* 与上方同特异性 (1,2,1)：在媒体模式下面板 tab 本应隐藏，
+   即便处于折叠态也要保持 opacity:0 且不可点击，避免隐形按钮被幽灵点击展开面板。
+   必须列在 pointer-events:auto 之后（源顺序靠后）才能胜出。 */
+body.video-mode       #panel-l1 .panel-tab, body.video-mode       #panel-l2 .panel-tab,
+body.image-mode       #panel-l1 .panel-tab, body.image-mode       #panel-l2 .panel-tab,
+body.hotspot-mode     #panel-l1 .panel-tab, body.hotspot-mode     #panel-l2 .panel-tab,
+body.doc-panel-mode   #panel-l1 .panel-tab, body.doc-panel-mode   #panel-l2 .panel-tab,
+body.rag-manager-mode #panel-l1 .panel-tab, body.rag-manager-mode #panel-l2 .panel-tab {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* ---- 执行规划面板 ---- */
@@ -2329,22 +2404,26 @@ body.l2-collapsed .console {
 .tick-stream .line-status { font-size: 7px; padding: 1px 5px; }
 
 @media (max-width: 1180px) {
-  .panel { width: 300px; }
+  .panel { --panel-w: 300px; }
   #panel-l2 { right: 20px; }
   .console { left: 340px; right: 340px; }
-  .panel-tab-left  { left: 320px; }
-  .panel-tab-right { right: 320px; }
   body.l1-collapsed .console { left: 24px; }
   body.l2-collapsed .console { right: 24px; }
 }
 
 @media (max-width: 900px) {
-  .panel { width: 260px; }
+  .panel { --panel-w: 260px; }
   .console { left: 300px; right: 300px; }
-  .panel-tab-left  { left: 280px; }
-  .panel-tab-right { right: 280px; }
   body.l1-collapsed .console { left: 16px; }
   body.l2-collapsed .console { right: 16px; }
+
+  /* 窄屏面板变窄，品牌文案需可收缩并省略，避免撑破面板宽度 */
+  .brand-copy { min-width: 0; }
+  .brand-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
 /* 窄屏：左右面板改为「覆盖式抽屉」而不是直接隐藏，
@@ -2352,7 +2431,7 @@ body.l2-collapsed .console {
    仅新增 ≤780px 规则，不改动 >780px 的既有布局。 */
 @media (max-width: 780px) {
   .panel {
-    width: min(86vw, 340px);
+    --panel-w: min(86vw, 340px);
     z-index: 60;           /* 盖在 .console(4) 之上，低于设置弹层(200)/文档面板(300) */
   }
   #panel-l1 { left: 12px; }
@@ -2362,15 +2441,13 @@ body.l2-collapsed .console {
   body.l1-collapsed .console { left: 16px; }
   body.l2-collapsed .console { right: 16px; }
 
-  /* 展开态：贴在抽屉外沿；折叠态由下方规则拉回屏幕角落 */
+  /* 抽屉模式下按钮略微收小；--tab-far 会自动按新的 --tab-size 重算，
+     展开态贴抽屉内角、折叠态贴视口角的迁移行为保持不变。 */
   .panel-tab {
-    top: 12px;
-    width: 24px;
-    height: 52px;
-    z-index: 61;
+    --tab-size: 30px;
+    width: var(--tab-size);
+    height: var(--tab-size);
   }
-  .panel-tab-left  { left: calc(min(86vw, 340px) + 12px); }
-  .panel-tab-right { right: calc(min(86vw, 340px) + 12px); }
 
   /* 窄屏下输入行更紧凑，保证十字架按钮 + 提示符 + 发送键不挤压输入区 */
   #input-row { gap: 8px; padding: 10px 12px; }
@@ -3968,7 +4045,7 @@ body.rag-manager-indexing .rag-vector-cube { animation-duration: .7s; }
 @media (max-width: 1180px) {
   /* 1180px 以下左右面板收窄到 280px，地图面板跟随缩进到 300px 留白 */
   .map-stage { left: 300px; right: 300px; }
-  .panel { width: 280px; }
+  .panel { --panel-w: 280px; }
   .console { left: 320px; right: 320px; }
 }
 

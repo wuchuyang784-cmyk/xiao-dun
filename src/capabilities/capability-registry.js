@@ -34,6 +34,8 @@ export const HOTSPOT_TOOLS = ['hotspot_mode']
 export const CASES_IMPORT_TOOLS = []
 export const RECORD_TOOLS = []
 export const FRAUD_RAG_TOOLS = ['search_fraud_cases']
+export const VERIFY_LINK_TOOLS = ['check_link']
+export const VERIFY_SMS_TOOLS = ['check_sms']
 
 // ---- 触发词 / 触发正则 ----
 // 工具半历史上用字面包含的字符串数组（tool-router），工作流半用正则（prompt）。两者各自
@@ -75,6 +77,16 @@ const FRAUD_RAG_CONTEXT_BLOCK = `### Anti-fraud Knowledge Retrieval
 - For suspicious chats, transfers, account trading, links, investment offers, impersonation, or other fraud-risk assessment, call search_fraud_cases with the relevant original text or a concise factual description.
 - Treat matches as semantic reference evidence. Combine them with the rule engine and the user's actual facts; do not classify solely from one similarity score.
 - The knowledge-base texts and map demo are not real-time incident statistics. Never describe retrieved items as proof of actual regional incidence.`
+
+const VERIFY_LINK_CONTEXT_BLOCK = `### Link Safety Verification (check_link)
+- When the user wants to verify a single URL / link for phishing or scam risk, call check_link with the raw URL (e.g. { "url": "https://..." }).
+- It runs fully local heuristics (typosquatting, homoglyph, URL shortener, bare IP, suspicious TLD, inducement words, brand abuse) and returns a structured risk report plus advice. No network needed.
+- If the user only types "/check_link <url>", force this capability and call check_link directly; present the returned report.`
+
+const VERIFY_SMS_CONTEXT_BLOCK = `### SMS / Chat Risk Breakdown (check_sms)
+- When the user wants to analyze a suspicious SMS, chat transcript, or transfer-invite text, call check_sms with the original text (e.g. { "text": "..." }).
+- It reuses the fraud rule engine (runFraudRuleEngine) for script matching and searchRiskTexts for similar-case retrieval, then assembles a structured risk breakdown (script evidence, playbook, similar cases, advice).
+- If the user only types "/check_sms <text>", force this capability and call check_sms directly; present the returned report.`
 
 // 安装工作流：原先以 directions.unshift 注入在 index.js，现归位为能力 context，统一经
 // buildSystemPrompt 注入（同一份文本、同一道 isSoftwareInstallRequest 门）。
@@ -148,6 +160,30 @@ export const CAPABILITIES = [
     tools: FRAUD_RAG_TOOLS,
     detect: (ctx) => FRAUD_RAG_KEYWORD_RE.test(ctx.rawText || ''),
     context: FRAUD_RAG_CONTEXT_BLOCK,
+    prefeed: null,
+  },
+  {
+    // 验链接：主要由斜杠指令 /check_link 强制激活（与 hotspot 同策略，不经关键词自动注入），
+    // 关键词仅保留给 find_tool 发现用；工具不自动注入，由 LLM 经 find_tool 或强制能力装载。
+    id: 'verify-link',
+    label: '验链接',
+    summary: '对单个 URL 做本地零依赖安全研判（形近域名/同形字符/缩短器/裸IP/可疑TLD/诱导词/品牌冒用），返回结构化风险报告。',
+    triggers: ['验链接', '检查链接', '链接安全', '钓鱼链接', '短链', '链接真假', 'check link', 'verify link', 'url safety', 'phishing url'],
+    tools: VERIFY_LINK_TOOLS,
+    detect: () => false,
+    toolWhen: () => false,
+    context: VERIFY_LINK_CONTEXT_BLOCK,
+    prefeed: null,
+  },
+  {
+    // 短信分析：命中反诈关键词即自动注入工具（与 fraud-rag 协同），亦可由 /check_sms 强制激活。
+    id: 'verify-sms',
+    label: '短信分析',
+    summary: '对短信/聊天文本做结构化风险拆解：复用规则引擎匹配话术 + RAG 检索相似案例，输出套路拆解与处置建议。',
+    triggers: ['验短信', '短信分析', '短信风险', '分析短信', '短信诈骗', '聊天风险', 'check sms', 'sms analysis', 'analyze message'],
+    tools: VERIFY_SMS_TOOLS,
+    detect: (ctx) => FRAUD_RAG_KEYWORD_RE.test(ctx.rawText || ''),
+    context: VERIFY_SMS_CONTEXT_BLOCK,
     prefeed: null,
   },
 

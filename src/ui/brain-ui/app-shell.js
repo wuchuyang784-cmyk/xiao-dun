@@ -12,6 +12,8 @@ const createMapStage = () => `
 
 const createPrimaryPanel = () => `
 <aside id="panel-l1" class="panel">
+  <button id="panel-l1-tab" class="panel-tab panel-tab-left" type="button" aria-label="切换左面板" aria-controls="panel-l1" aria-expanded="true" title="收起 / 展开左面板（快捷键 [ ）"></button>
+  <div class="panel-body">
   <header class="panel-identity">
     <div class="brand-mark"></div>
     <div class="brand-copy">
@@ -46,12 +48,15 @@ const createPrimaryPanel = () => `
   <div class="stream">
     <div class="stream-inner" id="si-l1"></div>
   </div>
+  </div>
 
 </aside>
 `;
 
 const createSecondaryPanel = () => `
 <aside id="panel-l2" class="panel">
+  <button id="panel-l2-tab" class="panel-tab panel-tab-right" type="button" aria-label="切换右面板" aria-controls="panel-l2" aria-expanded="true" title="收起 / 展开右面板（快捷键 ] ）"></button>
+  <div class="panel-body">
   <header class="panel-stats">
     <div class="stat">
       <span class="stat-label">状态</span>
@@ -97,6 +102,7 @@ const createSecondaryPanel = () => `
     <div class="stream">
       <div class="stream-inner" id="si-l2"></div>
     </div>
+  </div>
   </div>
 </aside>
 `;
@@ -653,17 +659,11 @@ const createImagePanel = () => `
 </div>
 `;
 
-const createPanelTabs = () => `
-<button id="panel-l1-tab" class="panel-tab panel-tab-left" aria-label="切换左面板" title="切换左面板 [ "></button>
-<button id="panel-l2-tab" class="panel-tab panel-tab-right" aria-label="切换右面板" title="切换右面板 ] "></button>
-`;
-
 export function createBrainUiMarkup() {
   return [
     createMapStage(),
     createPrimaryPanel(),
     createSecondaryPanel(),
-    createPanelTabs(),
     createConsole(),
     createTooltip(),
     createSettingsModal(),

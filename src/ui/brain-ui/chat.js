@@ -1188,6 +1188,27 @@ export function initChat({
       run: () => openRagManager?.(),
     },
 
+    // 验链接 / 验短信：预填命令，引导用户粘贴 URL / 短信文本后发送；
+    // 后端 intent-resolver（EXPLICIT_COMMANDS）已能识别 /check_link、/check_sms 并路由到对应能力。
+    {
+      cmd: "/check_link", keys: ["check_link", "check", "验链接", "链接", "link", "网址", "钓鱼", "诈骗"],
+      label: "验链接", desc: "粘贴可疑链接，检测钓鱼/诈骗风险",
+      run: () => {
+        msgInput.value = "/check_link ";
+        autoGrowInput();
+        try { msgInput.focus(); } catch {}
+      },
+    },
+    {
+      cmd: "/check_sms", keys: ["check_sms", "check", "验短信", "短信", "sms", "话术", "诈骗"],
+      label: "验短信", desc: "粘贴短信内容，检测诈骗话术风险",
+      run: () => {
+        msgInput.value = "/check_sms ";
+        autoGrowInput();
+        try { msgInput.focus(); } catch {}
+      },
+    },
+
     {
       cmd: "/compress", keys: ["compress", "压缩", "压缩上下文"],
       label: "压缩上下文", desc: "删除旧消息，保留最近 8 条，腾出 LLM 上下文空间",
