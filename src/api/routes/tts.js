@@ -69,8 +69,13 @@ export async function handleTtsRoutes(req, res, url) {
         format: body.format || 'mp3',
       })
 
+      // Some providers return WAV even when the requested format is MP3.
+      // Detect the actual container so browsers can decode the response correctly.
+      const isWav = audioBuf.subarray(0, 4).toString('ascii') === 'RIFF'
+        && audioBuf.subarray(8, 12).toString('ascii') === 'WAVE'
+      const contentType = isWav ? 'audio/wav' : (body.format === 'wav' ? 'audio/wav' : 'audio/mpeg')
       res.writeHead(200, {
-        'Content-Type': body.format === 'wav' ? 'audio/wav' : 'audio/mpeg',
+        'Content-Type': contentType,
         'Content-Length': audioBuf.length,
         'Cache-Control': 'public, max-age=3600',
       })

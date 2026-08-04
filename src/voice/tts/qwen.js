@@ -14,7 +14,7 @@ const VOICES = [
   { id: 'Maia', label: 'Maia · 知性女声（中文）', gender: 'female' },
 ]
 
-const DEFAULT_BASE_URL = 'https://dashscope.aliyuncs.com/api/v1/services/audio/tts'
+const DEFAULT_BASE_URL = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation'
 
 export default class QwenTts extends TtsProvider {
   static get id() { return 'qwen' }
@@ -46,7 +46,7 @@ export default class QwenTts extends TtsProvider {
       throw err
     }
 
-    const url = `${this.baseURL}/speech/generation`
+    const url = `${this.baseURL}/generation`
     const body = {
       model,
       input: {
@@ -81,14 +81,17 @@ export default class QwenTts extends TtsProvider {
     }
 
     const data = await res.json()
-    if (!data?.output?.audio_url) {
-      const err = new Error('阿里云 TTS 返回无 audio_url')
+    const audioUrl = data?.output?.audio?.url
+    if (!audioUrl) {
+      const err = new Error('TTS response missing audio URL')
       err.code = 'TTS_EMPTY_RESPONSE'
       throw err
     }
-
     // 阿里云返回 OSS 临时链接，需 GET 一次
-    const audioRes = await fetch(data.output.audio_url)
+    // DashScope may return an http OSS URL even though the API request is HTTPS.
+    // Fetch the HTTPS equivalent so browser/server security policies do not reject it.
+    const downloadUrl = String(audioUrl).replace(/^http:/i, 'https:')
+    const audioRes = await fetch(downloadUrl)
     if (!audioRes.ok) {
       const err = new Error(`阿里云 TTS 音频下载失败 ${audioRes.status}`)
       err.code = 'TTS_UPSTREAM_ERROR'
