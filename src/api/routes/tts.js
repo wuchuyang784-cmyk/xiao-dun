@@ -1,7 +1,7 @@
 // TTS 设置 + 合成路由
 import { jsonResponse } from '../utils.js'
-import { listTtsProviders, createTtsProvider, getTtsConfig } from '../../voice/tts/index.js'
-import { readExistingStoredConfig, writeStoredConfig } from '../../config.js'
+import { listTtsProviders, createTtsProvider } from '../../voice/tts/index.js'
+import { getTtsConfig, setTtsConfig } from '../../config.js'
 
 async function readJsonBody(req) {
   return new Promise(resolve => {
@@ -24,23 +24,15 @@ export async function handleTtsRoutes(req, res, url) {
   if (req.method === 'POST' && url.pathname === '/settings/tts') {
     try {
       const body = await readJsonBody(req)
-      const existing = readExistingStoredConfig()
-      const tts = { ...(existing.tts || {}) }
-
-      if (body.provider !== undefined) tts.ttsProvider = body.provider
-      if (body.apiKey !== undefined) {
-        // 根据当前 provider 存到对应 key
-        const provider = body.provider || tts.ttsProvider || 'doubao'
-        if (provider === 'doubao') tts.doubaoKey = body.apiKey
-        else if (provider === 'openai') tts.openaiTtsKey = body.apiKey
-        else tts.doubaoKey = body.apiKey
-      }
-      if (body.voiceId !== undefined) tts.ttsVoiceId = body.voiceId
-      if (body.model !== undefined) tts.ttsModel = body.model
-      if (body.baseURL !== undefined) tts.openaiTtsBaseURL = body.baseURL
-
-      writeStoredConfig({ ...existing, tts })
-      jsonResponse(res, 200, { ok: true, tts: getTtsConfig() })
+      const updated = setTtsConfig({
+        provider: body.provider,
+        apiKey: body.apiKey,
+        voiceId: body.voiceId,
+        speed: body.speed,
+        baseURL: body.baseURL,
+        model: body.model,
+      })
+      jsonResponse(res, 200, { ok: true, tts: updated })
     } catch (err) {
       jsonResponse(res, 400, { ok: false, error: err.message })
     }

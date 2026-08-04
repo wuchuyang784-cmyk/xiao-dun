@@ -1580,6 +1580,40 @@ export const EMBEDDING_PROVIDER_PRESETS = {
   local: { baseURL: '', defaultModel: LOCAL_DEFAULT_MODEL, defaultDims: LOCAL_DEFAULT_DIMS, local: true },
 }
 
+// ===== TTS 配置读写 =====
+export function getTtsConfig() {
+  const stored = readExistingStoredConfig()
+  const tts = stored?.tts || {}
+  const provider = tts.ttsProvider || 'doubao'
+  const apiKey = provider === 'openai' ? (tts.openaiTtsKey || '') : (tts.doubaoKey || '')
+  return {
+    provider,
+    apiKey,
+    voiceId: tts.ttsVoiceId || '',
+    speed: typeof tts.ttsSpeed === 'number' ? tts.ttsSpeed : 1.0,
+    baseURL: tts.openaiTtsBaseURL || '',
+    model: tts.ttsModel || '',
+    configured: !!apiKey,
+  }
+}
+
+export function setTtsConfig(updates = {}) {
+  const existing = readExistingStoredConfig()
+  const tts = { ...(existing.tts || {}) }
+  if (updates.provider !== undefined) tts.ttsProvider = updates.provider
+  if (updates.apiKey !== undefined) {
+    const provider = updates.provider || tts.ttsProvider || 'doubao'
+    if (provider === 'openai') tts.openaiTtsKey = updates.apiKey
+    else tts.doubaoKey = updates.apiKey
+  }
+  if (updates.voiceId !== undefined) tts.ttsVoiceId = updates.voiceId
+  if (updates.speed !== undefined) tts.ttsSpeed = Number(updates.speed) || 1.0
+  if (updates.baseURL !== undefined) tts.openaiTtsBaseURL = updates.baseURL
+  if (updates.model !== undefined) tts.ttsModel = updates.model
+  writeStoredConfig({ ...existing, tts })
+  return getTtsConfig()
+}
+
 let _embeddingBlockCache = null
 let _embeddingBlockCacheMtime = -1
 
