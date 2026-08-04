@@ -1761,20 +1761,29 @@ function initCrossMenuButton() {
   async function loadTtsSettings() {
     const provSel = document.getElementById('tts-provider-select')
     const keyInp = document.getElementById('tts-apikey')
+    const key2Row = document.getElementById('tts-apikey2-row')
+    const key2Inp = document.getElementById('tts-apikey2')
     const voiceSel = document.getElementById('tts-voice-select')
     const speedInp = document.getElementById('tts-speed')
     const speedVal = document.getElementById('tts-speed-val')
+    const toggleApikey2 = () => {
+      const isTencent = provSel?.value === 'tencent'
+      if (key2Row) key2Row.style.display = isTencent ? '' : 'none'
+      if (keyInp) keyInp.placeholder = isTencent ? 'SecretId' : '输入 API Key'
+    }
     try {
       const r = await fetch('/settings/tts')
       const d = await r.json().catch(() => ({}))
       if (r.ok && d.tts) {
         if (provSel) provSel.value = d.tts.provider || 'doubao'
         if (keyInp) keyInp.value = d.tts.apiKey || ''
+        if (key2Inp) key2Inp.value = d.tts.apiKey2 || ''
         if (speedInp && d.tts.speed) { speedInp.value = String(d.tts.speed); if (speedVal) speedVal.textContent = d.tts.speed }
       }
     } catch {}
     if (provSel) {
-      provSel.addEventListener('change', () => fetchTtsVoices(provSel.value, voiceSel))
+      provSel.addEventListener('change', () => { toggleApikey2(); fetchTtsVoices(provSel.value, voiceSel) })
+      toggleApikey2()
       fetchTtsVoices(provSel.value, voiceSel)
     }
     if (speedInp && speedVal) {
@@ -1878,9 +1887,10 @@ function initCrossMenuButton() {
       // 同时保存 TTS 配置
       const ttsProvider = document.getElementById('tts-provider-select')?.value || ''
       const ttsApiKey = document.getElementById('tts-apikey')?.value?.trim() || ''
+      const ttsApiKey2 = document.getElementById('tts-apikey2')?.value?.trim() || ''
       const ttsVoiceId = document.getElementById('tts-voice-select')?.value || ''
       const ttsSpeed = document.getElementById('tts-speed')?.value || '1.0'
-      if (ttsProvider && ttsApiKey) {
+      if (ttsProvider && (ttsApiKey || ttsApiKey2)) {
         try {
           await fetch('/settings/tts', {
             method: 'POST',
@@ -1888,6 +1898,7 @@ function initCrossMenuButton() {
             body: JSON.stringify({
               provider: ttsProvider,
               apiKey: ttsApiKey,
+              apiKey2: ttsApiKey2,
               voiceId: ttsVoiceId,
               speed: ttsSpeed,
             }),

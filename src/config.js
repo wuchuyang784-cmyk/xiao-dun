@@ -1585,15 +1585,37 @@ export function getTtsConfig() {
   const stored = readExistingStoredConfig()
   const tts = stored?.tts || {}
   const provider = tts.ttsProvider || 'doubao'
-  const apiKey = provider === 'openai' ? (tts.openaiTtsKey || '') : (tts.doubaoKey || '')
+  let apiKey = ''
+  let apiKey2 = ''
+  let configured = false
+  if (provider === 'openai') {
+    apiKey = tts.openaiTtsKey || ''
+    configured = !!apiKey
+  } else if (provider === 'qwen') {
+    apiKey = tts.qwenTtsKey || ''
+    configured = !!apiKey
+  } else if (provider === 'tencent') {
+    apiKey = tts.tencentTtsSecretId || ''
+    apiKey2 = tts.tencentTtsSecretKey || ''
+    configured = !!(apiKey && apiKey2)
+  } else if (provider === 'minimax') {
+    apiKey = tts.minimaxTtsKey || ''
+    configured = !!apiKey
+  } else {
+    apiKey = tts.doubaoKey || ''
+    configured = !!apiKey
+  }
   return {
     provider,
     apiKey,
+    apiKey2,
     voiceId: tts.ttsVoiceId || '',
     speed: typeof tts.ttsSpeed === 'number' ? tts.ttsSpeed : 1.0,
     baseURL: tts.openaiTtsBaseURL || '',
     model: tts.ttsModel || '',
-    configured: !!apiKey,
+    region: tts.tencentTtsRegion || 'ap-guangzhou',
+    groupId: tts.minimaxTtsGroupId || '',
+    configured,
   }
 }
 
@@ -1604,12 +1626,19 @@ export function setTtsConfig(updates = {}) {
   if (updates.apiKey !== undefined) {
     const provider = updates.provider || tts.ttsProvider || 'doubao'
     if (provider === 'openai') tts.openaiTtsKey = updates.apiKey
+    else if (provider === 'qwen') tts.qwenTtsKey = updates.apiKey
+    else if (provider === 'minimax') tts.minimaxTtsKey = updates.apiKey
     else tts.doubaoKey = updates.apiKey
+  }
+  if (updates.apiKey2 !== undefined) {
+    if ((updates.provider || tts.ttsProvider) === 'tencent') tts.tencentTtsSecretKey = updates.apiKey2
   }
   if (updates.voiceId !== undefined) tts.ttsVoiceId = updates.voiceId
   if (updates.speed !== undefined) tts.ttsSpeed = Number(updates.speed) || 1.0
   if (updates.baseURL !== undefined) tts.openaiTtsBaseURL = updates.baseURL
   if (updates.model !== undefined) tts.ttsModel = updates.model
+  if (updates.region !== undefined) tts.tencentTtsRegion = updates.region
+  if (updates.groupId !== undefined) tts.minimaxTtsGroupId = updates.groupId
   writeStoredConfig({ ...existing, tts })
   return getTtsConfig()
 }

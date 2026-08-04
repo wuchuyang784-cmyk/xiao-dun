@@ -458,12 +458,19 @@ const createSettingsModal = () => `
               <label class="settings-label" for="tts-provider-select">\u5382\u5546</label>
               <select class="settings-select" id="tts-provider-select">
                 <option value="doubao">\u8c46\u5305 TTS\uff08\u706b\u5c71\u5f15\u64ce\uff09</option>
+                <option value="qwen">\u963f\u91cc\u4e91\u767e\u70bc Qwen TTS</option>
+                <option value="tencent">\u817e\u8baf\u4e91 TTS</option>
+                <option value="minimax">MiniMax TTS</option>
                 <option value="openai">OpenAI TTS</option>
               </select>
             </div>
             <div class="settings-row">
               <label class="settings-label" for="tts-apikey">API Key</label>
               <input class="settings-input" id="tts-apikey" type="password" placeholder="\u8f93\u5165 API Key" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="settings-row" id="tts-apikey2-row" style="display:none;">
+              <label class="settings-label" for="tts-apikey2">Secret Key</label>
+              <input class="settings-input" id="tts-apikey2" type="password" placeholder="SecretKey\uff08\u817e\u8baf\u4e91\u4e8c\u4ee3\u4e2d\uff09" autocomplete="off" spellcheck="false">
             </div>
             <div class="settings-row">
               <label class="settings-label" for="tts-voice-select">\u97f3\u8272</label>
