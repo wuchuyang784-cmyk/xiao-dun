@@ -646,16 +646,16 @@ function handle({ type, data = {} }) {
     const hits = ['刷单返利', '冒充客服', '公检法', '投资理财', '杀猪盘', '贷款诈骗', '裸聊敲诈', '网络约炮', '虚假贷款']
       .filter(k => data.content.includes(k)).length
     if (hits >= 3) {
-      appState._boilerHits = (appState._boilerHits || 0) + 1
-      if (appState._boilerHits >= 3) {
+      handle._boilerHits = (handle._boilerHits || 0) + 1
+      if (handle._boilerHits >= 3) {
         console.warn('[boilerplate-guard] 连续 3 轮检测到诈骗关键词堆砌，建议 /clear 重置对话')
-        appState._boilerHits = 0
+        handle._boilerHits = 0
       }
     } else {
-      appState._boilerHits = 0
+      handle._boilerHits = 0
     }
-    // TTS 自动播放（仅当已配置且未在 PTT 录音时）
-    if (!appState._pttActive && data.content) {
+    // TTS 自动播放（playTts 内部会自动停止上一个播放）
+    if (data.content) {
       playTts(data.content).catch(err => console.warn('[tts] play failed:', err.message))
     }
   }
