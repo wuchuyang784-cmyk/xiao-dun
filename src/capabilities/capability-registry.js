@@ -33,7 +33,7 @@ export const WEB_TOOLS = ['web_search', 'fetch_url', 'browser_read']
 export const HOTSPOT_TOOLS = ['hotspot_mode']
 export const CASES_IMPORT_TOOLS = []
 export const RECORD_TOOLS = []
-export const FRAUD_RAG_TOOLS = ['search_fraud_cases']
+export const FRAUD_RAG_TOOLS = ['search_fraud_cases', 'fraud_rule_screen']
 export const VERIFY_LINK_TOOLS = ['check_link']
 export const VERIFY_SMS_TOOLS = ['check_sms']
 
@@ -76,7 +76,11 @@ const HOTSPOT_CONTEXT_BLOCK = `### Hotspot Panel
 const FRAUD_RAG_CONTEXT_BLOCK = `### Anti-fraud Knowledge Retrieval
 - For suspicious chats, transfers, account trading, links, investment offers, impersonation, or other fraud-risk assessment, call search_fraud_cases with the relevant original text or a concise factual description.
 - Treat matches as semantic reference evidence. Combine them with the rule engine and the user's actual facts; do not classify solely from one similarity score.
-- The knowledge-base texts and map demo are not real-time incident statistics. Never describe retrieved items as proof of actual regional incidence.`
+- The knowledge-base texts and map demo are not real-time incident statistics. Never describe retrieved items as proof of actual regional incidence.
+
+### Anti-fraud Rule Engine (fraud_rule_screen)
+- When analyzing suspicious text (chats, SMS, transfer requests, link descriptions), ALWAYS call fraud_rule_screen first for millisecond-level scam-script matching. It detects keyword patterns, high-risk combinations, URL/bank-card/verification-code signals, and returns a structured verdict (score, level, hit types, playbook steps, advice).
+- Combine the rule engine result with RAG search_fraud_cases results for a complete assessment. The rule engine catches known scam patterns deterministically; RAG finds semantically similar historical cases.`
 
 const VERIFY_LINK_CONTEXT_BLOCK = `### Link Safety Verification (check_link)
 - When the user wants to verify a single URL / link for phishing or scam risk, call check_link with the raw URL (e.g. { "url": "https://..." }).
@@ -163,15 +167,15 @@ export const CAPABILITIES = [
     prefeed: null,
   },
   {
-    // 验链接：主要由斜杠指令 /check_link 强制激活（与 hotspot 同策略，不经关键词自动注入），
-    // 关键词仅保留给 find_tool 发现用；工具不自动注入，由 LLM 经 find_tool 或强制能力装载。
+    // 验链接：命中反诈关键词即自动注入工具与工作流块，LLM 可自主判断是否调用；
+    // 亦可由 /check_link 斜杠指令强制激活。
     id: 'verify-link',
     label: '验链接',
     summary: '对单个 URL 做本地零依赖安全研判（形近域名/同形字符/缩短器/裸IP/可疑TLD/诱导词/品牌冒用），返回结构化风险报告。',
     triggers: ['验链接', '检查链接', '链接安全', '钓鱼链接', '短链', '链接真假', 'check link', 'verify link', 'url safety', 'phishing url'],
     tools: VERIFY_LINK_TOOLS,
-    detect: () => false,
-    toolWhen: () => false,
+    detect: (ctx) => FRAUD_RAG_KEYWORD_RE.test(ctx.rawText || ''),
+    toolWhen: (ctx) => FRAUD_RAG_KEYWORD_RE.test(ctx.rawText || ''),
     context: VERIFY_LINK_CONTEXT_BLOCK,
     prefeed: null,
   },

@@ -73,10 +73,6 @@ const ADMIN_TOOLS       = [
   'set_security', 'connect_wechat', 'connect_feishu',
   'set_location', 'set_agent_name', 'manage_rule',
   'manage_api_capability',
-  'fraud_rule_screen',
-  'fraud_intel',
-  'check_link',
-  'check_sms',
 ]
 const INLINE_IMAGE_RE = /!\[[^\]]*]\(|\/media\/chat\/|data:image\//i
 const API_KEY_RE = /\b(?:sk|ak|rk|pk|ark)-[A-Za-z0-9_\-.]{12,180}\b/i
