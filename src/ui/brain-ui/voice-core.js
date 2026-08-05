@@ -61,11 +61,13 @@ function lerpArr(a, b, t) { return a.map((v, i) => lerp(v, b[i], t)); }
 
 // ─── 状态配置 ───
 // idle = 麦克风关闭（灰色）  listening = 麦克风开启待命（白色）
-// recognizing = 正在识别（蓝色）  done = 识别完成（绿色，2s 后回 listening）
+// recognizing = 正在识别（蓝色）  speaking = 正在播报（紫青色）
+// done = 识别完成（绿色，2s 后回 listening）
 const STATE_CFG = {
   idle:        { amp: 0.003, spd: 0.10, r: [50,68,80],    g: [50,68,80],    b: [55,73,85]   },
   listening:   { amp: 0.055, spd: 0.75, r: [185,215,245], g: [185,215,245], b: [195,225,255] },
   recognizing: { amp: 0.55,  spd: 4.50, r: [25,75,165],   g: [95,155,230],  b: [195,230,255] },
+  speaking:   { amp: 0.48,  spd: 3.80, r: [70,150,235],   g: [85,215,225],  b: [210,125,255] },
   done:        { amp: 0.10,  spd: 1.20, r: [30,105,65],   g: [145,200,135], b: [45,90,60]   },
   processing:  { amp: 0.15,  spd: 1.10, r: [100,60,200],  g: [80,60,180],   b: [220,190,255] },
   error:       { amp: 0.10,  spd: 0.70, r: [200,240,255], g: [20,30,40],    b: [20,30,40]   },
@@ -147,6 +149,7 @@ export function createVoiceCore({ canvas, transcript, getChatInput, getSendMessa
   let rafId = null;
   let eventFlashCount = 0;
   let doneTimer = null;
+  let playbackActive = false;
   // ── 画面节流（drawFrame 内分析与绘制已解耦：音量分析每帧必跑，降帧只降"画"不降"听"）──
   // 近乎静止的画面 60fps 全速投影排序 4400 个点纯属浪费（笔记本常驻占用的大头之一）。
   // 三个条件互相独立（targetDrawFps）：
@@ -189,6 +192,15 @@ export function createVoiceCore({ canvas, transcript, getChatInput, getSendMessa
   const getStatus = () => sk;
   function setExternalVol(v) { externalVol = (v == null ? null : Number(v) || 0); }
 
+  function setPlaybackState(active) {
+    playbackActive = Boolean(active);
+    if (playbackActive) {
+      setStatus('speaking');
+    } else if (sk === 'speaking') {
+      setStatus(micActive ? 'listening' : 'idle');
+    }
+  }
+
   function triggerDone() {
     setStatus('done');
     if (doneTimer) clearTimeout(doneTimer);
@@ -220,13 +232,18 @@ export function createVoiceCore({ canvas, transcript, getChatInput, getSendMessa
 
       if (vol > QUIET_VOL) {
         lastVoiceTs = ts;
-        if (sk !== 'recognizing' && sk !== 'event')
+        if (!playbackActive && sk !== 'recognizing' && sk !== 'event')
           setStatus(vol > 0.15 ? 'recognizing' : 'listening');
-      } else if (sk !== 'idle' && sk !== 'event' && sk !== 'processing' && sk !== 'done') {
+      } else if (!playbackActive && sk !== 'idle' && sk !== 'event' && sk !== 'processing' && sk !== 'done') {
         setStatus('idle');
       }
     } else {
       lastVol = 0;
+      // Keep the floating orb in sync even when playback is active without a microphone session.
+      onFrame?.(0, {
+        suspendedByMedia,
+        status: sk,
+      });
     }
 
     // ── 画面节流 ──
@@ -777,7 +794,7 @@ export function createVoiceCore({ canvas, transcript, getChatInput, getSendMessa
     stopMic();
     diagStop();
     stopWatchdog();
-    setStatus('idle');
+    setStatus(playbackActive ? 'speaking' : 'idle');
     if (transcript) transcript.textContent = '';
     syncState();
   }
@@ -823,6 +840,7 @@ export function createVoiceCore({ canvas, transcript, getChatInput, getSendMessa
     startRenderLoop,
     stopRenderLoop,
     setExternalVol,
+    setPlaybackState,
     // 会话生命周期
     startSession,
     stopSession,
