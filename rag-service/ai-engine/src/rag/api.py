@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import uuid
 from dataclasses import asdict
 from typing import Annotated
 
@@ -28,6 +29,32 @@ class RagSearchPayload(BaseModel):
     candidate_k: int = Field(default=50, ge=1, le=100)
     risk_category_hint: str | None = None
     knowledge_base_version: str | None = None
+
+
+class RagItemPayload(BaseModel):
+    request_id: str | None = None
+    title: str = Field(min_length=1, max_length=200)
+    text: str = Field(min_length=10, max_length=8000)
+    category_code: str = Field(min_length=1, max_length=64)
+    risk_signals: list[str] = Field(default_factory=list, max_length=20)
+    key_phrases: list[str] = Field(default_factory=list, max_length=20)
+    year: int | None = Field(default=None, ge=2000, le=2100)
+    source_dataset: str = Field(default="manual_ui", min_length=1, max_length=100)
+    pii_confirmed: bool = False
+
+
+RISK_CATEGORIES = {
+    "fake_bank_card": "虚假银行卡与账户交易",
+    "fake_certification": "虚假认证",
+    "fake_credentials": "虚假证件",
+    "fake_sim_card": "虚假手机卡",
+    "gambling": "赌博引流",
+    "new_risk_type": "新型诈骗风险",
+    "prohibited_drugs": "违禁药品",
+    "unauthorized_cashout": "非法套现",
+    "underground_loan": "地下贷款",
+    "whoring_prostitution": "色情招嫖",
+}
 
 
 def _default_repository() -> PostgresRiskTextRepository:
@@ -114,6 +141,10 @@ def create_app(
 
     @app.get("/internal/v1/ai/health")
     def health() -> dict:
+        try:
+            risk_text_repository.list_map_stats()
+        except RuntimeError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
         return {
             "code": 0,
             "message": "success",
@@ -132,6 +163,19 @@ def create_app(
             "message": "success",
             "data": data,
             "request_id": "rag-map-stats",
+        }
+
+    @app.get("/internal/v1/rag/readiness")
+    def rag_readiness() -> dict:
+        try:
+            data = risk_text_repository.get_readiness()
+        except RuntimeError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        return {
+            "code": 0,
+            "message": "success",
+            "data": data,
+            "request_id": "rag-readiness",
         }
 
     @app.post("/internal/v1/rag/search")
@@ -167,6 +211,51 @@ def create_app(
             "code": 0,
             "message": "success",
             "data": asdict(result),
+            "request_id": request_id,
+        }
+
+    @app.post("/internal/v1/rag/items")
+    def add_rag_item(
+        payload: RagItemPayload,
+        x_request_id: Annotated[str | None, Header()] = None,
+    ) -> dict:
+        request_id = payload.request_id or x_request_id or str(uuid.uuid4())
+        if not payload.pii_confirmed:
+            raise HTTPException(status_code=400, detail="pii_confirmed must be true")
+        category_name = RISK_CATEGORIES.get(payload.category_code)
+        if not category_name:
+            raise HTTPException(status_code=400, detail="unsupported category_code")
+
+        risk_text_id = f"manual_{uuid.uuid4().hex}"
+        item = {
+            "risk_text_id": risk_text_id,
+            "title": payload.title.strip(),
+            "text": payload.text.strip(),
+            "category_code": payload.category_code,
+            "category_name": category_name,
+            "risk_signals": [value.strip() for value in payload.risk_signals if value.strip()],
+            "key_phrases": [value.strip() for value in payload.key_phrases if value.strip()],
+            "year": payload.year,
+            "source_dataset": payload.source_dataset.strip(),
+        }
+        retrieval_text = " ".join(
+            str(part) for part in (
+                item["title"], category_name, item["text"],
+                *item["risk_signals"], *item["key_phrases"],
+            ) if part
+        )
+        try:
+            embedding = embedder.embed_document(retrieval_text, request_id)
+            data = risk_text_repository.add_risk_text(item, embedding)
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+        except RuntimeError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+
+        return {
+            "code": 0,
+            "message": "success",
+            "data": {**data, "title": item["title"], "category_code": item["category_code"]},
             "request_id": request_id,
         }
 

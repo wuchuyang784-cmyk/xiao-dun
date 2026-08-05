@@ -5,6 +5,7 @@ import {
   normalizeConversationPartyId,
   insertConversation,
   markConversationOpenQuestion,
+  getAllClawbotTokens,
 } from '../db.js'
 import { emitEvent } from '../events.js'
 import { dispatchSocialMessage } from '../social/dispatch.js'
@@ -217,56 +218,80 @@ function makeSocialPayload(text, media) {
 //   - isLocal: true 时不调外部 dispatch，只走本地 SSE
 //   - reason: 失败时给 LLM 的提示
 // AUTO 决议顺序：当前 turn 渠道（响应模式）→ suggestProactiveChannel（主动模式）
-function resolveDeliveryTarget(resolvedId, channelPref, context = {}) {
+const EXTERNAL_CHANNELS = new Set(['WECHAT', 'DISCORD', 'FEISHU', 'WECOM'])
+const LOCAL_UI_REQUEST_RE = /\u7f51\u9875(?:\u7aef|\u754c\u9762)?|web\s*(?:ui|page)?|\u6d4f\u89c8\u5668|\u672c\u5730(?:\u754c\u9762|\u9875\u9762|\u7a97\u53e3)?|\u5c0f\u76fe(?:\u7f51\u9875|\u754c\u9762)|\u7535\u8111(?:\u7aef|\u4e0a)|\u684c\u9762|\bTUI\b/i
+
+function isExplicitLocalUiRequest(message = '') {
+  return LOCAL_UI_REQUEST_RE.test(String(message || ''))
+}
+
+export function resolveDeliveryTarget(resolvedId, channelPref, context = {}) {
   const pref = (channelPref || 'AUTO').toUpperCase()
 
-  // resolvedId 本身就是带渠道前缀的外部 ID（少见，但保留兼容）—— 直接当外部投递
+  // resolvedId itself may already be an external channel-prefixed ID.
   if (/^(wechat|discord|feishu|wecom):/i.test(resolvedId)) {
     return { externalTargetId: resolvedId, deliveryChannel: '', isLocal: false }
   }
 
-  // canonical 用户 ID：根据 channel 偏好决议
+  const currentNorm = context.currentChannel ? normalizeChannel(context.currentChannel) : null
   let actualPref = pref
-  if (actualPref === 'AUTO') {
-    // 优先用当前 turn 的渠道：用户在哪儿发消息就回到哪儿（响应直觉一致）
-    const currentNorm = context.currentChannel ? normalizeChannel(context.currentChannel) : null
+  let routingOverride = ''
+
+  // An inbound social turn is a conversation-local reply by default. The model
+  // may occasionally select TUI from the public enum even though the user is
+  // waiting on WeChat (or another social channel). Keep that reply external
+  // unless the user explicitly asks for local/web UI output.
+  if (
+    actualPref === 'TUI' &&
+    currentNorm &&
+    EXTERNAL_CHANNELS.has(currentNorm) &&
+    !isExplicitLocalUiRequest(context.currentUserMessage)
+  ) {
+    actualPref = currentNorm
+    routingOverride = 'current_external_channel'
+    console.warn(`[delivery] Ignoring accidental TUI override on ${context.currentChannel} turn; routing to ${currentNorm}`)
+  }
+
+  let actualChannel = actualPref
+  if (actualChannel === 'AUTO') {
     if (currentNorm && currentNorm !== 'SYSTEM') {
-      actualPref = currentNorm
+      actualChannel = currentNorm
     } else {
-      // 没有当前 turn 渠道（典型场景：tick 主动外联）→ 用 presence 推荐
-      actualPref = suggestProactiveChannel(resolvedId)
+      actualChannel = suggestProactiveChannel(resolvedId)
     }
   }
 
-  if (actualPref === 'TUI') {
-    return { externalTargetId: null, deliveryChannel: 'TUI', isLocal: true }
+  const withRoutingMetadata = (target) => routingOverride
+    ? { ...target, routingOverride }
+    : target
+
+  if (actualChannel === 'TUI') {
+    return withRoutingMetadata({ externalTargetId: null, deliveryChannel: 'TUI', isLocal: true })
   }
 
-  // 当前 turn 已经在该外部渠道、且带 externalPartyId → 直接复用，省一次 DB 查
+  // Reuse the current turn's external party ID when it matches the channel.
   if (context.currentExternalPartyId && context.currentChannel) {
     const ctxNorm = normalizeChannel(context.currentChannel)
-    if (ctxNorm === actualPref) {
-      return {
+    if (ctxNorm === actualChannel) {
+      return withRoutingMetadata({
         externalTargetId: context.currentExternalPartyId,
         deliveryChannel: context.currentChannel,
         isLocal: false,
-      }
+      })
     }
   }
 
-  // 否则反查该 canonical 用户在指定渠道最近一次的 external_id
-  const reply = lookupReplyTarget({ canonicalId: resolvedId, channel: actualPref })
+  const reply = lookupReplyTarget({ canonicalId: resolvedId, channel: actualChannel })
   if (reply) {
-    return { externalTargetId: reply.externalId, deliveryChannel: reply.channel, isLocal: false }
+    return withRoutingMetadata({ externalTargetId: reply.externalId, deliveryChannel: reply.channel, isLocal: false })
   }
 
-  // 用户在该渠道从未交互过，无法主动联系
-  return {
+  return withRoutingMetadata({
     externalTargetId: null,
     deliveryChannel: '',
     isLocal: false,
-    error: `cannot route to ${actualPref}: user ${resolvedId} has no recorded external_party_id on that channel`,
-  }
+    error: `cannot route to ${actualChannel}: user ${resolvedId} has no recorded external_party_id on that channel`,
+  })
 }
 
 // send_message：投递到指定渠道（本地 SSE 或外部平台），并写入 conversations 表
@@ -380,6 +405,21 @@ export async function deliverMessage({ target_id, content = '', channel = 'AUTO'
     external_party_id: delivery.externalTargetId || '',
     ...(media ? { media_path: media.path, media_kind: media.kind, file_name: media.fileName } : {}),
   })
+
+  // 反诈提醒自动转发到微信：检测到反诈标记词时，转发给所有已绑定的微信用户
+  if (/小盾反诈提醒|96110|遇骗即拨/.test(outboundContent)) {
+    try {
+      const tokens = getAllClawbotTokens()
+      for (const t of tokens) {
+        const wechatId = `wechat:clawbot:${t.from_user_id}`
+        dispatchSocialMessage(wechatId, { text: outboundContent })
+          .then(r => console.log(`[fraud-alert-forward] 微信推送 → ${t.from_user_id}: ${r?.ok ? '成功' : r?.reason || '失败'}`))
+          .catch(err => console.warn(`[fraud-alert-forward] 微信推送失败 → ${t.from_user_id}:`, err.message))
+      }
+    } catch (e) {
+      console.warn('[fraud-alert-forward] 获取微信用户列表失败:', e.message)
+    }
+  }
 
   let socialResult = null
   if (!delivery.isLocal && delivery.externalTargetId) {

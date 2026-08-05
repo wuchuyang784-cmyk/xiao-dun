@@ -1,74 +1,5 @@
 import { emitEvent } from '../events.js'
 import { getFraudCaseStore } from '../db/stores/store-factory.js'
-// 旧字段临时桥接：markCaseIndexed / getPendingIndexCases 在 pgvector 迁移后移除
-import { markCaseIndexed, getPendingIndexCases } from '../db/repositories/fraud-cases.js'
-
-// 顶层 await 获取 store（ESM 支持，importer 自动等待）
-const store = await getFraudCaseStore()
-
-// ─────────────────────────────────────────────────────────────
-// RAG 接入 seam（端口/适配器）
-//
-// 数据库是案例的「系统真实源」；RAG 向量库是「语义检索层」。
-// 二者通过 CaseIndexer 接口解耦：现在用 NoopIndexer 顶着（导入只写库、
-// 不真正建向量），等 RAG 成员确定框架并实现适配器后，只需把
-// RAG_PROVIDER 指向真实适配器即可，业务代码一行不改。
-//
-// 交接给 RAG 成员的契约：
-//   1) FraudCase DTO 字段（caseId/provinceCode/fraudType/riskLevel/
-//      content/summary/reviewStatus...）
-//   2) CaseIndexer 接口：index(case) / bulkIndex(cases) / remove(caseId)
-//      / search(queryEmbedding, topK) —— 适配器内部自行调用 Embedding 服务
-//   3) 增量：订阅 SSE 事件 fraud_case_created / fraud_case_updated
-//      全量：GET /fraud-cases?limit=100000 拉取后调 reindex
-// ─────────────────────────────────────────────────────────────
-
-/**
- * @typedef {Object} FraudCase
- * @property {string} caseId
- * @property {string} provinceCode
- * @property {string} fraudType
- * @property {'low'|'medium'|'high'|'critical'} riskLevel
- * @property {string} content      // 用于生成向量
- * @property {string} [summary]
- * @property {string} [reviewStatus]
- */
-
-/**
- * RAG 向量索引器接口（依赖抽象，不依赖具体框架）
- * @typedef {Object} CaseIndexer
- * @property {(c: FraudCase) => Promise<void>} index
- * @property {(cases: FraudCase[]) => Promise<void>} bulkIndex
- * @property {(caseId: string) => Promise<void>} remove
- * @property {(queryEmbedding: number[], topK?: number) => Promise<Array<{caseId:string, score:number}>>} search
- */
-
-/** 默认空实现：导入只写库，不真正建向量。RAG 成员实现真实适配器后替换。 */
-const NoopIndexer = {
-  async index() {},
-  async bulkIndex() {},
-  async remove() {},
-  async search() { return [] },
-}
-
-export function createIndexer(provider = process.env.RAG_PROVIDER || 'noop') {
-  if (!provider || provider === 'noop') return NoopIndexer
-  // 未来由 RAG 成员在此返回 qdrant / pgvector 等适配器：
-  //   if (provider === 'qdrant') return createQdrantIndexer(...)
-  console.warn(`[fraud-case-service] 未知的 RAG_PROVIDER=${provider}，回退到 NoopIndexer`)
-  return NoopIndexer
-}
-
-const indexer = createIndexer()
-
-// 索引失败不应阻断数据库写入：仅记录并保留 vector_indexed=0 以便回填重试
-function indexCaseQuietly(item) {
-  Promise.resolve()
-    .then(() => indexer.index(item))
-    .then(() => markCaseIndexed(item.caseId))
-    .catch((err) => console.warn('[fraud-case-service] index failed:', err?.message || err))
-}
-
 const PROVINCES = [
   ['110000', '北京市'], ['120000', '天津市'], ['130000', '河北省'], ['140000', '山西省'],
   ['150000', '内蒙古自治区'], ['210000', '辽宁省'], ['220000', '吉林省'], ['230000', '黑龙江省'],
@@ -189,8 +120,9 @@ export function getFraudCases({ provinceCode = '', limit = 30 } = {}) {
 
 export function getFraudStats() {
   const total = store.count()
-  const pending = store.pendingIndexCount()
-  return { total, pending, indexed: Math.max(0, total - pending) }
+  const pendingReview = Array.from(store.getProvinceStatistics().values())
+    .reduce((sum, stat) => sum + Number(stat.pendingCount || 0), 0)
+  return { total, pendingReview }
 }
 
 export function createFraudCase(input) {
@@ -205,7 +137,6 @@ export function createFraudCase(input) {
     throw error
   }
   emitEvent('fraud_case_created', clone(item))
-  indexCaseQuietly(item)
   return clone(item)
 }
 
@@ -291,13 +222,6 @@ export function startImportJob(payload) {
           const op = store.upsert(it)
           job[op.created ? 'inserted' : 'updated'] += 1
         }
-        if (items.length) {
-          try {
-            await store.bulkIndex(items)
-          } catch (err) {
-            console.warn('[fraud-case-service] bulk index failed:', err?.message || err)
-          }
-        }
         job.processed = Math.min(i + BATCH, inputCases.length)
         emitEvent('fraud_import_progress', jobSnapshot(job))
       }
@@ -324,56 +248,4 @@ export function getImportJob(jobId) {
   const job = importJobs.get(String(jobId || ''))
   return job ? jobSnapshot(job) : null
 }
-
 // ─────────────────────────────────────────────────────────────
-// RAG 回填任务：把 vector_indexed=0 的案例交给 RAG 建向量（或 force 全量）
-// ─────────────────────────────────────────────────────────────
-export function startReindexJob({ force = false } = {}) {
-  const jobId = `rix_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
-  const job = {
-    jobId, kind: 'reindex',
-    status: 'running', total: 0, processed: 0,
-    inserted: 0, updated: 0, failed: 0, error: null,
-    startedAt: new Date().toISOString(), finishedAt: null,
-  }
-  importJobs.set(jobId, job)
-
-  Promise.resolve().then(async () => {
-    try {
-      const cases = force ? store.list({ limit: 100000 }) : getPendingIndexCases(100000)
-      job.total = cases.length
-      emitEvent('fraud_import_progress', jobSnapshot(job))
-
-      const BATCH = 200
-      for (let i = 0; i < cases.length; i += BATCH) {
-        const slice = cases.slice(i, i + BATCH)
-        try {
-          await store.bulkIndex(slice.map((c) => ({ ...c })))
-          job.inserted += slice.length
-        } catch (err) {
-          job.failed += slice.length
-          console.warn('[fraud-case-service] reindex batch failed:', err?.message || err)
-        }
-        job.processed = Math.min(i + BATCH, cases.length)
-        emitEvent('fraud_import_progress', jobSnapshot(job))
-      }
-      job.status = 'done'
-    } catch (err) {
-      job.status = 'error'
-      job.error = err?.message || String(err)
-    } finally {
-      job.finishedAt = new Date().toISOString()
-      emitEvent('fraud_import_done', jobSnapshot(job))
-      emitEvent('fraud_statistics_changed', getFraudProvinceSnapshot())
-    }
-  }).catch((err) => {
-    job.status = 'error'
-    job.error = err?.message || String(err)
-    job.finishedAt = new Date().toISOString()
-    emitEvent('fraud_import_done', jobSnapshot(job))
-  })
-
-  return { jobId, total: job.total }
-}
-
-export { indexer as caseIndexer }

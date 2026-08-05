@@ -21,23 +21,73 @@
 | 项目 | 要求 |
 | --- | --- |
 | Node.js | **>= 22**（ESM，`package.json` 已声明 `engines.node >=22`） |
+| Python | **>= 3.10**（RAG AI Engine，可选） |
+| Docker | 用于启动 PostgreSQL + pgvector（RAG 数据库） |
 | 操作系统 | Windows / macOS / Linux（x64 提供预编译原生模块） |
 | 联网 | 首次启动需联网：拉取嵌入模型、探测/调用 LLM、天气/热点采集（均可超时跳过，不阻塞启动） |
 | 构建 | **无需构建步骤**，直接 `node` 运行源码 |
 
 > 依赖中包含原生模块：`better-sqlite3`（优先用预编译包，缺失时回退 `node-gyp` 编译）、`sherpa-onnx-node`（Windows x64 已提供预编译 `sherpa-onnx-win-x64`）。
 > 在缺少预编译包的平台（如某些 Linux 发行版/arm64）首次 `npm install` 可能触发本地编译，需要 Python 3 与 C/C++ 工具链。
+>
+> **未安装 Python / Docker 不影响核心对话功能**，仅诈骗案例知识库检索（RAG）和地图可视化不可用。
 
 ---
 
 ## 2. 安装
 
+### 2.1 一键安装所有依赖
+
 ```bash
-# 仓库根目录
+npm run setup
+```
+
+此命令会自动安装 Node.js 依赖（`npm install`）和 RAG Python 依赖（`pip install -r rag-service/ai-engine/requirements.txt`）。Python 未安装时仅跳过 RAG 部分，不影响主应用。
+
+### 2.2 仅安装 Node.js 依赖
+
+```bash
 npm install
 ```
 
 `npm install` 会安装依赖并处理原生模块。安装完成后即可启动，无需打包或编译前端。
+
+### 2.3 RAG 服务部署（诈骗案例知识库）
+
+RAG 服务依赖 PostgreSQL + pgvector 数据库，通过 Docker 一键启动：
+
+```bash
+# 1. 启动 PostgreSQL 数据库
+npm run rag:db:up
+# 等价：docker compose -f rag-service/compose.yml up -d postgres
+
+# 2. 导入地图模拟数据（让中国地图热力可视化正常渲染）
+npm run rag:db:seed
+
+# 3. 启动小盾
+npm start
+```
+
+> `npm start` 会自动拉起 RAG AI Engine 子进程（端口 8001）。数据库不可用时 RAG 会静默降级，不影响核心对话功能。
+
+RAG 相关命令速查：
+
+| 命令 | 作用 |
+| --- | --- |
+| `npm run rag:db:up` | 启动 PostgreSQL 容器 |
+| `npm run rag:db:seed` | 导入 34 省模拟案例数据 |
+| `npm run rag:db:down` | 停止 PostgreSQL 容器 |
+| `docker exec -it rag-service-postgres-1 psql -U xiaodun -d xiaodun` | 进入数据库命令行 |
+
+RAG 架构说明：
+
+```text
+npm start
+  ├─ Node.js 后端（端口 3721）
+  │    └─ 调用 RAG → http://127.0.0.1:8001/internal/v1/rag/search
+  └─ RAG AI Engine 子进程（Python uvicorn，端口 8001）
+       └─ 连接 PostgreSQL + pgvector（端口 5432，Docker 容器）
+```
 
 ---
 
@@ -110,7 +160,7 @@ npm start
 - 若不想自动打开浏览器：`XIAODUN_NO_OPEN=1 npm start`。
 - 换端口（同时改后端与浏览器地址）：`XIAODUN_PORT=3722 npm start`。
 
-### 4.2 仅启动后端（无桌面 TUI）
+### 4.2 仅启动后端
 
 ```bash
 # 直接运行后端（默认仍会尝试启动 TUI，除非设 XIAODUN_WEB_ONLY=1）
@@ -276,8 +326,12 @@ docker run -d -p 3721:3721 \
 
 | 命令 | 作用 |
 | --- | --- |
-| `npm start` / `npm run dev` | Web 模式启动（拉起后端 + 自动开浏览器） |
+| `npm run setup` | 一键安装 Node.js + Python 全部依赖 |
+| `npm start` / `npm run dev` | Web 模式启动（拉起后端 + RAG + 自动开浏览器） |
 | `npm run start:backend` | 仅后端（`--env-file-if-exists=.env src/index.js`） |
+| `npm run rag:db:up` | 启动 RAG PostgreSQL 数据库 |
+| `npm run rag:db:seed` | 导入 34 省模拟地图数据 |
+| `npm run rag:db:down` | 停止 RAG PostgreSQL 数据库 |
 | `npm run lint` | 语法检查几个核心脚本 |
 | `npm run build` | lint + 格式检查 + 类型检查（不产出可分发包） |
 | `npm run smoke:brain-ui` | Brain UI 冒烟测试（Playwright） |
@@ -293,9 +347,9 @@ docker run -d -p 3721:3721 \
 - **原生模块安装失败**：检查 Node 版本（>=22）；非预编译平台安装 `python3`、C/C++ 编译工具链后重跑 `npm install`；`better-sqlite3` 会回退 `node-gyp rebuild`。
 - **首次本地召回慢**：首次用到本地嵌入会下载约 330MB ONNX 模型到 `data/models/`，之后离线可用；下载失败会退化为 FTS5 全文检索，不影响启动。
 - **Windows 上 `npm start` 不自动开浏览器**：确认未设 `XIAODUN_NO_OPEN=1`；也可手动访问 `http://127.0.0.1:3721/`。
+- **RAG 服务健康检查返回 503**：表示 PostgreSQL 未运行或 psycopg 依赖未安装。启动数据库 `npm run rag:db:up`，安装依赖 `npm run setup`。
+- **RAG 服务端口 8001 被占用**：`Stop-Process -Id (Get-NetTCPConnection -LocalPort 8001).OwningProcess -Force` 释放端口后重启。
+- **地图热力数据为空**：执行 `npm run rag:db:seed` 导入模拟案例数据。
+- **Docker 未安装/未启动**：安装 [Docker Desktop](https://www.docker.com/products/docker-desktop/) 并确保右下角 Docker 图标显示 "Engine running"。
 
----
-
-## 9. 说明
-
-本次从桌面运行时转换为网页运行版，**未新增前端页面、未重做 UI**。后续业务内容、地图与异常检测面板应在现有 Brain UI 结构（`src/ui/brain-ui/`）上迭代。
+--

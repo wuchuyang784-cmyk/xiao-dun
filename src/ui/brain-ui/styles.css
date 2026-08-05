@@ -25,6 +25,21 @@
   --shadow-console: 0 12px 32px rgba(0, 0, 0, 0.22);
   --shadow-pop: 0 8px 22px rgba(0, 0, 0, 0.20);
   --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  /* 诈骗案例地图色阶（热力图 + 省份填充） */
+  --map-low: #142b4a;
+  --map-mid: #1d5f79;
+  --map-high: #ffbe6b;
+  --map-area: #142437;
+  --map-border: rgba(130, 180, 224, 0.44);
+  --map-hover: #286d91;
+  --map-selected: #ff9f1c;
+  --map-selected-border: #ffe4a3;
+  --map-pulse: #ff9f1c;
+  --map-risk-low: #4f8cff;
+  --map-risk-medium: #ffbe6b;
+  --map-risk-high: #ff7b72;
+  --map-risk-critical: #ff3d71;
+  --map-risk-unknown: #a2adbd;
 }
 
 [data-theme="phosphor"] {
@@ -38,6 +53,14 @@
   --glow-tint1: rgba(140, 220, 140, 0.08);
   --glow-tint2: rgba(240, 200, 102, 0.05);
   --link-stroke: rgba(140, 220, 140, 0.18);
+  --map-low: #0a2018; --map-mid: #2d6b48; --map-high: #f0c866;
+  --map-area: #0a160e; --map-border: rgba(159, 224, 154, 0.40);
+  --map-hover: #3a8a5a;
+  --map-selected: #f0c866; --map-selected-border: #fff6c2;
+  --map-pulse: #f0c866;
+  --map-risk-low: #9fe09a; --map-risk-medium: #f0c866;
+  --map-risk-high: #ffa066; --map-risk-critical: #ff5c4a;
+  --map-risk-unknown: #4a6b4e;
 }
 
 [data-theme="violet"] {
@@ -51,6 +74,14 @@
   --glow-tint1: rgba(170, 140, 240, 0.09);
   --glow-tint2: rgba(120, 224, 200, 0.06);
   --link-stroke: rgba(170, 140, 240, 0.20);
+  --map-low: #1a1238; --map-mid: #5e4a9a; --map-high: #b098f0;
+  --map-area: #150f2a; --map-border: rgba(176, 152, 240, 0.40);
+  --map-hover: #6a52b8;
+  --map-selected: #b098f0; --map-selected-border: #e4deff;
+  --map-pulse: #b098f0;
+  --map-risk-low: #b098f0; --map-risk-medium: #78e0c8;
+  --map-risk-high: #f08aaa; --map-risk-critical: #ff5c8a;
+  --map-risk-unknown: #645b8a;
 }
 
 [data-theme="rose"] {
@@ -64,6 +95,14 @@
   --glow-tint1: rgba(230, 160, 170, 0.08);
   --glow-tint2: rgba(242, 194, 122, 0.06);
   --link-stroke: rgba(230, 160, 170, 0.20);
+  --map-low: #2a1620; --map-mid: #7a4660; --map-high: #f2c27a;
+  --map-area: #22101a; --map-border: rgba(232, 154, 168, 0.40);
+  --map-hover: #8a4a66;
+  --map-selected: #f2c27a; --map-selected-border: #fff0d0;
+  --map-pulse: #f2c27a;
+  --map-risk-low: #e89aa8; --map-risk-medium: #f2c27a;
+  --map-risk-high: #ff7b72; --map-risk-critical: #ff3d71;
+  --map-risk-unknown: #7a5a61;
 }
 
 [data-theme="arctic"] {
@@ -77,6 +116,14 @@
   --glow-tint1: rgba(58, 106, 143, 0.05);
   --glow-tint2: rgba(184, 90, 58, 0.04);
   --link-stroke: rgba(40, 60, 85, 0.18);
+  --map-low: #2a4a6e; --map-mid: #5a8ab0; --map-high: #b85a3a;
+  --map-area: #dfe4ea; --map-border: rgba(40, 60, 85, 0.32);
+  --map-hover: #8aafd0;
+  --map-selected: #b85a3a; --map-selected-border: #fff0d0;
+  --map-pulse: #b85a3a;
+  --map-risk-low: #3a6a8f; --map-risk-medium: #d49a4a;
+  --map-risk-high: #c85040; --map-risk-critical: #b03030;
+  --map-risk-unknown: #8a98a8;
   --shadow-soft: 0 14px 36px rgba(30, 45, 65, 0.10);
   --shadow-console: 0 10px 28px rgba(30, 45, 65, 0.12);
   --shadow-pop: 0 6px 18px rgba(30, 45, 65, 0.12);
@@ -93,6 +140,14 @@
   --glow-tint1: rgba(122, 90, 44, 0.06);
   --glow-tint2: rgba(200, 80, 46, 0.05);
   --link-stroke: rgba(70, 55, 35, 0.18);
+  --map-low: #8a6a44; --map-mid: #c0865a; --map-high: #c8502e;
+  --map-area: #eae2d2; --map-border: rgba(70, 55, 35, 0.30);
+  --map-hover: #d8b890;
+  --map-selected: #c8502e; --map-selected-border: #ffd8a8;
+  --map-pulse: #c8502e;
+  --map-risk-low: #7a5a2c; --map-risk-medium: #c0865a;
+  --map-risk-high: #c8502e; --map-risk-critical: #a03020;
+  --map-risk-unknown: #9e917c;
   --shadow-soft: 0 14px 36px rgba(70, 55, 35, 0.10);
   --shadow-console: 0 10px 28px rgba(70, 55, 35, 0.12);
   --shadow-pop: 0 6px 18px rgba(70, 55, 35, 0.12);
@@ -140,8 +195,13 @@ body {
   position: fixed;
   top: 20px;
   bottom: 20px;
-  width: 362px;
-  z-index: 3;
+  /* --panel-w 是面板宽度的唯一真源：折叠按钮的迁移坐标由它推导，
+     响应式断点只覆盖这个变量，按钮位置就会自动跟随面板宽度，无需逐断点重写坐标。 */
+  --panel-w: 362px;
+  --tab-size: 32px;  /* 折叠按钮边长（正方形纯图标按钮） */
+  --tab-inset: 14px; /* 按钮距面板内角的留白 */
+  width: var(--panel-w);
+  z-index: 5; /* 高于 .console(4)，保证折叠态的 tab 按钮不被对话框盖住；低于 tick-stream(100)/settings(200)/doc(300) */
   padding: 16px 18px;
   border-radius: 16px;
   border: 1px solid var(--line-strong);
@@ -151,7 +211,7 @@ body {
   box-shadow: var(--shadow-soft), var(--shadow-inset);
   display: flex;
   flex-direction: column;
-  overflow: hidden auto;
+  overflow: hidden;
   overscroll-behavior: contain;
   transition: background 0.6s ease, border-color 0.6s ease, transform 0.38s cubic-bezier(0.4,0,0.2,1);
 }
@@ -159,11 +219,25 @@ body {
 #panel-l1 { left: 20px; }
 #panel-l2 { right: 20px; }
 
+/* 面板可滚动内容区：折叠时只让 .panel-body 滑动，角落的收起按钮留在原处 */
+.panel-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  transition: transform 0.38s cubic-bezier(0.4,0,0.2,1);
+}
+
 .panel-identity {
   display: flex;
   align-items: center;
   gap: 14px;
   padding-bottom: 14px;
+  /* 为右上角的折叠按钮让位（--tab-inset 14 + --tab-size 32 = 46，留 6px 余量），
+     否则展开态下按钮会压住 ⚙ 设置按钮 */
+  padding-right: 52px;
   margin-bottom: 14px;
   border-bottom: 1px solid var(--line);
 }
@@ -230,6 +304,13 @@ body {
 }
 
 .stat-value.live { color: var(--warm); }
+
+/* 上下文 token 用量指示器 */
+.stat-value.ctx-low { color: var(--ok); }
+.stat-value.ctx-mid { color: var(--warn); }
+.stat-value.ctx-high { color: var(--danger); }
+#ctx-stat { cursor: pointer; transition: background .2s ease; }
+#ctx-stat:hover { background: rgba(255,255,255,.04); }
 
 .stat-value .live-dot {
   width: 6px;
@@ -1161,6 +1242,58 @@ body {
   color: var(--dim);
 }
 
+/* ── 对话框左下角"十字架"命令按钮 ─────────────────────────
+   点击后向上弹出 #slash-menu，内容与输入 "/" 完全一致。
+   十字用两条伪元素横竖线绘制，不依赖字体字形，跨平台一致。 */
+.cross-btn {
+  position: relative;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: color-mix(in srgb, var(--cool) 10%, transparent);
+  color: var(--ink2);
+  cursor: pointer;
+  font-size: 0;
+  line-height: 0;
+  transition:
+    color 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.cross-btn::before,
+.cross-btn::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  background: currentColor;
+  border-radius: 1px;
+  transform: translate(-50%, -50%);
+}
+.cross-btn::before { width: 11px; height: 1.5px; }
+.cross-btn::after  { width: 1.5px; height: 11px; }
+
+.cross-btn:hover {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--cool) 24%, transparent);
+  border-color: color-mix(in srgb, var(--cool) 55%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--cool) 28%, transparent);
+  transform: translateY(-1px);
+}
+.cross-btn:active { transform: translateY(0) scale(0.92); }
+
+.cross-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--cool) 65%, transparent);
+  outline-offset: 2px;
+  color: var(--ink);
+}
+
 .prompt-mark {
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 13px;
@@ -1779,6 +1912,7 @@ body {
 }
 .voice-status.listening   { color: #78c8ff; }
 .voice-status.recognizing { color: #a0e0ff; }
+.voice-status.speaking    { color: #d5b4ff; }
 .voice-status.processing  { color: #b898f8; }
 
 #voice-whisper-svc-status[data-state="running"]  { color: #6fcf97; }
@@ -2051,13 +2185,22 @@ body.image-mode .panel-tab {
 
 /* ═══════════════ 面板折叠 tab 按钮 ═══════════════ */
 
+/* tab 按钮随面板状态在「面板内角 ⇄ 主视口外角」之间迁移：
+     · 展开态：左按钮贴左面板内部右上角，右按钮贴右面板内部左上角；
+     · 折叠态：左按钮滑到主视口左上角，右按钮滑到主视口右上角。
+   两个按钮都是 .panel 的绝对定位子节点，坐标以面板的 padding box 为参照，
+   因此天然跟随 --panel-w 的断点变化；状态切换只需过渡 left / right 单个属性，
+   与 .panel-body 的收起位移共用同一条缓动曲线，动画完全同步。 */
 .panel-tab {
-  position: fixed;
-  top: 50%;
-  transform: translateY(-50%);
+  position: absolute;
+  top: var(--tab-inset);
   z-index: 10;
-  width: 20px;
-  height: 60px;
+  /* 展开态下按钮外沿到面板「远端内边」的距离 = 面板宽 − 左右各 1px 边框 − 留白 − 按钮宽 */
+  --tab-far: calc(var(--panel-w) - 2px - var(--tab-inset) - var(--tab-size));
+  width: var(--tab-size);
+  height: var(--tab-size);
+  padding: 0;
+  border-radius: 9px;
   background: var(--panel);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -2067,115 +2210,491 @@ body.image-mode .panel-tab {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
-  font-family: "JetBrains Mono", monospace;
+  font-size: 0; /* 纯图标按钮：杜绝任何文本节点占位 */
   transition:
-    left 0.38s cubic-bezier(0.4,0,0.2,1),
-    right 0.38s cubic-bezier(0.4,0,0.2,1),
     color 0.18s ease,
     background 0.18s ease,
     border-color 0.18s ease,
-    background 0.6s ease;
+    box-shadow 0.18s ease,
+    transform 0.18s ease,
+    left 0.38s cubic-bezier(0.4,0,0.2,1),
+    right 0.38s cubic-bezier(0.4,0,0.2,1);
 }
 
 .panel-tab:hover {
   color: var(--ink);
-  background: color-mix(in srgb, var(--panel) 85%, var(--cool) 15%);
-  border-color: color-mix(in srgb, var(--cool) 40%, transparent);
+  background: color-mix(in srgb, var(--panel) 78%, var(--cool) 22%);
+  border-color: color-mix(in srgb, var(--cool) 55%, transparent);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--cool) 30%, transparent);
 }
 
-/* 左面板 tab：紧贴面板右边缘，右侧圆角 */
-.panel-tab-left {
-  left: 382px;
-  border-radius: 0 8px 8px 0;
-  border-left: none;
+/* hover 时向"收起方向"轻微位移，给出方向暗示 */
+.panel-tab-left:hover  { transform: translateX(-2px); }
+.panel-tab-right:hover { transform: translateX(2px); }
+body.l1-collapsed .panel-tab-left:hover  { transform: translateX(2px); }
+body.l2-collapsed .panel-tab-right:hover { transform: translateX(-2px); }
+
+.panel-tab:active { transform: scale(0.94); }
+
+.panel-tab:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--cool) 65%, transparent);
+  outline-offset: 2px;
+  color: var(--ink);
 }
 
-/* 右面板 tab：紧贴面板左边缘，左侧圆角 */
-.panel-tab-right {
-  right: 382px;
-  border-radius: 8px 0 0 8px;
-  border-right: none;
+/* 展开态坐标：按钮停在面板「远离屏幕边缘」的那个内角 */
+.panel-tab-left  { left:  var(--tab-far); }
+.panel-tab-right { right: var(--tab-far); }
+
+/* 右按钮改为绝对定位后不再占据 flex 行，用等高外边距为它保留顶部空档，
+   统计行 / 规划区的纵向排版与改动前完全一致（留白 + 按钮高度）。 */
+#panel-l2 .panel-body { margin-top: calc(var(--tab-inset) + var(--tab-size)); }
+
+/* ── 图标：圆角矩形 + 一侧竖线，纯 CSS 绘制，颜色跟随 currentColor ──
+   外框 = ::before 的 border；侧栏条 = 同一元素的 linear-gradient 背景，
+   背景裁剪到 padding box，因此圆角自动跟随外框。
+   展开态侧栏条为实心块（侧栏可见），折叠态收成 1.5px 细线（侧栏已收起）；
+   过渡中实心块的「内侧边缘」坐标恒定不动，观感就是侧栏被抽走 / 推回。 */
+.panel-tab::before {
+  content: "";
+  display: block;
+  box-sizing: border-box;
+  width: 18px;
+  height: 14px;
+  border: 1.5px solid currentColor;
+  border-radius: 4px;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-clip: padding-box;
+  background-size: 6px 100%;
+  transition:
+    background-size 0.38s cubic-bezier(0.4,0,0.2,1),
+    background-position 0.38s cubic-bezier(0.4,0,0.2,1),
+    border-color 0.18s ease;
 }
 
-/* 箭头：CSS content 根据状态自动切换方向 */
-.panel-tab-left::before  { content: "‹"; }
-.panel-tab-right::before { content: "›"; }
+/* 左面板按钮：侧栏条画在图标左侧；右面板按钮：画在右侧 */
+.panel-tab-left::before  { background-position: left center; }
+.panel-tab-right::before { background-position: right center; }
 
 /* ═══════════════ 折叠状态 ═══════════════ */
 
-body.l1-collapsed #panel-l1 {
+body.l1-collapsed #panel-l1 .panel-body {
   transform: translateX(calc(-100% - 20px));
 }
+/* 折叠态：左按钮迁移到主视口左上角（面板 padding box 的左内边 = 视口左侧 21px 处） */
 body.l1-collapsed .panel-tab-left {
   left: 0;
 }
+/* 侧栏条收成细线，停在原实心块的内侧边缘 */
 body.l1-collapsed .panel-tab-left::before {
-  content: "›";
+  background-size: 1.5px 100%;
+  background-position: 4.5px center;
 }
 body.l1-collapsed .console {
   left: 24px;
 }
 
-body.l2-collapsed #panel-l2 {
+body.l2-collapsed #panel-l2 .panel-body {
   transform: translateX(calc(100% + 20px));
 }
+/* 折叠态：右按钮迁移到主视口右上角 */
 body.l2-collapsed .panel-tab-right {
   right: 0;
 }
 body.l2-collapsed .panel-tab-right::before {
-  content: "‹";
+  background-size: 1.5px 100%;
+  background-position: calc(100% - 4.5px) center;
 }
 body.l2-collapsed .console {
   right: 24px;
 }
 
+/* 折叠态：面板容器变透明且不拦截点击，仅保留角落的收起/展开按钮可点 */
+body.l1-collapsed #panel-l1,
+body.l2-collapsed #panel-l2 {
+  background: transparent;
+  border-color: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+  pointer-events: none;
+}
+body.l1-collapsed #panel-l1 .panel-tab,
+body.l2-collapsed #panel-l2 .panel-tab {
+  pointer-events: auto;
+}
+
+/* 与上方同特异性 (1,2,1)：在媒体模式下面板 tab 本应隐藏，
+   即便处于折叠态也要保持 opacity:0 且不可点击，避免隐形按钮被幽灵点击展开面板。
+   必须列在 pointer-events:auto 之后（源顺序靠后）才能胜出。 */
+body.video-mode       #panel-l1 .panel-tab, body.video-mode       #panel-l2 .panel-tab,
+body.image-mode       #panel-l1 .panel-tab, body.image-mode       #panel-l2 .panel-tab,
+body.hotspot-mode     #panel-l1 .panel-tab, body.hotspot-mode     #panel-l2 .panel-tab,
+body.doc-panel-mode   #panel-l1 .panel-tab, body.doc-panel-mode   #panel-l2 .panel-tab,
+body.rag-manager-mode #panel-l1 .panel-tab, body.rag-manager-mode #panel-l2 .panel-tab {
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* ---- 执行规划面板 ---- */
+.plan-empty-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 10px;
+  padding: 12px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel) 92%, var(--warm) 8%);
+  color: var(--ink2);
+}
+.plan-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border: 1px solid color-mix(in srgb, var(--warm) 42%, var(--line-strong));
+  border-radius: 50%;
+  color: var(--warm);
+  font-size: 15px;
+  box-shadow: 0 0 14px color-mix(in srgb, var(--warm) 18%, transparent);
+}
+.plan-empty-state strong,
+.plan-empty-state span:not(.plan-empty-icon) {
+  display: block;
+}
+.plan-empty-state strong {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+}
+.plan-empty-state span:not(.plan-empty-icon) {
+  margin-top: 3px;
+  color: var(--dim);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
 .plan-card {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 10px;
   background: color-mix(in srgb, var(--panel) 98%, transparent);
   overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+.plan-card-active {
+  border-color: color-mix(in srgb, var(--warm) 48%, var(--line-strong));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--warm) 10%, transparent),
+    0 8px 20px color-mix(in srgb, var(--warm) 8%, transparent);
+}
+.plan-card-complete {
+  border-color: color-mix(in srgb, var(--ok) 42%, var(--line));
+}
+.plan-card-failed {
+  border-color: color-mix(in srgb, #e7a4a4 56%, var(--line));
 }
 .plan-header {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 6px 10px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--line);
   background: color-mix(in srgb, var(--warm) 6%, transparent);
 }
+.plan-heading {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.plan-kicker {
+  color: var(--dim);
+  font-size: 9px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
 .plan-title {
-  font-size: 12px; font-weight: 600; color: var(--ink);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  max-width: 72%;
+  min-width: 0;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.plan-time {
-  font-size: 9px; color: var(--dim);
-  font-family: "JetBrains Mono",ui-monospace,monospace;
+.plan-progress {
+  flex: 0 0 auto;
+  color: var(--warm);
+  font-size: 10px;
+  font-weight: 600;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  white-space: nowrap;
 }
-.plan-steps { padding: 4px 0; }
+.plan-body {
+  padding: 8px 0 4px;
+}
+.plan-task-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 12px 7px;
+  color: var(--ink2);
+  font-size: 10px;
+}
+.plan-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
 .plan-step {
-  display: flex; align-items: center; gap: 8px;
-  padding: 4px 10px; font-size: 11px;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto auto;
+  align-items: start;
+  gap: 7px;
+  padding: 7px 12px;
+  border-left: 2px solid transparent;
+  color: var(--ink2);
+  font-size: 11px;
+  line-height: 1.35;
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
-.plan-step .step-status {
-  width: 14px; flex-shrink: 0; text-align: center;
-  font-size: 11px; font-weight: 600;
+.plan-step.running {
+  border-left-color: var(--warm);
+  background: color-mix(in srgb, var(--warm) 9%, transparent);
 }
-.plan-step .step-status.pending { color: var(--dim); }
-.plan-step .step-status.running { color: var(--warm); }
-.plan-step .step-status.done { color: #7fcf8f; }
-.plan-step .step-status.failed { color: #e7a4a4; }
-.plan-step .step-name { flex: 1; color: var(--ink2); }
-.plan-step .step-time {
-  font-size: 9px; color: var(--dim);
-  font-family: "JetBrains Mono",ui-monospace,monospace;
+.plan-step.done {
+  color: var(--ink2);
 }
-.plan-card.plan-done { opacity: 0.65; }
-.plan-card.plan-done .plan-header { background: transparent; }
+.plan-step.failed {
+  border-left-color: #e7a4a4;
+  background: color-mix(in srgb, #e7a4a4 8%, transparent);
+}
+.plan-step-main {
+  min-width: 0;
+}
+.plan-step .step-status,
+.step-status {
+  width: 18px;
+  flex-shrink: 0;
+  color: var(--dim);
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+.plan-step .step-status.running,
+.plan-step.running .step-status {
+  color: var(--warm);
+  animation: plan-status-pulse 1.25s ease-in-out infinite;
+}
+.plan-step .step-status.done,
+.plan-step.done .step-status {
+  color: var(--ok, #7fcf8f);
+}
+.plan-step .step-status.failed,
+.plan-step.failed .step-status {
+  color: #e7a4a4;
+}
+.plan-step .step-status.skipped,
+.plan-step.skipped .step-status {
+  color: var(--dim);
+}
+.plan-step .step-name {
+  display: block;
+  min-width: 0;
+  color: var(--ink2);
+  overflow-wrap: anywhere;
+}
+.plan-step.running .step-name {
+  color: var(--ink);
+  font-weight: 600;
+}
+.plan-step-note {
+  margin-top: 3px;
+  color: var(--dim);
+  font-size: 10px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.step-state {
+  color: var(--dim);
+  font-size: 9px;
+  white-space: nowrap;
+}
+.plan-step.running .step-state {
+  color: var(--warm);
+}
+.plan-step.done .step-state {
+  color: var(--ok, #7fcf8f);
+}
+.plan-step.failed .step-state {
+  color: #e7a4a4;
+}
+.step-time {
+  min-width: 30px;
+  color: var(--dim);
+  font-size: 9px;
+  text-align: right;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  white-space: nowrap;
+}
+.plan-tool-detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.plan-tool-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--dim);
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  font-size: 9px;
+  line-height: 1.3;
+}
+.plan-tool-chip > span:nth-child(2) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.plan-tool-chip-icon {
+  color: var(--dim);
+  font-size: 9px;
+}
+.plan-tool-chip.running {
+  border-color: color-mix(in srgb, var(--warm) 40%, var(--line));
+  color: var(--warm);
+}
+.plan-tool-chip.running .plan-tool-chip-icon {
+  color: var(--warm);
+}
+.plan-tool-chip.done .plan-tool-chip-icon {
+  color: var(--ok, #7fcf8f);
+}
+.plan-tool-chip.failed {
+  border-color: color-mix(in srgb, #e7a4a4 44%, var(--line));
+  color: #e7a4a4;
+}
+.plan-tool-chip time {
+  color: var(--dim);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+.plan-summary {
+  margin: 7px 12px 3px;
+  padding: 7px 8px;
+  border-left: 2px solid var(--ok, #7fcf8f);
+  color: var(--ink2);
+  background: color-mix(in srgb, var(--ok, #7fcf8f) 7%, transparent);
+  font-size: 10px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.plan-error {
+  margin: 7px 12px 3px;
+  padding: 7px 8px;
+  border-left: 2px solid #e7a4a4;
+  color: #e7a4a4;
+  background: color-mix(in srgb, #e7a4a4 7%, transparent);
+  font-size: 10px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.plan-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 12px 9px;
+  border-top: 1px solid var(--line);
+  color: var(--dim);
+  font-size: 9px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+.plan-evidence-badge {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border: 1px solid color-mix(in srgb, var(--cool) 40%, var(--line));
+  border-radius: 999px;
+  color: var(--cool);
+  font-size: 9px;
+  white-space: nowrap;
+}
+.plan-no-steps {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 12px;
+  color: var(--dim);
+  font-size: 10px;
+}
+.plan-spinner {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  flex: 0 0 11px;
+  border: 1px solid color-mix(in srgb, var(--warm) 28%, var(--line));
+  border-top-color: var(--warm);
+  border-radius: 50%;
+  animation: plan-spinner-rotate 0.8s linear infinite;
+}
+.pill-done {
+  border-color: color-mix(in srgb, var(--ok, #7fcf8f) 42%, var(--line));
+  color: var(--ok, #7fcf8f);
+}
+.pill-failed {
+  border-color: color-mix(in srgb, #e7a4a4 52%, var(--line));
+  color: #e7a4a4;
+}
 
-/* 右下角缩小版自主行动 Tick 流 */
 #panel-l2 { display: flex; flex-direction: column; }
+#plan-list {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  padding-bottom: 24px;
+}
+
+@keyframes plan-status-pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+@keyframes plan-spinner-rotate {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 420px) {
+  .plan-step {
+    grid-template-columns: 18px minmax(0, 1fr) auto;
+  }
+  .step-time {
+    display: none;
+  }
+  .plan-step .step-state {
+    grid-column: 2 / -1;
+    justify-self: start;
+    margin-top: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plan-step .step-status.running,
+  .plan-spinner {
+    animation: none;
+  }
+}
+
 #plan-list { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 150px; }
 .tick-stream {
   display: none;
@@ -2198,28 +2717,53 @@ body.l2-collapsed .console {
 .tick-stream .line-status { font-size: 7px; padding: 1px 5px; }
 
 @media (max-width: 1180px) {
-  .panel { width: 300px; }
+  .panel { --panel-w: 300px; }
   #panel-l2 { right: 20px; }
   .console { left: 340px; right: 340px; }
-  .panel-tab-left  { left: 320px; }
-  .panel-tab-right { right: 320px; }
   body.l1-collapsed .console { left: 24px; }
   body.l2-collapsed .console { right: 24px; }
 }
 
 @media (max-width: 900px) {
-  .panel { width: 260px; }
+  .panel { --panel-w: 260px; }
   .console { left: 300px; right: 300px; }
-  .panel-tab-left  { left: 280px; }
-  .panel-tab-right { right: 280px; }
   body.l1-collapsed .console { left: 16px; }
   body.l2-collapsed .console { right: 16px; }
+
+  /* 窄屏面板变窄，品牌文案需可收缩并省略，避免撑破面板宽度 */
+  .brand-copy { min-width: 0; }
+  .brand-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
+/* 窄屏：左右面板改为「覆盖式抽屉」而不是直接隐藏，
+   这样 .panel-tab 在手机端依然可见可点（JS 侧在进入窄屏时默认收起两侧面板）。
+   仅新增 ≤780px 规则，不改动 >780px 的既有布局。 */
 @media (max-width: 780px) {
-  .panel { display: none; }
-  .panel-tab { display: none; }
+  .panel {
+    --panel-w: min(86vw, 340px);
+    z-index: 60;           /* 盖在 .console(4) 之上，低于设置弹层(200)/文档面板(300) */
+  }
+  #panel-l1 { left: 12px; }
+  #panel-l2 { right: 12px; }
+
   .console { left: 16px; right: 16px; }
+  body.l1-collapsed .console { left: 16px; }
+  body.l2-collapsed .console { right: 16px; }
+
+  /* 抽屉模式下按钮略微收小；--tab-far 会自动按新的 --tab-size 重算，
+     展开态贴抽屉内角、折叠态贴视口角的迁移行为保持不变。 */
+  .panel-tab {
+    --tab-size: 30px;
+    width: var(--tab-size);
+    height: var(--tab-size);
+  }
+
+  /* 窄屏下输入行更紧凑，保证十字架按钮 + 提示符 + 发送键不挤压输入区 */
+  #input-row { gap: 8px; padding: 10px 12px; }
 }
 
 /* ── 黑胶旋转动画 ── */
@@ -3700,11 +4244,121 @@ body.video-mode   > #voice-panel #voice-canvas{
 .fraud-ranking-row em { color: var(--warm); font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 10px; font-style: normal; }
 .fraud-empty { padding: 8px 0; color: var(--dim); font-size: 10px; }
 
+/* 地图始终可见，RAG 模式仅切换布局与大小。 */
+.map-stage { transition: inset .46s cubic-bezier(.2,.8,.2,1), opacity .4s ease, transform .46s cubic-bezier(.2,.8,.2,1); }
+
+.rag-close, .rag-retry {
+  border: 1px solid rgba(77,231,255,.5); color: #baf7ff; background: rgba(4,20,30,.82);
+  font-family: "JetBrains Mono", ui-monospace, monospace; cursor: pointer;
+}
+/* /rag 模式已移除（地图直接展示，无需专用面板） */
+
+/* /rag-manage — manual knowledge ingestion cockpit. */
+.rag-manager-panel {
+  display: none; position: fixed; z-index: 5; inset: 16px calc(33.333% + 8px) 16px 16px; overflow: hidden;
+  color: #dffaff; border: 1px solid rgba(57,218,246,.42); border-radius: 18px;
+  background: radial-gradient(circle at 78% 16%,rgba(17,112,137,.24),transparent 38%),linear-gradient(145deg,rgba(4,19,29,.98),rgba(3,13,22,.96));
+  box-shadow: 0 0 0 1px rgba(65,223,247,.08),0 0 42px rgba(16,188,222,.14),inset 0 0 60px rgba(22,131,157,.06);
+  opacity: 0; transform: translateY(12px) scale(.99); transition: opacity .38s ease,transform .45s cubic-bezier(.2,.8,.2,1);
+}
+.rag-manager-panel.active { opacity: 1; transform: none; }
+body.rag-manager-mode .rag-manager-panel { display: flex; flex-direction: column; }
+body.rag-manager-mode #panel-l1 { transform: translateX(calc(-100% - 20px)); }
+body.rag-manager-mode #panel-l2 { transform: translateX(calc(100% + 20px)); }
+body.rag-manager-mode .panel-tab { opacity: 0; pointer-events: none; }
+body.rag-manager-mode .console {
+  z-index: 6; top: 16px; bottom: 16px; left: calc(66.667% + 8px); right: 16px;
+  border-color: rgba(64,224,255,.34); background: linear-gradient(180deg,rgba(8,25,36,.94),rgba(5,16,25,.96));
+  box-shadow: 0 0 32px rgba(32,210,240,.11),inset 0 1px rgba(166,247,255,.08);
+}
+body.rag-manager-mode #chat-history { max-height: none; height: 100%; }
+body.rag-manager-mode #chat-messages { max-height: none; height: 100%; }
+.rag-manager-grid { position: absolute; inset: 0; pointer-events: none; opacity: .28; background-image: linear-gradient(rgba(62,218,240,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(62,218,240,.055) 1px,transparent 1px); background-size: 34px 34px; mask-image: linear-gradient(to bottom,#000,transparent 88%); }
+.rag-manager-header { position: relative; display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 24px 26px 18px; border-bottom: 1px solid rgba(70,215,238,.18); }
+.rag-manager-kicker { color: #4de7ff; font: 9px/1.4 "JetBrains Mono",monospace; letter-spacing: .25em; }
+.rag-manager-header h1 { margin: 5px 0 3px; color: #effeff; font: 650 clamp(21px,2.1vw,30px)/1.2 Inter,sans-serif; letter-spacing: .06em; text-shadow: 0 0 22px rgba(71,225,248,.28); }
+.rag-manager-header p { margin: 0; color: rgba(205,239,245,.58); font-size: 11px; }
+.rag-manager-head-actions { display: flex; align-items: center; gap: 12px; }
+.rag-manager-live { display: inline-flex; align-items: center; gap: 7px; padding: 6px 9px; color: #87ffe4; border: 1px solid rgba(94,247,213,.22); border-radius: 999px; background: rgba(29,119,104,.12); font: 9px/1 "JetBrains Mono",monospace; letter-spacing: .12em; }
+.rag-manager-live i { width: 6px; height: 6px; border-radius: 50%; background: #62ffd9; box-shadow: 0 0 10px #62ffd9; animation: rag-manager-pulse 1.5s ease-in-out infinite; }
+.rag-manager-live.error { color: #ff96a5; border-color: rgba(255,84,110,.3); }
+.rag-manager-live.error i { background: #ff667d; box-shadow: 0 0 10px #ff667d; }
+.rag-manager-close { width: 30px; height: 30px; color: #aeeffc; border: 1px solid rgba(77,231,255,.42); border-radius: 50%; background: rgba(4,20,30,.78); font-size: 20px; cursor: pointer; }
+.rag-manager-metrics { position: relative; display: grid; grid-template-columns: 1.45fr repeat(3,1fr); gap: 8px; padding: 14px 26px; border-bottom: 1px solid rgba(70,215,238,.14); }
+.rag-manager-metrics div { min-width: 0; padding: 9px 11px; border: 1px solid rgba(75,214,236,.14); border-radius: 8px; background: rgba(8,35,47,.42); }
+.rag-manager-metrics small { display: block; margin-bottom: 5px; color: rgba(157,210,220,.54); font: 8px/1 "JetBrains Mono",monospace; letter-spacing: .15em; }
+.rag-manager-metrics strong { display: block; overflow: hidden; color: #e9fdff; font: 600 14px/1.2 "JetBrains Mono",monospace; text-overflow: ellipsis; white-space: nowrap; }
+.rag-manager-metrics div:not(:first-child) strong { color: #74f0ff; font-size: 19px; text-shadow: 0 0 15px rgba(69,228,250,.35); }
+.rag-manager-workspace { position: relative; display: grid; grid-template-columns: minmax(0,1.55fr) minmax(230px,.75fr); flex: 1; min-height: 0; }
+.rag-manager-form { min-width: 0; overflow-y: auto; padding: 20px 24px 24px; border-right: 1px solid rgba(70,215,238,.14); scrollbar-width: thin; }
+.rag-manager-section-title { display: flex; align-items: center; gap: 9px; margin-bottom: 16px; color: #a8dae3; font: 10px/1 "JetBrains Mono",monospace; letter-spacing: .15em; }
+.rag-manager-section-title span { color: #52e5fc; }
+.rag-form-row { display: grid; gap: 12px; margin-bottom: 13px; }
+.rag-form-row-two { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.rag-manager-form label { display: grid; gap: 7px; color: rgba(187,229,237,.72); font: 9px/1.4 "JetBrains Mono",monospace; letter-spacing: .08em; }
+.rag-manager-form input[type="text"],.rag-manager-form select,.rag-manager-form textarea {
+  width: 100%; box-sizing: border-box; color: #e9fbff; border: 1px solid rgba(72,203,224,.24); border-radius: 7px; outline: none;
+  background: rgba(3,17,26,.72); font: 12px/1.6 Inter,sans-serif; transition: border-color .2s ease,box-shadow .2s ease,background .2s ease;
+}
+.rag-manager-form input[type="text"],.rag-manager-form select { height: 39px; padding: 0 11px; }
+.rag-manager-form textarea { min-height: 150px; padding: 10px 12px; resize: vertical; }
+.rag-manager-form input:focus,.rag-manager-form select:focus,.rag-manager-form textarea:focus { border-color: rgba(72,229,251,.72); background: rgba(5,28,39,.88); box-shadow: 0 0 0 2px rgba(43,211,235,.08),0 0 18px rgba(35,199,226,.08); }
+.rag-manager-form option { background: #081c28; }
+.rag-manager-form label small { color: rgba(156,197,206,.42); font: 8px/1.3 Inter,sans-serif; letter-spacing: 0; }
+.rag-form-textarea { position: relative; margin-bottom: 13px; }
+#rag-item-counter { position: absolute; right: 10px; bottom: 7px; color: rgba(100,218,235,.52); font: 8px/1 "JetBrains Mono",monospace; }
+.rag-pii-check { display: flex !important; grid-template-columns: auto 1fr; align-items: center; gap: 9px !important; margin: 2px 0 14px; padding: 10px 11px; border: 1px solid rgba(255,190,107,.18); border-radius: 7px; background: rgba(255,172,67,.055); color: rgba(236,225,201,.72) !important; letter-spacing: 0 !important; }
+.rag-pii-check input { accent-color: #52e5fc; }
+.rag-index-button { position: relative; width: 100%; height: 44px; overflow: hidden; color: #04151d; border: 0; border-radius: 7px; background: linear-gradient(90deg,#47dff7,#7dffe0); box-shadow: 0 0 22px rgba(57,224,245,.18); font: 700 10px/1 "JetBrains Mono",monospace; letter-spacing: .12em; cursor: pointer; }
+.rag-index-button::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg,transparent 25%,rgba(255,255,255,.48) 50%,transparent 75%); transform: translateX(-120%); transition: transform .55s ease; }
+.rag-index-button:hover::after { transform: translateX(120%); }
+.rag-index-button:disabled { color: #a8e9f0; background: rgba(29,105,119,.58); cursor: wait; }
+.rag-manager-activity { min-width: 0; overflow-y: auto; padding: 20px; background: linear-gradient(180deg,rgba(7,33,45,.34),rgba(3,17,25,.16)); }
+.rag-index-visual { position: relative; height: 170px; display: grid; place-content: center; justify-items: center; margin-bottom: 14px; border: 1px solid rgba(58,212,235,.14); border-radius: 10px; background: radial-gradient(circle,rgba(48,206,229,.12),transparent 62%); }
+.rag-index-visual b { margin-top: 18px; color: #baf8ff; font: 600 16px/1 "JetBrains Mono",monospace; letter-spacing: .12em; }
+.rag-index-visual small { margin-top: 5px; color: rgba(138,206,218,.47); font: 8px/1 "JetBrains Mono",monospace; letter-spacing: .1em; }
+.rag-vector-cube { position: relative; width: 62px; height: 62px; transform: rotateX(58deg) rotateZ(45deg); transform-style: preserve-3d; animation: rag-cube-float 4s ease-in-out infinite; }
+.rag-vector-cube i { position: absolute; inset: 0; border: 1px solid rgba(82,233,253,.68); box-shadow: inset 0 0 20px rgba(49,215,239,.11),0 0 14px rgba(49,215,239,.12); }
+.rag-vector-cube i:nth-child(2) { transform: translateZ(22px); }
+.rag-vector-cube i:nth-child(3) { inset: 13px; border-color: rgba(121,255,220,.74); animation: rag-cube-spin 2.8s linear infinite; }
+body.rag-manager-indexing .rag-index-visual { border-color: rgba(82,233,253,.48); box-shadow: inset 0 0 35px rgba(33,205,231,.09),0 0 28px rgba(33,205,231,.1); }
+body.rag-manager-indexing .rag-vector-cube { animation-duration: .7s; }
+.rag-manager-status { display: grid; gap: 5px; min-height: 46px; padding: 11px 12px; border-left: 2px solid rgba(82,225,246,.34); background: rgba(8,37,49,.42); }
+.rag-manager-status b { color: #d8f8fc; font-size: 11px; }
+.rag-manager-status span { color: rgba(169,212,220,.55); font-size: 9px; line-height: 1.5; }
+.rag-manager-status.success { border-color: #70f5d8; }
+.rag-manager-status.error { border-color: #ff667d; }
+.rag-manager-status.working { border-color: #54e8ff; animation: rag-status-glow 1.2s ease-in-out infinite; }
+.rag-recent-title { margin: 19px 0 9px; color: rgba(145,205,215,.52); font: 8px/1 "JetBrains Mono",monospace; letter-spacing: .15em; }
+.rag-recent-list { display: grid; gap: 7px; }
+.rag-recent-empty { padding: 16px 8px; color: rgba(150,193,201,.36); border: 1px dashed rgba(87,192,209,.14); border-radius: 7px; font-size: 9px; text-align: center; }
+.rag-recent-row { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 8px; padding: 9px; border: 1px solid rgba(70,215,238,.13); border-radius: 7px; background: rgba(7,31,42,.46); }
+.rag-recent-row > i { width: 6px; height: 6px; border-radius: 50%; background: #6ff5d6; box-shadow: 0 0 9px #6ff5d6; }
+.rag-recent-row div { min-width: 0; }
+.rag-recent-row b,.rag-recent-row span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rag-recent-row b { color: #d8f4f8; font-size: 10px; }
+.rag-recent-row span { margin-top: 3px; color: rgba(151,199,207,.46); font: 7px/1.2 "JetBrains Mono",monospace; }
+.rag-recent-row em { color: #6ff5d6; font: 7px/1 "JetBrains Mono",monospace; font-style: normal; letter-spacing: .08em; }
+@keyframes rag-manager-pulse { 50% { opacity: .4; transform: scale(.75); } }
+@keyframes rag-cube-float { 50% { transform: translateY(-8px) rotateX(58deg) rotateZ(135deg); } }
+@keyframes rag-cube-spin { to { transform: rotate(360deg); } }
+@keyframes rag-status-glow { 50% { box-shadow: 0 0 18px rgba(45,220,243,.12); } }
+@media (max-width: 1040px) { .rag-manager-workspace { grid-template-columns: minmax(0,1fr) 230px; } .rag-form-row-two { grid-template-columns: 1fr; } }
+@media (max-width: 900px) {
+  .rag-manager-panel { inset: 10px 10px 42vh; }
+  body.rag-manager-mode .console { inset: calc(58vh + 6px) 10px 10px; }
+  .rag-manager-activity { display: none; }
+  .rag-manager-workspace { grid-template-columns: 1fr; }
+  .rag-manager-header { padding: 16px 18px 12px; }
+  .rag-manager-metrics { padding: 10px 18px; }
+}
+@media (prefers-reduced-motion: reduce) { .rag-manager-live i,.rag-vector-cube,.rag-vector-cube i,.rag-manager-status.working { animation: none; } }
+
 
 @media (max-width: 1180px) {
   /* 1180px 以下左右面板收窄到 280px，地图面板跟随缩进到 300px 留白 */
   .map-stage { left: 300px; right: 300px; }
-  .panel { width: 280px; }
+  .panel { --panel-w: 280px; }
   .console { left: 320px; right: 320px; }
 }
 

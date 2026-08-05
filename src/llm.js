@@ -604,7 +604,7 @@ function buildToolLogDetail(args = {}, result = '') {
 function makeDeferredOutboundResult(args = {}, latestOutbound = null) {
   const target = String(args.target_id || '')
   const sent = latestOutbound
-    ? `The immediately preceding message to ${latestOutbound.targetId} was delivered at ${latestOutbound.sentAt}: “${latestOutbound.content.slice(0, 240)}”`
+    ? `The immediately preceding message to ${latestOutbound.targetId} was delivered at ${latestOutbound.sentAt}: "${latestOutbound.content.slice(0, 240)}"`
     : 'A preceding outbound message in this same model response was delivered.'
   return JSON.stringify({
     ok: false,
@@ -665,7 +665,7 @@ function buildPostSendNudge(outboundMessages = [], tickState = null) {
   return [
     'Communication reality check:',
     `You have already delivered this message to ${latest.targetId} at ${latest.sentAt}:`,
-    `“${latest.content.slice(0, 500)}”`,
+    `"${latest.content.slice(0, 500)}"`,
     tickState ? `This is still outer TICK #${tickState.number}; the send happened in tool-loop round ${latest.toolRound}.` : '',
     'The successful tool result means the message was received and shown to the user. If the user has not replied, that is only a pause; do not reinterpret silence as a missed or failed delivery, and do not retry the message for that reason.',
     'Treat that delivery as a completed fact, not an unfinished task. Compare the current evidence with what the recipient already knows before considering another message.',
@@ -708,7 +708,6 @@ const HIGH_RISK_TOOLS = new Set([
   'web_search',
   'fetch_url',
   'browser_read',
-  'generate_image',
 ])
 
 function stableStringify(value) {
@@ -777,14 +776,13 @@ const REPORT_CHANNEL_TOOLS = new Set(['send_message', 'express'])
 // 这些工具一旦被调用，就由运行时在执行前替它"应一声"——一个 turn 只发一次（见 callLLM 的
 // ackSent）。只覆盖真正会让人等的工具；秒回的普通问答不在此列，避免把简单对话变啰嗦。
 const SLOW_ACK_TOOLS = new Set([
-  'generate_image',
   'web_search', 'fetch_url', 'browser_read', 'deep_research', 'exec_command',
 ])
 function isSlowAckTool(name, args) {
   return SLOW_ACK_TOOLS.has(name)
 }
 function slowAckText(name, args) {
-  if (name === 'generate_image') return '在画了，稍等一下～'
+
   if (name === 'web_search' || name === 'fetch_url' || name === 'browser_read' || name === 'deep_research') {
     const q = String(args?.query || args?.q || args?.url || '').trim()
     return q ? `我查一下「${q.length > 30 ? q.slice(0, 30) + '…' : q}」～` : '我查一下～'
@@ -1120,7 +1118,7 @@ export async function callLLM({ systemPrompt, message, messages: inputMessages =
       // Do not infer an action from prose.  A clear action request carries a
       // narrow contract from runTurn, and it is satisfied only by a successful
       // matching tool result.  This deliberately runs before the normal local
-      // plain-text fast path so TUI/voice cannot turn “我已经做好了” into the
+      // plain-text fast path so TUI/voice cannot turn "我已经做好了" into the
       // only observable outcome.
       if (mustReply && actionContract && !actionContractSatisfied && !actionContractAttempted) {
         if (actionContractNudgeCount < 2) {
@@ -1303,7 +1301,7 @@ export async function callLLM({ systemPrompt, message, messages: inputMessages =
         }
 
         // On external channels send_message is itself a side effect, and used
-        // to let a premature “done” message terminate the whole agent loop.
+        // to let a premature "done" message terminate the whole agent loop.
         // Suppress it until the requested action has evidence; after a failed
         // attempt, allow only an honest failure report.
         const actionContractBlocksSend = tc.name === 'send_message'

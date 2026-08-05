@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
 from .models import CandidateRiskText, SearchRequest
@@ -133,4 +134,161 @@ class PostgresRiskTextRepository:
             "is_simulated": True,
             "disclaimer": rows[0][5] if rows else "simulated data, does not represent real regional risk",
             "provinces": provinces,
+        }
+
+    def get_readiness(self) -> dict:
+        sql = """
+            SELECT kb.status,
+                   kb.sample_count,
+                   (SELECT COUNT(*) FROM risk_text_samples rt
+                    WHERE rt.published_version_id = kb.version_id
+                      AND rt.dataset_status IN ('processed', 'published')
+                      AND rt.pii_checked),
+                   (SELECT COUNT(*) FROM risk_text_embeddings re
+                    WHERE re.knowledge_base_version_id = kb.version_id
+                      AND re.model_id = %(model_id)s
+                      AND re.is_active),
+                   COALESCE((SELECT em.dimension FROM embedding_models em
+                             WHERE em.model_id = %(model_id)s AND em.is_active), 0)
+            FROM knowledge_base_versions kb
+            WHERE kb.version_id = %(version)s
+        """
+        try:
+            import psycopg
+        except ImportError as error:
+            raise RuntimeError("PostgreSQL dependencies are not installed") from error
+
+        with psycopg.connect(self._database_url) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(sql, {
+                    "version": self.knowledge_base_version,
+                    "model_id": self.embedding_model,
+                })
+                row = cursor.fetchone()
+
+        if not row:
+            return {
+                "ready": False,
+                "status": "missing",
+                "knowledge_base_version": self.knowledge_base_version,
+                "expected_count": 0,
+                "text_count": 0,
+                "vector_count": 0,
+                "embedding_model": self.embedding_model,
+                "embedding_dimension": 0,
+            }
+
+        expected_count = int(row[1] or 0)
+        text_count = int(row[2] or 0)
+        vector_count = int(row[3] or 0)
+        ready = row[0] == "published" and expected_count > 0 and text_count >= expected_count and vector_count >= expected_count
+        return {
+            "ready": ready,
+            "status": "ready" if ready else "incomplete",
+            "knowledge_base_version": self.knowledge_base_version,
+            "expected_count": expected_count,
+            "text_count": text_count,
+            "vector_count": vector_count,
+            "embedding_model": self.embedding_model,
+            "embedding_dimension": int(row[4] or 0),
+        }
+
+    def add_risk_text(self, item: dict, embedding: tuple[float, ...]) -> dict:
+        try:
+            import psycopg
+            from pgvector import Vector
+            from pgvector.psycopg import register_vector
+        except ImportError as error:
+            raise RuntimeError("PostgreSQL dependencies are not installed") from error
+
+        retrieval_text = " ".join(
+            str(part) for part in (
+                item["title"],
+                item["category_name"],
+                item["text"],
+                *(item.get("risk_signals") or ()),
+                *(item.get("key_phrases") or ()),
+            ) if part
+        )
+        retrieval_hash = hashlib.sha256(retrieval_text.encode("utf-8")).hexdigest()
+
+        with psycopg.connect(self._database_url) as connection:
+            register_vector(connection)
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT dimension FROM embedding_models WHERE model_id = %s AND is_active",
+                    (self.embedding_model,),
+                )
+                model_row = cursor.fetchone()
+                if not model_row:
+                    raise RuntimeError("configured embedding model is not registered")
+                if len(embedding) != int(model_row[0]):
+                    raise ValueError(
+                        f"embedding dimension mismatch: {len(embedding)}/{int(model_row[0])}"
+                    )
+
+                cursor.execute(
+                    "SELECT risk_text_id FROM risk_text_samples WHERE md5(normalized_text) = md5(%s)",
+                    (item["text"],),
+                )
+                duplicate = cursor.fetchone()
+                if duplicate:
+                    raise ValueError(f"duplicate risk text: {duplicate[0]}")
+
+                cursor.execute(
+                    """
+                    INSERT INTO risk_text_samples(
+                        risk_text_id, risk_text_title, risk_category_code,
+                        risk_category_name, normalized_text, risk_signals,
+                        key_phrases, year, source_dataset, dataset_status,
+                        pii_checked, published_version_id
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'published', true, %s)
+                    """,
+                    (
+                        item["risk_text_id"], item["title"], item["category_code"],
+                        item["category_name"], item["text"], item.get("risk_signals") or [],
+                        item.get("key_phrases") or [], item.get("year"),
+                        item.get("source_dataset") or "manual_ui", self.knowledge_base_version,
+                    ),
+                )
+                cursor.execute(
+                    """
+                    INSERT INTO risk_text_embeddings(
+                        risk_text_id, model_id, knowledge_base_version_id,
+                        retrieval_text, retrieval_text_hash, embedding, is_active
+                    ) VALUES (%s, %s, %s, %s, %s, %s, true)
+                    """,
+                    (
+                        item["risk_text_id"], self.embedding_model,
+                        self.knowledge_base_version, retrieval_text,
+                        retrieval_hash, Vector(list(embedding)),
+                    ),
+                )
+                cursor.execute(
+                    """
+                    UPDATE knowledge_base_versions kb
+                    SET sample_count = (
+                        SELECT COUNT(*) FROM risk_text_samples rt
+                        WHERE rt.published_version_id = kb.version_id
+                          AND rt.dataset_status IN ('processed', 'published')
+                          AND rt.pii_checked
+                    )
+                    WHERE kb.version_id = %s
+                    RETURNING sample_count
+                    """,
+                    (self.knowledge_base_version,),
+                )
+                count_row = cursor.fetchone()
+                if not count_row:
+                    raise RuntimeError("knowledge base version does not exist")
+                text_count = int(count_row[0])
+            connection.commit()
+
+        return {
+            "risk_text_id": item["risk_text_id"],
+            "knowledge_base_version": self.knowledge_base_version,
+            "embedding_model": self.embedding_model,
+            "embedding_dimension": len(embedding),
+            "text_count": text_count,
+            "vector_count": text_count,
         }

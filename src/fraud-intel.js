@@ -25,6 +25,8 @@ import path from 'path'
 import { paths } from './paths.js'
 import { emitEvent } from './events.js'
 import { pushMessage } from './inbound-message.js'
+import { getAllClawbotTokens } from './db.js'
+import { dispatchSocialMessage } from './social/dispatch.js'
 
 const INTEL_FILE     = path.join(paths.dataDir, 'fraud-intel.json')
 const INTEL_VERSION  = 1
@@ -460,7 +462,17 @@ export function startFraudIntelScheduler(intervalHours = 6) {
         // 2. pushMessage 让 Agent 在下个 TICK 看到，可主动在对话里提醒用户
         const pushText = buildPushText(newCases)
         pushMessage('SYSTEM', pushText, 'FRAUD_INTEL', {})
-        console.log('[fraud-intel] 检测到 ' + newCases.length + ' 条新案例，已推送')
+        // 3. 推送到所有已绑定的微信会话（clawbot）
+        const tokens = getAllClawbotTokens()
+        for (const { from_user_id } of tokens) {
+          dispatchSocialMessage(`wechat:clawbot:${from_user_id}`, { text: pushText })
+            .then(r => {
+              if (r?.ok) console.log('[fraud-intel] 已推送到微信用户 ' + from_user_id)
+              else console.log('[fraud-intel] 微信推送跳过 ' + from_user_id + ': ' + (r?.reason || r?.error || 'unknown'))
+            })
+            .catch(err => console.warn('[fraud-intel] 微信推送失败 ' + from_user_id + ':', err.message))
+        }
+        console.log('[fraud-intel] 检测到 ' + newCases.length + ' 条新案例，已推送（微信用户 ' + tokens.length + ' 个）')
       } else {
         console.log('[fraud-intel] 定时采集完成，无新案例')
       }

@@ -181,6 +181,98 @@ export async function getRagHealth(options = {}) {
   }
 }
 
+export async function getRagReadiness(options = {}) {
+  const config = options.config || getRagConfig()
+  const fetchImpl = options.fetchImpl || globalThis.fetch
+  let response
+  try {
+    response = await fetchImpl(`${normalizeBaseUrl(config.baseUrl)}/internal/v1/rag/readiness`, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(boundedInteger(config.timeoutMs, DEFAULT_TIMEOUT_MS, 1_000, 120_000)),
+    })
+  } catch (cause) {
+    throw new RagServiceError('RAG knowledge base is unavailable', {
+      code: 'RAG_UNAVAILABLE',
+      statusCode: 503,
+      cause,
+    })
+  }
+
+  const envelope = await readResponseJson(response)
+  if (!response.ok || envelope?.code !== 0 || !envelope?.data) {
+    throw new RagServiceError(String(envelope?.message || 'RAG readiness check failed').slice(0, 500), {
+      code: 'RAG_READINESS_FAILED',
+      statusCode: 503,
+    })
+  }
+
+  const data = envelope.data
+  return {
+    ready: data.ready === true,
+    status: String(data.status || 'unknown'),
+    knowledgeBaseVersion: String(data.knowledge_base_version || config.knowledgeBaseVersion),
+    expectedCount: Number(data.expected_count || 0),
+    textCount: Number(data.text_count || 0),
+    vectorCount: Number(data.vector_count || 0),
+    embeddingModel: String(data.embedding_model || ''),
+    embeddingDimension: Number(data.embedding_dimension || 0),
+  }
+}
+
+export async function addRiskText(input = {}, options = {}) {
+  const config = options.config || getRagConfig()
+  const fetchImpl = options.fetchImpl || globalThis.fetch
+  const title = String(input.title || '').trim()
+  const text = String(input.text || '').trim()
+  const categoryCode = String(input.categoryCode || input.category_code || '').trim()
+  if (!title || title.length > 200) {
+    throw new RagServiceError('title must contain between 1 and 200 characters', { code: 'INVALID_RAG_ITEM', statusCode: 400 })
+  }
+  if (text.length < 10 || text.length > 8_000) {
+    throw new RagServiceError('text must contain between 10 and 8000 characters', { code: 'INVALID_RAG_ITEM', statusCode: 400 })
+  }
+  if (!categoryCode) {
+    throw new RagServiceError('categoryCode is required', { code: 'INVALID_RAG_ITEM', statusCode: 400 })
+  }
+  if (input.piiConfirmed !== true && input.pii_confirmed !== true) {
+    throw new RagServiceError('piiConfirmed must be true', { code: 'INVALID_RAG_ITEM', statusCode: 400 })
+  }
+  const requestId = String(input.requestId || input.request_id || crypto.randomUUID()).trim()
+  const stringList = value => (Array.isArray(value) ? value : String(value || '').split(/[，,\n]/))
+    .map(item => String(item).trim()).filter(Boolean).slice(0, 20)
+  const body = {
+    request_id: requestId,
+    title,
+    text,
+    category_code: categoryCode,
+    risk_signals: stringList(input.riskSignals ?? input.risk_signals),
+    key_phrases: stringList(input.keyPhrases ?? input.key_phrases),
+    pii_confirmed: true,
+    ...(input.year ? { year: Number(input.year) } : {}),
+    source_dataset: String(input.sourceDataset || input.source_dataset || 'manual_ui').trim(),
+  }
+
+  let response
+  try {
+    response = await fetchImpl(`${normalizeBaseUrl(config.baseUrl)}/internal/v1/rag/items`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=utf-8', 'X-Request-ID': requestId },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(boundedInteger(config.timeoutMs, DEFAULT_TIMEOUT_MS, 1_000, 120_000)),
+    })
+  } catch (cause) {
+    throw new RagServiceError('RAG item indexing is unavailable', { code: 'RAG_UNAVAILABLE', statusCode: 503, cause })
+  }
+  const envelope = await readResponseJson(response)
+  if (!response.ok || envelope?.code !== 0 || !envelope?.data?.risk_text_id) {
+    throw new RagServiceError(String(envelope?.message || 'RAG item indexing failed').slice(0, 500), {
+      code: response.status === 400 ? 'INVALID_RAG_ITEM' : 'RAG_INDEX_FAILED',
+      statusCode: response.status === 400 ? 400 : 503,
+    })
+  }
+  return { ...envelope.data, requestId: envelope.request_id || requestId }
+}
+
 export async function getRagMapStats(options = {}) {
   const config = options.config || getRagConfig()
   const fetchImpl = options.fetchImpl || globalThis.fetch

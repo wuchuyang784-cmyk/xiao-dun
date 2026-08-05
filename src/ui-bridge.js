@@ -1,9 +1,31 @@
 import { insertActionLog, insertConversation } from './db.js'
 import { emitEvent, emitUICommand, addActiveUICard, hasACUIClient } from './events.js'
 import { dispatchSocialMessage } from './social/dispatch.js'
+import { getAllClawbotTokens } from './db.js'
 import { getForegroundThread, ensureThreadState } from './memory/threads.js'
 import { detectOpenFollowupQuestion } from './capabilities/executor.js'
 import { nowTimestamp } from './time.js'
+
+// 反诈提醒特征：回复内容命中以下任一标记时，自动转发到所有已绑定微信会话
+const FRAUD_ALERT_MARKERS = ['小盾反诈提醒', '反诈提醒', '96110', '遇骗即拨', '诈骗案例', '反诈情报']
+function isFraudAlertContent(text) {
+  if (!text || typeof text !== 'string') return false
+  return FRAUD_ALERT_MARKERS.some(m => text.includes(m))
+}
+
+// 把反诈提醒转发到所有已绑定的微信会话（clawbot）
+function forwardFraudAlertToWechat(content) {
+  const tokens = getAllClawbotTokens()
+  if (tokens.length === 0) return
+  for (const { from_user_id } of tokens) {
+    dispatchSocialMessage(`wechat:clawbot:${from_user_id}`, { text: content })
+      .then(r => {
+        if (r?.ok) console.log('[fraud-alert] 已转发到微信用户 ' + from_user_id)
+        else console.log('[fraud-alert] 微信转发跳过 ' + from_user_id + ': ' + (r?.reason || r?.error || 'unknown'))
+      })
+      .catch(err => console.warn('[fraud-alert] 微信转发失败 ' + from_user_id + ':', err.message))
+  }
+}
 
 export function deriveStackView(state) {
   const ts = ensureThreadState(state)
@@ -48,6 +70,10 @@ export function deliverFallbackReply(msg, content, timestamp = nowTimestamp()) {
     channel,
     external_party_id: externalPartyId,
   })
+  // 反诈提醒自动转发到微信（不依赖 agent 调 fraud_intel push 工具）
+  if (isFraudAlertContent(content)) {
+    forwardFraudAlertToWechat(content)
+  }
   if (externalPartyId) {
     dispatchSocialMessage(externalPartyId, content).catch(err => console.warn('[social] fallback send failed:', err.message))
   }
