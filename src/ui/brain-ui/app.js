@@ -13,6 +13,7 @@ import { initWechatPopup, showWechatPopup } from "./wechat-popup.js";
 import { initFeishuPopup, showFeishuPopup } from "./feishu-popup.js";
 import { extractAssistantMessageContent, isAssistantMessageEvent, resolveAssistantMessageId } from "./message-event.js";
 import { sanitizeAssistantReplyForDelivery } from "../../runtime/markers.js";
+import { applyPlanEvent, createPlanState, getPlanDurationMs, getPlanProgress, PLAN_STATUS_ICONS, PLAN_STATUS_LABELS } from "./plan-state.js";
 renderBrainUiApp(document.body);
 const fraudMap = initFraudMap();
 const THEME_KEY = "jarvis-brain-ui-theme";
@@ -228,67 +229,144 @@ let currentPath = "l2";
 function currentStream() { return currentPath === "l1" ? L1 : L2; }
 
 // ---- 执行规划面板 ----
-let planPath = "idle";          // "active" | "idle"
-let planSteps = [];             // [{ toolName, status, startTime }]
-let planCardEl = null;
+let planState = createPlanState();
 
 const PLAN_TOOL_ZH = {
-  send_message: "回复用户",  web_search: "搜索网页",  fetch_url: "抓取网页",
-  read_file: "读取文件",     write_file: "写入文件", search_memory: "检索记忆",
-  recall_memory: "唤起记忆",  fraud_rule_screen: "反诈规则筛查",
+  send_message: "回复用户",
+  web_search: "搜索网页",
+  fetch_url: "抓取网页",
+  read_file: "读取文件",
+  write_file: "写入文件",
+  search_memory: "检索记忆",
+  recall_memory: "唤起记忆",
+  fraud_rule_screen: "反诈规则初筛",
+  search_fraud_cases: "检索外部 RAG 案例",
 };
+
 function planToolLabel(name) { return PLAN_TOOL_ZH[name] || name; }
-function escapeHtml(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
 
-function openPlanCard(userText) {
-  planSteps = [];
+function formatPlanDuration(durationMs) {
+  if (durationMs == null) return "";
+  const seconds = durationMs / 1000;
+  return seconds < 10 ? `${seconds.toFixed(1)}s` : `${Math.round(seconds)}s`;
+}
+
+function planPhaseMeta(phase) {
+  if (phase === "complete") return { label: "已完成", className: "pill-done" };
+  if (phase === "failed") return { label: "执行失败", className: "pill-failed" };
+  if (phase === "active") return { label: "执行中", className: "pill-warm" };
+  return { label: "待命", className: "pill" };
+}
+
+function renderPlanTools(step) {
+  if (!step.tools?.length) return "";
+  const tools = step.tools.map(tool => {
+    const statusClass = tool.status || "pending";
+    const statusIcon = PLAN_STATUS_ICONS[statusClass] || PLAN_STATUS_ICONS.pending;
+    const duration = formatPlanDuration(tool.durationMs);
+    return `<span class="plan-tool-chip ${statusClass}">
+      <span class="plan-tool-chip-icon">${statusIcon}</span>
+      <span>${escapeHtml(planToolLabel(tool.name))}</span>
+      ${duration ? `<time>${duration}</time>` : ""}
+    </span>`;
+  }).join("");
+  return `<div class="plan-tool-detail" aria-label="工具执行详情">${tools}</div>`;
+}
+
+function renderPlanStep(step, index) {
+  const status = PLAN_STATUS_LABELS[step.status] ? step.status : "pending";
+  const duration = formatPlanDuration(step.durationMs);
+  const note = step.note ? `<div class="plan-step-note">${escapeHtml(step.note)}</div>` : "";
+  return `<div class="plan-step ${status}" data-step-index="${index}">
+    <span class="step-status" aria-hidden="true">${PLAN_STATUS_ICONS[status]}</span>
+    <div class="plan-step-main">
+      <span class="step-name">${escapeHtml(step.text)}</span>
+      ${note}
+      ${renderPlanTools(step)}
+    </div>
+    <span class="step-state">${PLAN_STATUS_LABELS[status]}</span>
+    ${duration ? `<time class="step-time">${duration}</time>` : ""}
+  </div>`;
+}
+
+function renderPlanState() {
   const list = document.getElementById("plan-list");
+  const pill = document.getElementById("pill-l2");
   if (!list) return;
-  closePlanCard();
-  planCardEl = document.createElement("div");
-  planCardEl.className = "plan-card";
-  const now = new Date();
-  const time = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`;
-  planCardEl.innerHTML = `<div class="plan-header"><span class="plan-title">${escapeHtml(userText.slice(0,40))}</span><span class="plan-time">${time}</span></div><div class="plan-steps"></div>`;
-  list.prepend(planCardEl);
-  const pill = document.getElementById("pill-l2");
-  if (pill) { pill.textContent = "执行中"; pill.className = "pill pill-warm"; }
+
+  const meta = planPhaseMeta(planState.phase);
+  if (pill) {
+    const progress = getPlanProgress(planState);
+    pill.textContent = planState.phase === "active" && progress.total ? progress.label : meta.label;
+    pill.className = `pill ${meta.className}`;
+  }
+
+  if (planState.phase === "idle") {
+    list.innerHTML = `<div class="plan-empty-state" id="plan-empty-state">
+      <span class="plan-empty-icon" aria-hidden="true">✦</span>
+      <div>
+        <strong>暂无执行任务</strong>
+        <span>发送问题后，小盾会展示处理步骤</span>
+      </div>
+    </div>`;
+    return;
+  }
+
+  const progress = getPlanProgress(planState);
+  const duration = formatPlanDuration(getPlanDurationMs(planState));
+  const hasExternalRag = planState.steps.some(step => step.tools?.some(tool => tool.name === "search_fraud_cases"));
+  const noSteps = !planState.steps.length
+    ? `<div class="plan-no-steps"><span class="plan-spinner" aria-hidden="true"></span><span>等待任务步骤…</span></div>`
+    : "";
+  const summary = planState.summary
+    ? `<div class="plan-summary">${escapeHtml(planState.summary)}</div>`
+    : "";
+  const error = planState.error
+    ? `<div class="plan-error">${escapeHtml(planState.error)}</div>`
+    : "";
+  const ragBadge = hasExternalRag
+    ? `<span class="plan-evidence-badge">外部 RAG 已参与</span>`
+    : "";
+  const steps = planState.steps.map(renderPlanStep).join("");
+
+  list.innerHTML = `<article class="plan-card plan-card-${planState.phase}">
+    <header class="plan-header">
+      <div class="plan-heading">
+        <span class="plan-kicker">执行规划</span>
+        <strong class="plan-title">${escapeHtml(planState.title || "执行任务")}</strong>
+      </div>
+      <span class="plan-progress" aria-label="任务进度">${progress.label}</span>
+    </header>
+    <div class="plan-body">
+      <div class="plan-task-line">
+        <span>${planState.phase === "complete" ? "任务已完成" : "正在处理"}</span>
+        ${ragBadge}
+      </div>
+      <div class="plan-steps">${noSteps}${steps}</div>
+      ${summary}
+      ${error}
+    </div>
+    <footer class="plan-footer">
+      <span>${progress.total ? `${progress.done} / ${progress.total} 步` : "等待步骤"}</span>
+      ${duration ? `<time>${duration}</time>` : ""}
+    </footer>
+  </article>`;
 }
 
-function addPlanStep(toolName) {
-  if (!planCardEl) return;
-  const steps = planCardEl.querySelector(".plan-steps");
-  if (!steps) return;
-  const entry = { toolName, status: "pending", startTime: Date.now() };
-  planSteps.push(entry);
-  const stepEl = document.createElement("div");
-  stepEl.className = "plan-step";
-  stepEl.dataset.tool = toolName;
-  stepEl.innerHTML = `<span class="step-status">○</span><span class="step-name">${escapeHtml(planToolLabel(toolName))}</span><span class="step-time"></span>`;
-  steps.appendChild(stepEl);
+function applyPlanEventToUi(type, data = {}) {
+  planState = applyPlanEvent(planState, { type, data });
+  renderPlanState();
 }
 
-function updatePlanStep(toolName, status) {
-  if (!planCardEl) return;
-  const safeName = toolName.replace(/"/g,"");
-  const stepEl = planCardEl.querySelector(`.plan-step[data-tool="${safeName}"]`);
-  if (!stepEl) return;
-  const entry = planSteps.find(s => s.toolName === toolName);
-  const elapsed = entry ? ((Date.now() - entry.startTime) / 1000).toFixed(1) + "s" : "";
-  stepEl.querySelector(".step-status").textContent = status === "done" ? "\u2713" : "\u2717";
-  stepEl.querySelector(".step-status").className = `step-status ${status}`;
-  stepEl.querySelector(".step-time").textContent = elapsed;
-}
+renderPlanState();
 
-function closePlanCard() {
-  if (planCardEl) { planCardEl.classList.add("plan-done"); }
-  planCardEl = null;
-  planSteps = [];
-  const pill = document.getElementById("pill-l2");
-  if (pill) { pill.textContent = "等待指令"; pill.className = "pill"; }
-}
-
-// ---- 运行时长计时器 ----
 let uptimeStart = Date.now();
 setInterval(() => {
   const el = document.getElementById("uptime");
@@ -684,9 +762,13 @@ function handle({ type, data = {} }) {
     }
   }
   switch (type) {
+    case "task_set":
+    case "task_step_updated":
+    case "task_cleared":
+      applyPlanEventToUi(type, data);
+      break;
     case "message_received": {
       currentPath = "l1";
-      planPath = "active";
       // 鍏滃簳锛氫笂涓€杞嫢琚墦鏂€乵essage/response 鍧囨湭鍒拌揪锛屽疄鏃舵皵娉′細鎴愬鍎裤€佹祦寮忎細璇濆彲鑳借繕鎸傜潃楹﹀厠椋?
       // 鈥斺€斿畾绋挎皵娉°€佹敹灏炬祦寮忎細璇濓紙鎭㈠楹﹀厠椋庯級銆佸浣嶇姸鎬侊紝鍐嶅紑鏂颁竴杞€?
       if (chat.hasLiveJarvisMsg()) chat.finalizeLiveJarvisMsg(null);
@@ -698,7 +780,7 @@ function handle({ type, data = {} }) {
         content: parsed.content,
         time: parsed.time || undefined,
       });
-      openPlanCard(parsed.content || "用户消息");
+      applyPlanEventToUi("message_received", { ...data, input: parsed.content || data.input });
       L1.startThinkingSession();
       break;
     }
@@ -735,14 +817,14 @@ function handle({ type, data = {} }) {
       // 正文段结束：把残句先送去合成，降低尾句延迟（不结束会话，可能还有后续正文段）
       break;
     case "tool_preparing": {
-      if (currentPath === "l1") addPlanStep(data.name);
+      if (currentPath === "l1") applyPlanEventToUi("tool_preparing", data);
       const stream = currentStream();
       const label = data.name ? stream.toolLabel(data.name) : "";
       stream.setStatus(label ? "准备调用 " + label + "…" : "准备工具调用…", "busy");
       break;
     }
     case "tool_executing": {
-      if (currentPath === "l1") updatePlanStep(data.name, "running");
+      if (currentPath === "l1") applyPlanEventToUi("tool_executing", data);
       const stream = currentStream();
       const label = data.name ? stream.toolLabel(data.name) : "工具";
       stream.setTimedStatus("正在执行 " + label + "…", "busy", {
@@ -752,14 +834,13 @@ function handle({ type, data = {} }) {
       break;
     }
     case "tool_call":
-      if (currentPath === "l1") updatePlanStep(data.name, data.ok ? "done" : "failed");
+      if (currentPath === "l1") applyPlanEventToUi("tool_call", data);
       currentStream().tool(data.name, data.args, data.result, data.ok);
       recordAiActivity(data.name);
       break;
     case "response":
       // Round complete — stop all animations
-      if (currentPath === "l1") closePlanCard();
-      planPath = "idle";
+      if (currentPath === "l1") applyPlanEventToUi("response", data);
       currentStream().end();
       // 鍏滃簳锛氭湰杞粨鏉熸椂锛坮esponse 蹇呭湪 message 涔嬪悗鍙戯級鑻ユ祦寮忓悎鎴愪細璇濅粛寮€鐫€鈥斺€旀瀬灏戣锛屾ā鍨嬪彧璋冧簡宸ュ叿
       // 娌′骇鍑哄彲鎶曢€掓鏂囥€乵essage 鏈埌杈锯€斺€旀爣璁版鏂囧凡灏借闃熷垪鏀惧畬鍗虫仮澶嶉害鍏嬮锛岄伩鍏嶉害鍏嬮涓€鐩存寕璧枫€?
@@ -767,6 +848,7 @@ function handle({ type, data = {} }) {
       if (chat.hasLiveJarvisMsg()) chat.finalizeLiveJarvisMsg(null);
       break;
     case "processing_preempted":
+      if (currentPath === "l1") applyPlanEventToUi("processing_preempted", data);
       currentStream().end();
       break;
     case "llm_retry": {
@@ -787,6 +869,7 @@ function handle({ type, data = {} }) {
       currentStream().setStatus("LLM 繁忙，重试次数已达上限", "failed");
       break;
     case "error":
+      if (currentPath === "l1") applyPlanEventToUi("error", data);
       if (isBusyErrorMessage(data.error)) {
         currentStream().startThinkingSession();
         currentStream().setStatus("LLM 繁忙，请稍后重试", "busy");

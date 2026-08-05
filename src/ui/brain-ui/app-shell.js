@@ -93,10 +93,18 @@ const createSecondaryPanel = () => `
       <div class="stream-title-text">执行规划</div>
       <div class="stream-subtitle">工具链 · 步骤</div>
     </div>
-    <span class="pill" id="pill-l2">等待指令</span>
+    <span class="pill" id="pill-l2">待命</span>
   </div>
 
-  <div id="plan-list"></div>
+  <div id="plan-list" aria-live="polite">
+    <div class="plan-empty-state" id="plan-empty-state">
+      <span class="plan-empty-icon" aria-hidden="true">✦</span>
+      <div>
+        <strong>暂无执行任务</strong>
+        <span>发送问题后，小盾会展示处理步骤</span>
+      </div>
+    </div>
+  </div>
 
   <div class="tick-stream" id="tick-stream">
     <div class="stream">
