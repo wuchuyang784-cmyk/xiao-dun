@@ -21,7 +21,7 @@ import { runRuntimeInjector } from './context/runtime-injector.js'
 import { collectGuards, enqueueGuardInjection, drainGuardInjections } from './runtime/hallucination-guard.js'
 import { selectContextSections } from './context/section-gate.js'
 import { getDB, getConfig, setConfig, getKnownEntities, getOrInitBirthTime, insertConversation, insertMemory, getRecentConversationPartners, getDueReminders, markReminderFired, advanceReminderDueAt, getNextPendingReminder, getMemoryCount, getRecentConversationTimeline, loadFocusStack, loadThreadState, saveThreadState, setCurrentFocusTopic, setCurrentThreadId, updateUserMessageFocusTopic, reassignConversationsThread, insertActionLog } from './db.js'
-import { calculateNextDueAt, detectOpenFollowupQuestion } from './capabilities/executor.js'
+import { calculateNextDueAt, detectOpenFollowupQuestion, executeTool } from './capabilities/executor.js'
 import { pushMessage } from './inbound-message.js'
 import { popMessage, hasMessages, hasUserMessages, getQueueSnapshot, setInterruptCallback, requeueMessage } from './queue.js'
 import { startTUI } from './tui.js'
@@ -47,6 +47,7 @@ import { refreshSkills, selectSkillsForMessage, formatSkillsForContext } from '.
 import { tryAutoConfigureKey } from './key-auto-config.js'
 import { PRIMARY_USER_ID, formatPresenceForPrompt, normalizeChannel, isExternalChannel, isVoiceChannel } from './identity.js'
 import { truncateToolResultForUI } from './runtime/tool-result-preview.js'
+import { deliverMessage } from './runtime/delivery.js'
 import { buildLLMMessages } from './runtime/messages.js'
 import { parseMarkers } from './runtime/markers.js'
 import { createConsciousnessLoop } from './runtime/consciousness-loop.js'
@@ -615,6 +616,76 @@ function deliverDirectReply(msg, content, finishTurn) {
   finishTurn?.(content)
 }
 
+// 显式斜杠指令 → 纯本地工具的「零 LLM 快车道」映射。
+// 验链接 / 验短信全程是本地规则研判，模型只是复述工具产出的 report，没有任何增量。
+// 一旦让它们走 LLM 主循环，key 欠费（402）或模型不可用时 handleLLMFailure 会直接 finishTurn()，
+// 用户一个字都收不到——而这恰恰是本地能力最该兜住的场景。
+const LOCAL_COMMAND_TOOLS = {
+  'verify-link': { tool: 'check_link', label: '验链接', usage: '用法：/check_link <链接>' },
+  'verify-sms': { tool: 'check_sms', label: '验短信', usage: '用法：/check_sms <短信内容>' },
+}
+
+/**
+ * 执行纯本地的显式斜杠指令（/check_link、/check_sms）并把结果直接投递给用户。
+ * 全程不触碰 LLM，因此在 LLM 余额不足 / 不可用时依然可用。
+ * @param {string} capabilityId  能力 id（verify-link / verify-sms）
+ * @param {string} input         用户原始输入（含斜杠指令头）
+ * @param {Object} msg           入站消息
+ * @returns {Promise<string>}    实际投递出去的回复文本
+ */
+async function runLocalCommandTool(capabilityId, input, msg) {
+  const spec = LOCAL_COMMAND_TOOLS[capabilityId]
+  if (!spec) return ''
+
+  // 参数 = 指令头之后的全部内容。`/check_link https://a.com` → `https://a.com`
+  const argText = String(input || '').trim().replace(/^\/\S*\s*/, '').trim()
+  let reply = ''
+
+  if (!argText) {
+    reply = spec.usage
+  } else {
+    // check_link 同时给 url 与 text：text 让工具顺带跑一次话术规则引擎作为辅助信号。
+    const args = spec.tool === 'check_link'
+      ? { url: argText, text: argText }
+      : { text: argText }
+    const resultText = String(await executeTool(spec.tool, args, {}))
+
+    let parsed = null
+    try {
+      parsed = JSON.parse(resultText)
+    } catch {
+      parsed = null   // 非 JSON（理论上不会发生）→ 原样展示，绝不静默吞掉
+    }
+
+    if (!parsed) {
+      reply = resultText
+    } else if (parsed.ok === true) {
+      reply = String(parsed.report || '').trim() || resultText
+    } else {
+      reply = `${spec.label}失败：${parsed.message || parsed.error || '未知错误'}`
+    }
+
+    // 让前端「工具执行记录」与走 LLM 时保持一致的观感（格式对齐 callLLM 的 onToolCall）。
+    emitEvent('tool_call', {
+      name: spec.tool,
+      args,
+      result: truncateToolResultForUI(parsed, resultText),
+      ok: parsed ? parsed.ok !== false : true,
+    })
+  }
+
+  // 走正规投递通道：写 conversations + 广播 SSE + 外部渠道派发，与 send_message 完全一致。
+  // 带上当前 turn 的渠道信息，保证「在哪儿收的消息就回到哪儿」。
+  await deliverMessage(
+    { target_id: msg.fromId, content: reply, channel: msg.channel || 'AUTO' },
+    {
+      currentChannel: msg.notificationChannel || msg.channel || null,
+      currentExternalPartyId: msg.notificationExternalPartyId || msg.externalPartyId || null,
+    },
+  )
+  return reply
+}
+
 function tryHandleVerbatimTurn(input, msg, { finishTurn, conversationWindow = [] } = {}) {
   if (!msg || msg.silent === true) return false
   const text = String(input || '').trim()
@@ -891,10 +962,24 @@ async function runTurn(input, label, msg = null) {
     //   （显式指令 / LLM 意图兜底）。关键词已命中的走原 detect 流程，不强制。
     let forcedCapabilityIds = []
     if (!isTick) {
-      const intent = await resolveCapabilityIntent(input, { callLLM, signal: controller.signal })
+      const intent = await resolveCapabilityIntent(msg?.content || input, { callLLM, signal: controller.signal })
       if (intent) {
         forcedCapabilityIds = [intent.capabilityId]
         console.log(`[intent] 强制激活能力 ${intent.capabilityId}（via=${intent.via}）`)
+      }
+
+      // 零 LLM 快车道：显式指令命中纯本地能力（验链接 / 验短信）时，直接跑工具并投递结果，
+      // 跳过整个 LLM 主循环——LLM 欠费（402）时用户依然拿得到本地研判报告。
+      // 只认 via==='command'（用户手打 / 斜杠菜单预填）；via==='llm' 的意图兜底仍走 LLM 不变。
+      if (
+        intent?.via === 'command' &&
+        LOCAL_COMMAND_TOOLS[intent.capabilityId] &&
+        msg?.fromId &&
+        !silentSignal
+      ) {
+        const reply = await runLocalCommandTool(intent.capabilityId, msg?.content || input, msg)
+        finishTurn(reply)
+        return
       }
     }
 
