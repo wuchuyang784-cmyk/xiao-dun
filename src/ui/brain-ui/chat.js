@@ -49,6 +49,7 @@ export function initChat({
   openSettings = null,
 
   openHotspot = null,
+  openRag = null,
   openRagManager = null,
 } = {}) {
 
@@ -1150,6 +1151,14 @@ export function initChat({
 
   const slashMenu = document.getElementById("slash-menu");
 
+  function fillSlash(command) {
+    msgInput.value = command;
+    autoGrowInput();
+    try { msgInput.focus(); } catch {}
+    const length = msgInput.value.length;
+    msgInput.setSelectionRange(length, length);
+  }
+
   const SLASH_COMMANDS = [
 
     {
@@ -1183,6 +1192,12 @@ export function initChat({
     },
 
     {
+      cmd: "/rag", keys: ["rag", "knowledge", "vector", "map"],
+      label: "RAG \u77e5\u8bc6\u5e93", desc: "\u5bfc\u5165 RAG \u6570\u636e\u5e76\u4e14\u5c55\u793a",
+      run: () => openRag?.(),
+    },
+
+    {
       cmd: "/rag-manage", keys: ["rag-manage", "manager", "管理", "添加数据"],
       label: "RAG Manager", desc: "管理RAG知识库并添加数据",
       run: () => openRagManager?.(),
@@ -1207,6 +1222,37 @@ export function initChat({
         autoGrowInput();
         try { msgInput.focus(); } catch {}
       },
+    },
+
+    {
+      cmd: "/daily_tip", keys: ["daily_tip", "每日", "提醒", "反诈科普", "today tip"],
+      label: "每日反诈提醒", desc: "获取今日反诈知识与科普",
+      run: () => send({ text: "/daily_tip" }),
+    },
+    {
+      cmd: "/fraud_intel", keys: ["fraud_intel", "诈骗情报", "新型诈骗", "诈骗案例", "诈骗趋势"],
+      label: "诈骗情报采集", desc: "查看最新诈骗案例与趋势预警",
+      run: () => send({ text: "/fraud_intel" }),
+    },
+    {
+      cmd: "/report_fraud", keys: ["report_fraud", "举报", "报案", "投诉", "fraud report"],
+      label: "反诈举报指引", desc: "获取举报渠道与证据保全指引",
+      run: () => send({ text: "/report_fraud" }),
+    },
+    {
+      cmd: "/search_law", keys: ["search_law", "法规", "法律", "条文", "量刑", "law"],
+      label: "反诈法律查询", desc: "搜索反诈相关法律条文（可跟关键词）",
+      run: () => fillSlash("/search_law "),
+    },
+    {
+      cmd: "/qrcode", keys: ["qrcode", "二维码", "扫码", "链接安全"],
+      label: "二维码/链接检测", desc: "检测二维码或链接的安全性（可跟链接）",
+      run: () => fillSlash("/qrcode "),
+    },
+    {
+      cmd: "/verify_identity", keys: ["verify_identity", "核实身份", "身份核实", "号码查询", "归属地"],
+      label: "身份风险核实", desc: "核实可疑身份、号码或对话的风险（可跟内容）",
+      run: () => fillSlash("/verify_identity "),
     },
 
     {

@@ -217,6 +217,8 @@ export function initFraudMap() {
   const seenCases = new Set()
 
   function render(state) {
+    renderRightPanel(state)
+    renderStatus(state)
     if (!chart || !mapReady) return
     chart.setOption(createMapOptions(state), { notMerge: true, lazyUpdate: true })
   }
@@ -297,8 +299,7 @@ export function initFraudMap() {
       if (destroyed) return
       charting.registerMap('china', geoJson)
       mapReady = true
-      // 首次加载即拉取数据，避免等 1 小时定时器
-      void reconcile().then(() => render(store.getState())).catch(() => render(store.getState()))
+      render(store.getState())
     }).catch(error => store.setError(error))
   }
 
@@ -312,6 +313,23 @@ export function initFraudMap() {
   return {
     store,
     reconcile,
+    async activate() {
+      if (destroyed) throw new Error('Fraud map has been destroyed')
+      active = true
+      const snapshot = await reconcile({ throwOnError: true })
+      clearInterval(reconcileTimer)
+      reconcileTimer = setInterval(() => void reconcile(), SNAPSHOT_RECONCILE_INTERVAL_MS)
+      requestAnimationFrame(() => chart?.resize())
+      return snapshot
+    },
+    deactivate() {
+      active = false
+      clearInterval(reconcileTimer)
+      reconcileTimer = null
+    },
+    resize() {
+      chart?.resize()
+    },
     // 主题切换时调用，让 ECharts 用最新的 CSS 变量重绘
     refresh() {
       if (chart && mapReady) chart.setOption(createMapOptions(store.getState()), { notMerge: true, lazyUpdate: true })
