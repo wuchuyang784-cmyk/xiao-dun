@@ -99,7 +99,7 @@ test('中文关键词与大小写/空格归一化均可命中', () => {
   assert.deepEqual(menuFor('/  check  '), ['/check_link', '/check_sms'], '应忽略首尾空格')
   // "诈骗" 同时命中两条：filter 对每条命令只求值一次，不会产生重复项
   const fraud = menuFor('/诈骗')
-  assert.deepEqual(fraud, ['/check_link', '/check_sms'])
+  assert.deepEqual(fraud, ['/check_link', '/check_sms', '/fraud_intel'])
   assert.equal(new Set(fraud).size, fraud.length, '多 key 同时命中不应产生重复条目')
 })
 

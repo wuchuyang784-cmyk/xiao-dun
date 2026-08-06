@@ -46,4 +46,80 @@ export const fraudSchemas = {
       },
     },
   },
+  get_daily_tip: {
+    type: 'function',
+    function: {
+      name: 'get_daily_tip',
+      description: '获取每日反诈提醒，返回一条反诈小知识或演练题。同一天返回同一条提醒。',
+      parameters: {
+        type: 'object',
+        properties: {
+          date: { type: 'string', description: '日期 (YYYY-MM-DD)，默认今天。' },
+          category: { type: 'string', description: '可选诈骗类型分类。' },
+        },
+        required: [],
+      },
+    },
+  },
+  report_fraud: {
+    type: 'function',
+    function: {
+      name: 'report_fraud',
+      description: '获取诈骗举报渠道、步骤和证据保全指引。',
+      parameters: {
+        type: 'object',
+        properties: {
+          fraud_type: { type: 'string', description: '诈骗类型，默认 general。' },
+          description: { type: 'string', description: '诈骗情况描述。' },
+        },
+        required: [],
+      },
+    },
+  },
+  search_law: {
+    type: 'function',
+    function: {
+      name: 'search_law',
+      description: '离线检索反诈相关法律法规和量刑条文。',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: '检索关键词。' },
+          limit: { type: 'integer', minimum: 1, maximum: 15, description: '返回数量上限，默认 5。' },
+        },
+        required: ['query'],
+      },
+    },
+  },
+  check_qrcode: {
+    type: 'function',
+    function: {
+      name: 'check_qrcode',
+      description: '分析二维码扫描结果中的链接、支付或钓鱼风险；不负责图片解码。',
+      parameters: {
+        type: 'object',
+        properties: {
+          content: { type: 'string', description: '二维码扫描后得到的内容。' },
+        },
+        required: ['content'],
+      },
+    },
+  },
+  verify_identity: {
+    type: 'function',
+    function: {
+      name: 'verify_identity',
+      description: '通过电话号码、URL 和聊天文本进行本地身份风险核实。',
+      parameters: {
+        type: 'object',
+        properties: {
+          phone: { type: 'string', description: '待核实电话号码。' },
+          url: { type: 'string', description: '待核实链接。' },
+          text: { type: 'string', description: '待核实聊天文本。' },
+          name: { type: 'string', description: '对方名称或自称身份。' },
+        },
+        required: [],
+      },
+    },
+  },
 }
