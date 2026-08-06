@@ -33,7 +33,9 @@ import { execAnalyzeImage, execManageApiCapability, execRunApiCapability } from 
 import { execManageRule } from './tools/rules.js'
 import { execFraudRuleScreen } from './tools/fraud-rule.js'
 import { execFraudIntel } from './tools/fraud-intel.js'
-import { execGenerateImage, execMediaMode } from './tools/media.js'
+import { execCheckLink } from './tools/check-link.js'
+import { execCheckSms } from './tools/check-sms.js'
+import { execMediaMode } from './tools/media.js'
 import { execSearchFraudCases } from './tools/fraud.js'
 import { runWorkReview } from '../review/reviewer.js'
 import { CAPABILITY_DEMO_INTRO, runCapabilityDemo } from '../capability-demo.js'
@@ -264,8 +266,7 @@ async function executeToolUnchecked(name, args, context = {}) {
         return await execDowngradeMemory(args)
       case 'skip_consolidation':
         return await execSkipConsolidation(args)
-      case 'generate_image':
-        return await execGenerateImage(args)
+
       case 'set_tick_interval':
         return execSetTickInterval(args)
       case 'media_mode':
@@ -285,6 +286,10 @@ async function executeToolUnchecked(name, args, context = {}) {
         return execFraudRuleScreen(args)
       case 'fraud_intel':
         return await execFraudIntel(args)
+      case 'check_link':
+        return await execCheckLink(args)
+      case 'check_sms':
+        return await execCheckSms(args)
       case 'ui_set':
         return execUISet(args)
       case 'capability_demo':

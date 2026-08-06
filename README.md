@@ -160,7 +160,7 @@ npm start
 - 若不想自动打开浏览器：`XIAODUN_NO_OPEN=1 npm start`。
 - 换端口（同时改后端与浏览器地址）：`XIAODUN_PORT=3722 npm start`。
 
-### 4.2 仅启动后端（无桌面 TUI）
+### 4.2 仅启动后端
 
 ```bash
 # 直接运行后端（默认仍会尝试启动 TUI，除非设 XIAODUN_WEB_ONLY=1）
@@ -352,8 +352,4 @@ docker run -d -p 3721:3721 \
 - **地图热力数据为空**：执行 `npm run rag:db:seed` 导入模拟案例数据。
 - **Docker 未安装/未启动**：安装 [Docker Desktop](https://www.docker.com/products/docker-desktop/) 并确保右下角 Docker 图标显示 "Engine running"。
 
----
-
-## 9. 说明
-
-本次从桌面运行时转换为网页运行版，**未新增前端页面、未重做 UI**。后续业务内容、地图与异常检测面板应在现有 Brain UI 结构（`src/ui/brain-ui/`）上迭代。
+--

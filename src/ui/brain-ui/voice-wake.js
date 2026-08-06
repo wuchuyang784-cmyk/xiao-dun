@@ -16,6 +16,7 @@ const IDLE_DISMISS_MS = 60000; // 条件三:60s 无新语音(且系统空闲)→
 const IDLE_CHECK_MS = 2000;
 const ORB_EXIT_MS = 320;       // 退场动画时长上限,过后才真停会话(与 voice-orb.html 0.28s 过渡对齐)
 const FRAME_MIN_MS = 33;       // 推帧给球窗的最小间隔(≈30fps)
+const BUSY_SK = new Set(['recognizing', 'speaking', 'processing', 'event']);
 
 // 视为「系统繁忙、不该计入空闲」的 voice-core 状态
 
@@ -69,7 +70,7 @@ export function createWakeFlow(core) {
     const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
     if (sk !== lastSk || now - lastFrameTs >= FRAME_MIN_MS) {
       lastSk = sk; lastFrameTs = now;
-      orb?.orbFrame({ sk, vol: level });
+      orb?.orbFrame({ sk, vol });
     }
 
     // 文字优先级:Agent 活动标签 > 实时识别文字

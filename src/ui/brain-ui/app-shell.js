@@ -5,13 +5,6 @@ import { createRagManagerPanel } from './rag-manager-panel.js';
 const createMapStage = () => `
 <div class="grid-overlay"></div>
 <div id="map-stage" class="map-stage" aria-label="China fraud case map">
-  <div class="fraud-map-header">
-    <div>
-      <div class="fraud-map-kicker">NATIONAL FRAUD CASE MONITOR</div>
-      <div class="fraud-map-title">\u4e2d\u56fd\u8bc8\u9a97\u6848\u4f8b\u7edf\u8ba1</div>
-    </div>
-    <div class="fraud-map-status" id="fraud-map-status">\u6b63\u5728\u540c\u6b65</div>
-  </div>
   <div id="fraud-map-chart" class="fraud-map-chart" aria-label="\u4e2d\u56fd\u7701\u7ea7\u8bc8\u9a97\u6848\u4f8b\u70ed\u529b\u56fe"></div>
   <div class="fraud-map-empty" id="fraud-map-empty" hidden>\u7b49\u5f85\u4e2d\u56fd\u7701\u7ea7\u5730\u56fe\u6570\u636e</div>
   <aside class="fraud-side-summary rag-map-summary" id="fraud-right-summary"></aside>
@@ -29,6 +22,8 @@ const createMapStage = () => `
 
 const createPrimaryPanel = () => `
 <aside id="panel-l1" class="panel">
+  <button id="panel-l1-tab" class="panel-tab panel-tab-left" type="button" aria-label="切换左面板" aria-controls="panel-l1" aria-expanded="true" title="收起 / 展开左面板（快捷键 [ ）"></button>
+  <div class="panel-body">
   <header class="panel-identity">
     <div class="brand-mark"></div>
     <div class="brand-copy">
@@ -63,12 +58,15 @@ const createPrimaryPanel = () => `
   <div class="stream">
     <div class="stream-inner" id="si-l1"></div>
   </div>
+  </div>
 
 </aside>
 `;
 
 const createSecondaryPanel = () => `
 <aside id="panel-l2" class="panel">
+  <button id="panel-l2-tab" class="panel-tab panel-tab-right" type="button" aria-label="切换右面板" aria-controls="panel-l2" aria-expanded="true" title="收起 / 展开右面板（快捷键 ] ）"></button>
+  <div class="panel-body">
   <header class="panel-stats">
     <div class="stat">
       <span class="stat-label">状态</span>
@@ -94,6 +92,10 @@ const createSecondaryPanel = () => `
       <span class="stat-label">抽取/h</span>
       <div class="stat-value" id="mem-extract-rate">—</div>
     </div>
+    <div class="stat" id="ctx-stat" title="LLM 上下文估算 token 数。超过 16000 建议 /compress。点击压缩">
+      <span class="stat-label">上下文</span>
+      <div class="stat-value" id="ctx-token-count">—</div>
+    </div>
   </header>
 
   <div class="stream-meta">
@@ -101,15 +103,24 @@ const createSecondaryPanel = () => `
       <div class="stream-title-text">执行规划</div>
       <div class="stream-subtitle">工具链 · 步骤</div>
     </div>
-    <span class="pill" id="pill-l2">等待指令</span>
+    <span class="pill" id="pill-l2">待命</span>
   </div>
 
-  <div id="plan-list"></div>
+  <div id="plan-list" aria-live="polite">
+    <div class="plan-empty-state" id="plan-empty-state">
+      <span class="plan-empty-icon" aria-hidden="true">✦</span>
+      <div>
+        <strong>暂无执行任务</strong>
+        <span>发送问题后，小盾会展示处理步骤</span>
+      </div>
+    </div>
+  </div>
 
   <div class="tick-stream" id="tick-stream">
     <div class="stream">
       <div class="stream-inner" id="si-l2"></div>
     </div>
+  </div>
   </div>
 </aside>
 `;
@@ -122,6 +133,7 @@ const createConsole = () => `
   <div id="paste-attachments" class="paste-attachments" hidden></div>
   <div id="input-row">
     <div id="slash-menu" class="slash-menu" role="listbox" aria-label="命令" hidden></div>
+    <button id="cross-menu-btn" class="cross-btn" type="button" aria-label="命令菜单" title="命令菜单（等同于输入 /）" aria-haspopup="listbox" aria-controls="slash-menu"></button>
     <span class="prompt-mark">▸</span>
     <textarea id="msg-input" rows="1" placeholder="向小盾发送消息…（输入 / 调出命令，Shift+Enter 换行）" autocomplete="off"></textarea>
     <button id="send-btn" type="button">发送</button>
@@ -462,6 +474,41 @@ const createSettingsModal = () => `
             </div>
           </div>
 
+          <!-- TTS 语音合成 -->
+          <div class="settings-section">
+            <div class="settings-section-label">\u8bed\u97f3\u5408\u6210\uff08TTS\uff09</div>
+            <p class="settings-hint">Agent \u56de\u590d\u81ea\u52a8\u8f6c\u4e3a\u8bed\u97f3\u6b64\u53d1\u3002\u9009\u62e9\u5382\u5546\u5e76\u586b\u5199 API Key \u540e\u751f\u6548\u3002</p>
+            <div class="settings-row">
+              <label class="settings-label" for="tts-provider-select">\u5382\u5546</label>
+              <select class="settings-select" id="tts-provider-select">
+                <option value="doubao">\u8c46\u5305 TTS\uff08\u706b\u5c71\u5f15\u64ce\uff09</option>
+                <option value="qwen">\u963f\u91cc\u4e91\u767e\u70bc Qwen TTS</option>
+                <option value="tencent">\u817e\u8baf\u4e91 TTS</option>
+                <option value="minimax">MiniMax TTS</option>
+                <option value="openai">OpenAI TTS</option>
+              </select>
+            </div>
+            <div class="settings-row">
+              <label class="settings-label" for="tts-apikey">API Key</label>
+              <input class="settings-input" id="tts-apikey" type="password" placeholder="\u8f93\u5165 API Key" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="settings-row" id="tts-apikey2-row" style="display:none;">
+              <label class="settings-label" for="tts-apikey2">Secret Key</label>
+              <input class="settings-input" id="tts-apikey2" type="password" placeholder="SecretKey\uff08\u817e\u8baf\u4e91\u4e8c\u4ee3\u4e2d\uff09" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="settings-row">
+              <label class="settings-label" for="tts-voice-select">\u97f3\u8272</label>
+              <select class="settings-select" id="tts-voice-select">
+                <option value="">\u9009\u62e9\u97f3\u8272</option>
+              </select>
+            </div>
+            <div class="settings-row">
+              <label class="settings-label" for="tts-speed">\u8bed\u901f</label>
+              <input type="range" id="tts-speed" min="0.5" max="2.0" step="0.1" value="1.0" style="flex:1;cursor:pointer;">
+              <span id="tts-speed-val" style="min-width:2.4em;text-align:right;color:var(--ink2);font-size:13px;">1.0</span>
+            </div>
+          </div>
+
           <div class="settings-section settings-section-action">
             <button class="settings-save-btn" id="settings-save-voice" type="button">保存</button>
             <span class="settings-feedback" id="settings-voice-feedback"></span>
@@ -663,11 +710,6 @@ const createImagePanel = () => `
     <div class="image-empty" id="image-empty">无图片源</div>
   </div>
 </div>
-`;
-
-const createPanelTabs = () => `
-<button id="panel-l1-tab" class="panel-tab panel-tab-left" aria-label="切换左面板" title="切换左面板 [ "></button>
-<button id="panel-l2-tab" class="panel-tab panel-tab-right" aria-label="切换右面板" title="切换右面板 ] "></button>
 `;
 
 export function createBrainUiMarkup() {

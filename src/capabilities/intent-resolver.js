@@ -31,6 +31,10 @@ const EXPLICIT_COMMANDS = {
   '/天气': 'weather',
   '/web': 'web',
   '/上网': 'web',
+  '/check_link': 'verify-link',
+  '/验链接': 'verify-link',
+  '/check_sms': 'verify-sms',
+  '/验短信': 'verify-sms',
 }
 
 // 纯闲聊 / 无意义短消息：这些永远不需要打开面板，直接跳过 LLM 兜底分类以省延迟。

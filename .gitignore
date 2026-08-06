@@ -117,6 +117,8 @@ voice/*.json
 # The compressed RAG seed is intentionally versioned so every competition
 # workstation can restore the same 9,975 texts and vectors on first startup.
 !rag-service/seed/xiaodun-rag-kb-v1.sql.gz
+# 解压后的大文件不进仓库（仅保留 gz 压缩版）
+rag-service/seed/xiaodun-rag-kb-v1.sql/
 
 # PyInstaller 打包产物（由 npm run build:voice 生成）
 voice-dist/

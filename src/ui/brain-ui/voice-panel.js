@@ -72,6 +72,7 @@ export function initVoicePanel({
     suspendForMedia: () => core.suspendForMedia(),
     resumeAfterMedia: () => core.resumeSession(),
     stop: () => core.stopSession(),
+    setPlaybackState: (active) => core.setPlaybackState(active),
     pttStart: ptt.pttStart,
     pttEnd: ptt.pttEnd,
   };

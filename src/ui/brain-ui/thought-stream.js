@@ -25,7 +25,6 @@ const TOOL_ZH = {
   skip_recognition: "跳过识别",
   skip_consolidation: "跳过整理",
   set_tick_interval: "调整节奏",
-  generate_image: "生成图片",
   ui_set: "投影界面",
   focus_banner: "专注横幅",
   set_task: "启动任务",
@@ -74,7 +73,6 @@ const TOOL_ICON = {
   skip_recognition: "⏭️",
   skip_consolidation: "⏭️",
   set_tick_interval: "⏱️",
-  generate_image: "🎨",
   ui_set: "🎴",
   focus_banner: "🎯",
   set_task: "📋",
@@ -408,8 +406,6 @@ export class ThoughtStream {
       case "send_message":
         return this.compactText(a.content || "", 60);
         return this.compactText(a.text || "", 50);
-      case "generate_image":
-        return this.compactText(a.prompt || "", 50);
       case "set_tick_interval":
         return a.seconds ? `${a.seconds}s · ttl ${a.ttl || 10}` : "";
       case "ui_set":
