@@ -62,6 +62,32 @@ class RagSearchServiceTest(unittest.TestCase):
         self.assertIn("屏幕", tokens)
         self.assertIn("共享", tokens)
 
+    def test_low_confidence_candidates_are_rejected(self):
+        repository = InMemoryRiskTextRepository(
+            [
+                CandidateRiskText(
+                    risk_text_id="unrelated",
+                    title="无关内容",
+                    risk_category_code="other",
+                    risk_category_name="其他",
+                    normalized_text="今天天气很好，适合去公园散步。",
+                    vector_score=0.35,
+                )
+            ]
+        )
+        result = RagSearchService(repository).search(
+            SearchRequest(
+                request_id="req_low_confidence",
+                query_text="如何做一份红烧肉",
+                query_embedding=(0.1, 0.2),
+                top_k=5,
+                candidate_k=5,
+            )
+        )
+
+        self.assertEqual(result.items, ())
+        self.assertTrue(result.reranked)
+
 
 if __name__ == "__main__":
     unittest.main()

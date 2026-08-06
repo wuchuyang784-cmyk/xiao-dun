@@ -48,6 +48,7 @@ const TOOL_ZH = {
   media_mode: "媒体模式",
   hotspot_mode: "热点模式",
   open_doc_panel: "打开文档",
+  search_fraud_cases: "检索反诈案例",
 };
 
 const TOOL_ICON = {
@@ -96,7 +97,25 @@ const TOOL_ICON = {
   media_mode: "🎬",
   hotspot_mode: "🔥",
   open_doc_panel: "📖",
+  search_fraud_cases: "🛡️",
 };
+
+export function formatRagSearchDetail(payload) {
+  if (payload?.ok === false) {
+    return `RAG 检索失败：${payload.message || payload.error || "服务暂不可用"}`;
+  }
+  const items = Array.isArray(payload?.items) ? payload.items : [];
+  if (items.length === 0) return "未找到达到可信阈值的反诈案例。";
+
+  const matches = items.slice(0, 5).map((item, index) => {
+    const title = String(item?.title || item?.risk_text_id || "未命名案例").replace(/\s+/g, " ").trim();
+    const category = String(item?.risk_category_name || item?.risk_category_code || "未分类").trim();
+    const score = Number(item?.similarity_score);
+    const scoreText = Number.isFinite(score) ? ` · ${Math.round(score * 100)}%` : "";
+    return `${index + 1}. ${title}（${category}${scoreText}）`;
+  });
+  return `命中 ${items.length} 条达到可信阈值的案例：${matches.join("；")}`;
+}
 
 function isFailureResult(resultStr) {
   const t = (resultStr || "").trim();
@@ -374,6 +393,8 @@ export class ThoughtStream {
         return a.pid ? `pid ${a.pid}` : "";
       case "web_search":
         return this.compactText(a.query || parsed?.query || "", 60);
+      case "search_fraud_cases":
+        return this.compactText(a.query_text || a.queryText || "", 60);
       case "fetch_url":
       case "browser_read":
         return this.hostFromUrl(a.url || parsed?.url) || this.compactText(a.url || "", 60);
@@ -508,6 +529,7 @@ export class ThoughtStream {
     if (parsed?.tool === "web_search" || name === "web_search") return this.formatWebSearchDetail(parsed || {});
     if (parsed?.tool === "fetch_url" || name === "fetch_url") return this.formatFetchUrlDetail(parsed || {});
     if (parsed?.tool === "browser_read" || name === "browser_read") return this.formatBrowserReadDetail(parsed || {});
+    if (parsed?.tool === "search_fraud_cases" || name === "search_fraud_cases") return formatRagSearchDetail(parsed || {});
 
     // 通用 permission denied
     if (parsed?.ok === false && parsed.error === "permission denied") {

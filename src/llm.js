@@ -11,6 +11,7 @@ import { createMergedAbortSignal } from './capabilities/abort-utils.js'
 import { filterStrictEvaluationTools, isToolForbiddenInStrictEvaluation, makeStrictForbiddenToolResult } from './runtime/strict-evaluation.js'
 import { streamWriteFileArgumentPreview, streamXmlFileWriteArgumentPreview } from './write-file-preview.js'
 import { actionContractToolSucceeded, containsUnsupportedCompletionClaim } from './runtime/action-contract.js'
+import { formatToolResultForModel } from './runtime/tool-result-preview.js'
 
 // 单轮流式调用的「空闲超时」：从开始到第一个 token、以及每两个 token 之间，
 // 若超过这个时长没有任何增量到达，判定为 provider 连接卡死（连接开着却不吐字节）。
@@ -1549,7 +1550,7 @@ export async function callLLM({ systemPrompt, message, messages: inputMessages =
       // XML 工具调用：assistant 消息为纯文本，工具结果作为 user 消息注入
       if (content) messages.push({ role: 'assistant', content })
       const resultSummary = toolResults.map(tr =>
-        `[Tool result] ${tr.name}: ${tr.result.slice(0, 300)}`
+        `[Tool result] ${tr.name}: ${formatToolResultForModel(tr.name, tr.result)}`
       ).join('\n')
       // 同主路径：以 sentMessage（本轮最后一个动作是否是 send_message）为收尾依据，
       // 而不是只看本轮有没有出现过 send_message。
