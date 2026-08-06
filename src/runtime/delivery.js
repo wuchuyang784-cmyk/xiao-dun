@@ -218,80 +218,56 @@ function makeSocialPayload(text, media) {
 //   - isLocal: true 时不调外部 dispatch，只走本地 SSE
 //   - reason: 失败时给 LLM 的提示
 // AUTO 决议顺序：当前 turn 渠道（响应模式）→ suggestProactiveChannel（主动模式）
-const EXTERNAL_CHANNELS = new Set(['WECHAT', 'DISCORD', 'FEISHU', 'WECOM'])
-const LOCAL_UI_REQUEST_RE = /\u7f51\u9875(?:\u7aef|\u754c\u9762)?|web\s*(?:ui|page)?|\u6d4f\u89c8\u5668|\u672c\u5730(?:\u754c\u9762|\u9875\u9762|\u7a97\u53e3)?|\u5c0f\u76fe(?:\u7f51\u9875|\u754c\u9762)|\u7535\u8111(?:\u7aef|\u4e0a)|\u684c\u9762|\bTUI\b/i
-
-function isExplicitLocalUiRequest(message = '') {
-  return LOCAL_UI_REQUEST_RE.test(String(message || ''))
-}
-
-export function resolveDeliveryTarget(resolvedId, channelPref, context = {}) {
+function resolveDeliveryTarget(resolvedId, channelPref, context = {}) {
   const pref = (channelPref || 'AUTO').toUpperCase()
 
-  // resolvedId itself may already be an external channel-prefixed ID.
+  // resolvedId 本身就是带渠道前缀的外部 ID（少见，但保留兼容）—— 直接当外部投递
   if (/^(wechat|discord|feishu|wecom):/i.test(resolvedId)) {
     return { externalTargetId: resolvedId, deliveryChannel: '', isLocal: false }
   }
 
-  const currentNorm = context.currentChannel ? normalizeChannel(context.currentChannel) : null
+  // canonical 用户 ID：根据 channel 偏好决议
   let actualPref = pref
-  let routingOverride = ''
-
-  // An inbound social turn is a conversation-local reply by default. The model
-  // may occasionally select TUI from the public enum even though the user is
-  // waiting on WeChat (or another social channel). Keep that reply external
-  // unless the user explicitly asks for local/web UI output.
-  if (
-    actualPref === 'TUI' &&
-    currentNorm &&
-    EXTERNAL_CHANNELS.has(currentNorm) &&
-    !isExplicitLocalUiRequest(context.currentUserMessage)
-  ) {
-    actualPref = currentNorm
-    routingOverride = 'current_external_channel'
-    console.warn(`[delivery] Ignoring accidental TUI override on ${context.currentChannel} turn; routing to ${currentNorm}`)
-  }
-
-  let actualChannel = actualPref
-  if (actualChannel === 'AUTO') {
+  if (actualPref === 'AUTO') {
+    // 优先用当前 turn 的渠道：用户在哪儿发消息就回到哪儿（响应直觉一致）
+    const currentNorm = context.currentChannel ? normalizeChannel(context.currentChannel) : null
     if (currentNorm && currentNorm !== 'SYSTEM') {
-      actualChannel = currentNorm
+      actualPref = currentNorm
     } else {
-      actualChannel = suggestProactiveChannel(resolvedId)
+      // 没有当前 turn 渠道（典型场景：tick 主动外联）→ 用 presence 推荐
+      actualPref = suggestProactiveChannel(resolvedId)
     }
   }
 
-  const withRoutingMetadata = (target) => routingOverride
-    ? { ...target, routingOverride }
-    : target
-
-  if (actualChannel === 'TUI') {
-    return withRoutingMetadata({ externalTargetId: null, deliveryChannel: 'TUI', isLocal: true })
+  if (actualPref === 'TUI') {
+    return { externalTargetId: null, deliveryChannel: 'TUI', isLocal: true }
   }
 
-  // Reuse the current turn's external party ID when it matches the channel.
+  // 当前 turn 已经在该外部渠道、且带 externalPartyId → 直接复用，省一次 DB 查
   if (context.currentExternalPartyId && context.currentChannel) {
     const ctxNorm = normalizeChannel(context.currentChannel)
-    if (ctxNorm === actualChannel) {
-      return withRoutingMetadata({
+    if (ctxNorm === actualPref) {
+      return {
         externalTargetId: context.currentExternalPartyId,
         deliveryChannel: context.currentChannel,
         isLocal: false,
-      })
+      }
     }
   }
 
-  const reply = lookupReplyTarget({ canonicalId: resolvedId, channel: actualChannel })
+  // 否则反查该 canonical 用户在指定渠道最近一次的 external_id
+  const reply = lookupReplyTarget({ canonicalId: resolvedId, channel: actualPref })
   if (reply) {
-    return withRoutingMetadata({ externalTargetId: reply.externalId, deliveryChannel: reply.channel, isLocal: false })
+    return { externalTargetId: reply.externalId, deliveryChannel: reply.channel, isLocal: false }
   }
 
-  return withRoutingMetadata({
+  // 用户在该渠道从未交互过，无法主动联系
+  return {
     externalTargetId: null,
     deliveryChannel: '',
     isLocal: false,
-    error: `cannot route to ${actualChannel}: user ${resolvedId} has no recorded external_party_id on that channel`,
-  })
+    error: `cannot route to ${actualPref}: user ${resolvedId} has no recorded external_party_id on that channel`,
+  }
 }
 
 // send_message：投递到指定渠道（本地 SSE 或外部平台），并写入 conversations 表

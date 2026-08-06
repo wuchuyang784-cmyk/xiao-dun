@@ -65,6 +65,54 @@ export async function execFraudIntel(args = {}) {
     }
   }
 
+  // ─── search：按关键词/分类过滤已缓存的案例 ───
+  if (action === 'search') {
+    const cache = getFraudIntelCache()
+    if (!cache) {
+      return toolJson({
+        action: 'search',
+        empty: true,
+        message: '暂无缓存的诈骗情报。先调 action=fetch 采集。',
+        available_categories: getFraudCategories(),
+      }, false)
+    }
+    const keyword = String(args.keyword || '').trim().toLowerCase()
+    const categoryIds = Array.isArray(args.category_ids) ? args.category_ids : []
+    const limit = Math.max(1, Math.min(Number(args.limit) || 10, 30))
+
+    const matches = []
+    const cats = categoryIds.length > 0
+      ? cache.categories.filter(c => categoryIds.includes(c.id))
+      : cache.categories
+    for (const cat of cats) {
+      for (const item of cat.cases) {
+        const haystack = `${item.title || ''} ${item.summary || ''} ${cat.type || ''}`.toLowerCase()
+        if (!keyword || haystack.includes(keyword)) {
+          matches.push({
+            category_id: cat.id,
+            type: cat.type,
+            title: item.title,
+            summary: item.summary?.slice(0, 300) || '',
+            source: item.source,
+            url: item.url,
+          })
+        }
+      }
+    }
+    const sliced = matches.slice(0, limit)
+    return toolJson({
+      action: 'search',
+      keyword: keyword || null,
+      category_ids: categoryIds,
+      total_matches: matches.length,
+      returned: sliced.length,
+      cases: sliced,
+      hint: matches.length === 0
+        ? '没有匹配案例。可放宽关键词或调 action=fetch 采集更多。'
+        : `共匹配 ${matches.length} 条，已展示前 ${sliced.length} 条。`,
+    })
+  }
+
   // ─── list：查看缓存摘要 ───
   if (action === 'list') {
     const cache = getFraudIntelCache()

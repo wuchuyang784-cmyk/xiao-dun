@@ -10,9 +10,6 @@ class EmbeddingClient(Protocol):
     def embed(self, text: str, request_id: str) -> tuple[float, ...]:
         """Return one embedding for the supplied text."""
 
-    def embed_document(self, text: str, request_id: str) -> tuple[float, ...]:
-        """Return one document embedding compatible with the seeded corpus."""
-
 
 class ModelServiceEmbeddingClient:
     def __init__(self, endpoint: str, timeout_seconds: float = 15.0) -> None:
@@ -47,9 +44,6 @@ class ModelServiceEmbeddingClient:
             raise RuntimeError("embedding service returned an empty vector")
         return tuple(float(value) for value in vector)
 
-    def embed_document(self, text: str, request_id: str) -> tuple[float, ...]:
-        return self.embed(text, request_id)
-
 
 class SentenceTransformerEmbeddingClient:
     QUERY_INSTRUCTION = "为这个句子生成表示以用于检索相关文章："
@@ -82,16 +76,6 @@ class SentenceTransformerEmbeddingClient:
         del request_id
         vector = self._load_model().encode(
             self.QUERY_INSTRUCTION + text,
-            normalize_embeddings=True,
-            convert_to_numpy=True,
-            show_progress_bar=False,
-        )
-        return tuple(float(value) for value in vector)
-
-    def embed_document(self, text: str, request_id: str) -> tuple[float, ...]:
-        del request_id
-        vector = self._load_model().encode(
-            text,
             normalize_embeddings=True,
             convert_to_numpy=True,
             show_progress_bar=False,

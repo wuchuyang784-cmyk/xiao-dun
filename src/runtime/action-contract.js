@@ -4,8 +4,6 @@
 // annoying tool loop.  Add a contract only when the wording clearly asks the
 // agent to change state or retrieve fresh external/local evidence.
 
-import { isHotspotOpenCommand } from '../capabilities/hotspot-command.js'
-
 const META_QUESTION_RE = /(?:你(?:有|会|能).{0,18}(?:工具|能力)|(?:多少|哪些|什么).{0,12}(?:工具|命令|能力)|工具.{0,12}(?:多少|哪些|什么)|怎么(?:调用|使用).{0,12}(?:工具|命令))/i
 
 const CONTRACTS = [
@@ -63,10 +61,6 @@ const CONTRACTS = [
 export function classifyActionContract(message = '') {
   const text = String(message || '').trim()
   if (!text || META_QUESTION_RE.test(text)) return null
-  if (
-    /(?:打开|显示|进入).{0,30}(?:实时热点|热点|热搜)/i.test(text)
-    && !isHotspotOpenCommand(text)
-  ) return null
   // “怎么/如何做” requests an explanation, not the side effect itself.
   if (/^(?:请问[，,：:]?\s*)?(?:怎么|如何|怎样|能否|可否|what\b|how\b)/i.test(text)) return null
 

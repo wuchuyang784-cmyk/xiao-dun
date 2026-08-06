@@ -20,7 +20,7 @@ const BUILTIN_NAMES = new Set([
   'make_dir', 'exec_command', 'exec_quick_command', 'exec_task_command', 'exec_background_command',
   'download_file', 'kill_process', 'list_processes', 'web_search',
   'fetch_url', 'browser_read', 'search_memory', 'probe_memory', 'upsert_memory', 'skip_recognition',
-  'set_tick_interval',
+  'generate_image', 'set_tick_interval',
   'media_mode', 'hotspot_mode', 'open_doc_panel',
   'manage_reminder', 'schedule_reminder', 'manage_prefetch_task', 'ui_set',
   'manage_rule', 'focus_banner', 'voice_retire',

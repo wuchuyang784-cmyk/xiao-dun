@@ -8,7 +8,6 @@ from .repository import RiskTextRepository
 
 LATIN_OR_NUMBER = re.compile(r"[a-z0-9_]{2,}", re.IGNORECASE)
 CHINESE_CHARACTER = re.compile(r"[\u4e00-\u9fff]")
-MIN_RELIABLE_SCORE = 0.60
 
 
 def search_tokens(text: str) -> set[str]:
@@ -66,17 +65,16 @@ class RagSearchService:
             ranked.append((min(1.0, score), candidate, lexical, category_bonus))
 
         ranked.sort(key=lambda item: (-item[0], item[1].risk_text_id))
-        reliable_ranked = [item for item in ranked if item[0] >= MIN_RELIABLE_SCORE]
         items = tuple(
             self._to_result(request.query_text, candidate, score, lexical, bonus)
-            for score, candidate, lexical, bonus in reliable_ranked[: request.top_k]
+            for score, candidate, lexical, bonus in ranked[: request.top_k]
         )
         return SearchResponse(
             request_id=request.request_id,
             knowledge_base_version=request.knowledge_base_version
             or self._repository.knowledge_base_version,
             embedding_model=self._repository.embedding_model,
-            reranked=True,
+            reranked=False,
             items=items,
         )
 

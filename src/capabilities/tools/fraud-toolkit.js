@@ -100,11 +100,6 @@ export function execReportFraud(args = {}) {
 
 // ─── 2. search_law: 法规检索 ──────────────────────────────────────────────────
 
-const OFFICIAL_LAW_URLS = {
-  '中华人民共和国反电信网络诈骗法': 'https://www.npc.gov.cn/c2/c30834/202209/t20220902_319186.html',
-  '中华人民共和国刑法': 'https://www.samr.gov.cn/zw/zfxxgk/fdzdgknr/bgt/art/2025/art_890f1333b6284c3cbb225c3cd2647c4b.html',
-}
-
 const LAW_DATABASE = [
   {
     title: '中华人民共和国反电信网络诈骗法',
@@ -122,11 +117,10 @@ const LAW_DATABASE = [
   },
   {
     title: '中华人民共和国刑法',
-    article: '第279条 招摇撞骗罪',
+    article: '第266条之一 招摇撞骗罪',
     content: '冒充国家机关工作人员招摇撞骗的，处三年以下有期徒刑、拘役、管制或者剥夺政治权利；情节严重的，处三年以上十年以下有期徒刑。冒充人民警察招摇撞骗的，依照前款的规定从重处罚。',
     keywords: ['冒充', '招摇撞骗', '冒充国家机关', '冒充警察', '量刑'],
-    source: '现行有效（国家市场监督管理总局公布刑法文本）',
-    official_url: 'https://www.samr.gov.cn/zw/zfxxgk/fdzdgknr/bgt/art/2025/art_890f1333b6284c3cbb225c3cd2647c4b.html',
+    source: '现行有效',
   },
   {
     title: '中华人民共和国刑法',
@@ -159,14 +153,14 @@ const LAW_DATABASE = [
   {
     title: '中华人民共和国反电信网络诈骗法',
     article: '第31条',
-    content: '任何单位和个人不得非法买卖、出租、出借电话卡、物联网卡、电信线路、短信端口、银行账户、支付账户、互联网账号等，不得提供实名核验帮助；不得假冒他人身份或者虚构代理关系开立上述卡、账户、账号等。',
+    content: '任何单位和个人不得非法制造、买卖、提供或者使用用于实施电信网络诈骗等违法犯罪的设备、程序。不得为他人实施电信网络诈骗活动提供相关技术支持或者帮助。',
     keywords: ['反诈法', '设备', '程序', '技术支持', '帮助', '非法制造', '买卖'],
     source: '2022年12月1日起施行',
   },
   {
     title: '中华人民共和国反电信网络诈骗法',
     article: '第44条',
-    content: '违反本法第三十一条第一款规定的，没收违法所得，由公安机关处违法所得一倍以上十倍以下罚款，没有违法所得或者违法所得不足二万元的，处二十万元以下罚款；情节严重的，并处十五日以下拘留。',
+    content: '违反本法第三十一条第一款规定的，没收违法所得，由公安机关或者有关主管部门处违法所得一倍以上十倍以下罚款，没有违法所得或者违法所得不足五万元的，处五十万元以下罚款；情节严重的，由公安机关处十五日以下拘留。',
     keywords: ['反诈法', '罚款', '拘留', '设备', '程序', '技术支持'],
     source: '2022年12月1日起施行',
   },
@@ -208,7 +202,7 @@ const LAW_DATABASE = [
   {
     title: '中华人民共和国反电信网络诈骗法',
     article: '第11条',
-    content: '电信业务经营者对监测识别的涉诈异常电话卡用户应当重新进行实名核验，根据风险等级采取有区别的、相应的核验措施。对未按规定核验或者核验未通过的，电信业务经营者可以限制、暂停有关电话卡功能。',
+    content: '电信业务经营者应当依法全面落实电话用户真实身份信息登记制度。办理电话卡不得超出国家有关规定限制的数量。对识别异常的电话卡用户可以重新核验身份信息。银行业金融机构、非银行支付机构应当建立开立企业账户异常情形的风险防控机制。',
     keywords: ['反诈法', '实名制', '电话卡', '银行账户', '支付账户', '风险防控'],
     source: '2022年12月1日起施行',
   },
@@ -262,11 +256,9 @@ export function execSearchLaw(args = {}) {
       content: item.law.content,
       keywords: item.law.keywords,
       source: item.law.source,
-      official_url: item.law.official_url || OFFICIAL_LAW_URLS[item.law.title],
       match_score: item.score,
     })),
-    disclaimer: '内置条文仅供反诈知识查询，不构成法律意见；请以国家机关公布的现行法律文本为准。',
-    hint: '如需核对完整现行条文，请通过 web_search 查询中国人大网、国家法律法规数据库或最高人民法院等官方来源。',
+    hint: '以上为内置法规库匹配结果。如需更详细的法规条文，建议通过 web_search 搜索"中华人民共和国反电信网络诈骗法 全文"。',
   })
 }
 
@@ -315,8 +307,7 @@ function analyzeUrl(url) {
     const legitDomains = ['taobao.com', 'tmall.com', 'jd.com', 'alipay.com', 'weixin.qq.com', 'bank-of-china.com', 'icbc.com.cn']
     for (const legit of legitDomains) {
       const legitPart = legit.split('.')[0]
-      const isOfficialDomain = domain === legit || domain.endsWith(`.${legit}`)
-      if (domain.includes(legitPart) && !isOfficialDomain) {
+      if (domain.includes(legitPart) && !domain.endsWith(legit)) {
         indicators.push({ type: 'lookalike_domain', severity: 'high', detail: `域名含"${legitPart}"但非官方域名，疑似仿冒` })
         safetyScore -= 35
         break
