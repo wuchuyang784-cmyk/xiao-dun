@@ -37,6 +37,7 @@ import { execScheduledReminder } from './tools/scheduled-reminder.js'
 import { execReportFraud, execSearchLaw, execCheckQrcode, execVerifyIdentity } from './tools/fraud-toolkit.js'
 import { execGenerateImage, execMediaMode } from './tools/media.js'
 import { execSearchFraudCases } from './tools/fraud.js'
+import { execAnalyzeFraudImage } from './tools/fraud-image.js'
 import { runWorkReview } from '../review/reviewer.js'
 import { CAPABILITY_DEMO_INTRO, runCapabilityDemo } from '../capability-demo.js'
 import { deliverMessage } from '../runtime/delivery.js'
@@ -344,6 +345,8 @@ async function executeToolUnchecked(name, args, context = {}) {
         return await execRunApiCapability(args, context)
       case 'analyze_image':
         return await execAnalyzeImage(args, context)
+      case 'analyze_fraud_image':
+        return await execAnalyzeFraudImage(args, context)
       case 'manage_api_capability':
         return execManageApiCapability(args)
       case 'find_tool':

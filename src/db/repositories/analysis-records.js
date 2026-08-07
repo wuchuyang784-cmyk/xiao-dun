@@ -16,6 +16,13 @@ function toRecord(row) {
     alertSent: Number(row.alert_sent || 0) === 1,
     feedback: row.feedback || null,
     source: row.source || '',
+    analysisKind: row.analysis_kind || '',
+    subjectKind: row.subject_kind || '',
+    subjectRef: row.subject_ref || '',
+    toolName: row.tool_name || '',
+    analysisStatus: row.analysis_status || '',
+    failureReason: row.failure_reason || '',
+    reportMarkdown: row.report_markdown || '',
     createdAt: row.created_at,
   }
 }
@@ -23,8 +30,10 @@ function toRecord(row) {
 const insertSql = `
   INSERT INTO analysis_records (
     record_id, input_summary, input_hash, fraud_type, risk_level,
-    rules_hit, model_used, latency_ms, alert_sent, feedback, source, created_at
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    rules_hit, model_used, latency_ms, alert_sent, feedback, source,
+    analysis_kind, subject_kind, subject_ref, tool_name, analysis_status, failure_reason, report_markdown,
+    created_at
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 export function insertAnalysisRecord(item, { ignoreConflict = false } = {}) {
@@ -42,6 +51,13 @@ export function insertAnalysisRecord(item, { ignoreConflict = false } = {}) {
     item.alertSent ? 1 : 0,
     item.feedback || null,
     item.source || '',
+    item.analysisKind || '',
+    item.subjectKind || '',
+    item.subjectRef || '',
+    item.toolName || '',
+    item.analysisStatus || 'done',
+    item.failureReason || '',
+    item.reportMarkdown || '',
     item.createdAt || new Date().toISOString(),
   )
   return result.changes > 0
@@ -55,6 +71,10 @@ export function getAnalysisRecordById(recordId) {
  * 查询分析记录：支持风险等级 / 时间范围 / 关键词 过滤 + 分页。
  */
 export function listAnalysisRecords({
+  analysisKind = '',
+  subjectKind = '',
+  toolName = '',
+  analysisStatus = '',
   riskLevel = '',
   dateFrom = '',
   dateTo = '',
@@ -64,6 +84,10 @@ export function listAnalysisRecords({
 } = {}) {
   const where = []
   const params = []
+  if (analysisKind) { where.push('analysis_kind = ?'); params.push(analysisKind) }
+  if (subjectKind) { where.push('subject_kind = ?'); params.push(subjectKind) }
+  if (toolName) { where.push('tool_name = ?'); params.push(toolName) }
+  if (analysisStatus) { where.push('analysis_status = ?'); params.push(analysisStatus) }
   if (riskLevel) { where.push('risk_level = ?'); params.push(riskLevel) }
   if (dateFrom) { where.push('created_at >= ?'); params.push(dateFrom) }
   if (dateTo) { where.push('created_at <= ?'); params.push(dateTo) }
@@ -105,11 +129,16 @@ export function getAnalysisRecordStats() {
     SELECT risk_level AS riskLevel, COUNT(*) AS count
     FROM analysis_records GROUP BY risk_level
   `).all()
+  const byKind = db.prepare(`
+    SELECT analysis_kind AS analysisKind, COUNT(*) AS count
+    FROM analysis_records GROUP BY analysis_kind
+  `).all()
   return {
     total: Number(overview?.total || 0),
     today: Number(overview?.today || 0),
     highRisk: Number(overview?.highRisk || 0),
     alerted: Number(overview?.alerted || 0),
     byRisk: byRisk.map(r => ({ riskLevel: r.riskLevel, count: Number(r.count) })),
+    byKind: byKind.map(r => ({ analysisKind: r.analysisKind || '', count: Number(r.count) })),
   }
 }

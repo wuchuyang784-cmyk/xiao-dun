@@ -21,6 +21,10 @@ export async function handleRecordRoutes(req, res, url) {
   // 列表（分页 + 过滤）
   if (req.method === 'GET' && url.pathname === RECORDS) {
     const data = listAnalysisRecords({
+      analysisKind: url.searchParams.get('analysisKind') || '',
+      subjectKind: url.searchParams.get('subjectKind') || '',
+      toolName: url.searchParams.get('toolName') || '',
+      analysisStatus: url.searchParams.get('analysisStatus') || '',
       provinceCode: url.searchParams.get('provinceCode') || '',
       riskLevel: url.searchParams.get('riskLevel') || '',
       channel: url.searchParams.get('channel') || '',

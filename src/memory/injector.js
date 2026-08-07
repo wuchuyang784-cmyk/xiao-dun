@@ -22,6 +22,7 @@ import { selectTools } from './tool-router.js'
 import { computeSelfPerception, computeSelfSnapshot } from './self-perception.js'
 import { selectActivePolicies } from './active-policies.js'
 import { formatSelfEvolutionForPrompt } from './self-evolution.js'
+const IMAGE_REFERENCE_RE = /!\[[^\]]*]\(([^)]+)\)|\/media\/chat\/[A-Za-z0-9._%+-]+\.(?:png|jpe?g|webp|gif|bmp)|data:image\/(?:png|jpe?g|webp|gif|bmp);base64,/i
 
 // runInjector 内部用到的检索/选择/解析原语（已拆到 ./injector-retrieval.js）
 import {
@@ -67,6 +68,15 @@ function hasRecentApiCapabilitySetupNeed(actionLog = []) {
     const text = `${entry?.status || ''} ${entry?.error || ''} ${entry?.result_preview || ''} ${entry?.args_json || ''}`
     return /not_configured|slot_not_found|credential_not_configured|api_key required|configure|capability/i.test(text)
   })
+}
+
+function findRecentImageText(conversationWindow = []) {
+  if (!Array.isArray(conversationWindow) || conversationWindow.length === 0) return ''
+  for (let i = conversationWindow.length - 1; i >= 0; i--) {
+    const content = String(conversationWindow[i]?.content || '')
+    if (IMAGE_REFERENCE_RE.test(content)) return content
+  }
+  return ''
 }
 
 // hint：一层思考器的输出文本，用于扩展 L2 的记忆检索范围
@@ -191,6 +201,7 @@ export async function runInjector({ message, state, hint = '', currentChannel = 
   // 不再用 rerankByImportance 按 salience 整体重排（详见 selectContextMemories 注释）。
   const memories = selectContextMemories(merged, { cap: mergeCap, anchorLane: 2 })
   const actionLog = getRecentActionLogs(10)
+  const recentImageText = findRecentImageText(conversationWindow)
   const activePolicies = focusText
     ? selectActivePolicies({
         focusText,
@@ -233,6 +244,7 @@ export async function runInjector({ message, state, hint = '', currentChannel = 
     startupSelfCheckActive: !!state?.startupSelfCheck?.active,
     localVisualTurn: !currentChannel || !isExternalChannel(currentChannel),
     forcedCapabilityIds,
+    recentImageText,
     // fastUserPath 留作未来扩展——目前从 state 上拿不到，selectTools 接受未传即 false
   })
 
@@ -287,6 +299,7 @@ export async function runInjector({ message, state, hint = '', currentChannel = 
     activePolicies,
     recallMemories,
     conversationWindow,
+    recentImageText,
     personMemory,
     userProfile,
     directions,

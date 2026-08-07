@@ -487,6 +487,7 @@ function buildToolContextForProcess(msg, injection) {
     currentExternalPartyId: msg?.notificationExternalPartyId || msg?.externalPartyId || null,
     voiceReply,
     currentUserMessage: msg?.content || null,
+    recentImageText: injection.recentImageText || null,
     // 自我感知信号：传给工具执行层（如 upsert_memory 守门），让"镜像污染"在写入长期记忆前就被拦截
     selfPerception: injection.selfPerception || null,
 

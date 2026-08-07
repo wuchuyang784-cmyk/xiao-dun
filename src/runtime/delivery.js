@@ -5,7 +5,6 @@ import {
   normalizeConversationPartyId,
   insertConversation,
   markConversationOpenQuestion,
-  getAllClawbotTokens,
 } from '../db.js'
 import { emitEvent } from '../events.js'
 import { dispatchSocialMessage } from '../social/dispatch.js'
@@ -381,21 +380,6 @@ export async function deliverMessage({ target_id, content = '', channel = 'AUTO'
     external_party_id: delivery.externalTargetId || '',
     ...(media ? { media_path: media.path, media_kind: media.kind, file_name: media.fileName } : {}),
   })
-
-  // 反诈提醒自动转发到微信：检测到反诈标记词时，转发给所有已绑定的微信用户
-  if (/小盾反诈提醒|96110|遇骗即拨/.test(outboundContent)) {
-    try {
-      const tokens = getAllClawbotTokens()
-      for (const t of tokens) {
-        const wechatId = `wechat:clawbot:${t.from_user_id}`
-        dispatchSocialMessage(wechatId, { text: outboundContent })
-          .then(r => console.log(`[fraud-alert-forward] 微信推送 → ${t.from_user_id}: ${r?.ok ? '成功' : r?.reason || '失败'}`))
-          .catch(err => console.warn(`[fraud-alert-forward] 微信推送失败 → ${t.from_user_id}:`, err.message))
-      }
-    } catch (e) {
-      console.warn('[fraud-alert-forward] 获取微信用户列表失败:', e.message)
-    }
-  }
 
   let socialResult = null
   if (!delivery.isLocal && delivery.externalTargetId) {

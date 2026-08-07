@@ -562,14 +562,33 @@ export function initializeSchema(db) {
       alert_sent    INTEGER NOT NULL DEFAULT 0,
       feedback      TEXT,
       source        TEXT NOT NULL DEFAULT '',
+      analysis_kind TEXT NOT NULL DEFAULT '',
+      subject_kind  TEXT NOT NULL DEFAULT '',
+      subject_ref   TEXT NOT NULL DEFAULT '',
+      tool_name     TEXT NOT NULL DEFAULT '',
+      analysis_status TEXT NOT NULL DEFAULT 'done',
+      failure_reason TEXT NOT NULL DEFAULT '',
+      report_markdown TEXT NOT NULL DEFAULT '',
       created_at    TEXT NOT NULL
     );
   `)
+
+  try { db.exec(`ALTER TABLE analysis_records ADD COLUMN analysis_kind TEXT NOT NULL DEFAULT ''`) } catch {}
+  try { db.exec(`ALTER TABLE analysis_records ADD COLUMN subject_kind TEXT NOT NULL DEFAULT ''`) } catch {}
+  try { db.exec(`ALTER TABLE analysis_records ADD COLUMN subject_ref TEXT NOT NULL DEFAULT ''`) } catch {}
+  try { db.exec(`ALTER TABLE analysis_records ADD COLUMN tool_name TEXT NOT NULL DEFAULT ''`) } catch {}
+  try { db.exec(`ALTER TABLE analysis_records ADD COLUMN analysis_status TEXT NOT NULL DEFAULT 'done'`) } catch {}
+  try { db.exec(`ALTER TABLE analysis_records ADD COLUMN failure_reason TEXT NOT NULL DEFAULT ''`) } catch {}
+  try { db.exec(`ALTER TABLE analysis_records ADD COLUMN report_markdown TEXT NOT NULL DEFAULT ''`) } catch {}
 
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_analysis_records_created_at   ON analysis_records(created_at);
     CREATE INDEX IF NOT EXISTS idx_analysis_records_risk_level   ON analysis_records(risk_level);
     CREATE INDEX IF NOT EXISTS idx_analysis_records_input_hash    ON analysis_records(input_hash);
+    CREATE INDEX IF NOT EXISTS idx_analysis_records_kind         ON analysis_records(analysis_kind);
+    CREATE INDEX IF NOT EXISTS idx_analysis_records_subject_kind  ON analysis_records(subject_kind);
+    CREATE INDEX IF NOT EXISTS idx_analysis_records_tool_name     ON analysis_records(tool_name);
+    CREATE INDEX IF NOT EXISTS idx_analysis_records_status        ON analysis_records(analysis_status);
   `)
 
   db.exec(`INSERT INTO memories_fts(memories_fts) VALUES('rebuild')`)

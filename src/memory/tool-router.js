@@ -240,6 +240,7 @@ export function selectTools(ctx = {}) {
     startupSelfCheckActive = false,
     localVisualTurn = true,
     fastUserPath = false,
+    recentImageText = '',
   } = ctx
 
   const body = (messageBody || '').toLowerCase()
@@ -291,7 +292,7 @@ export function selectTools(ctx = {}) {
   }
   // —— 能力注册表：已迁能力（web / hotspot / web/weather）的工具注入 ——
   // 每个能力用自己的 toolWhen 门（web=关键词、hotspot=不自动、
-  const capCtx = { text: body, rawText: messageBody, isTick, mmCaps, hasTask }
+  const capCtx = { text: body, rawText: messageBody, recentImageText, isTick, mmCaps, hasTask }
   for (const t of capabilityToolsFor(capCtx)) out.add(t)
   if (INLINE_IMAGE_RE.test(messageBody)) out.add('analyze_image')
   if (hits(body, TERMINAL_STREAM_TRIGGERS)) {

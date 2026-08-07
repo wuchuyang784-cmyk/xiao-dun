@@ -64,6 +64,13 @@ function normalizeRecord(input = {}) {
     alertSent: Boolean(input.alertSent),
     feedback: input.feedback == null ? null : String(input.feedback),
     source: String(input.source || 'local_agent').trim(),
+    analysisKind: String(input.analysisKind || '').trim(),
+    subjectKind: String(input.subjectKind || '').trim(),
+    subjectRef: String(input.subjectRef || '').trim(),
+    toolName: String(input.toolName || '').trim(),
+    analysisStatus: String(input.analysisStatus || 'done').trim() || 'done',
+    failureReason: input.failureReason == null ? '' : String(input.failureReason),
+    reportMarkdown: input.reportMarkdown == null ? '' : String(input.reportMarkdown),
     createdAt: input.createdAt || new Date().toISOString(),
   }
 }
