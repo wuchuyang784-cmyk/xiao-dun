@@ -18,10 +18,11 @@ import { runMemoryRefreshLoop } from './memory/refresh-loop.js'
 import { startConsolidationLoop } from './memory/consolidation-loop.js'
 import { recordSelfEvolutionFromMemories } from './memory/self-evolution.js'
 import { runRuntimeInjector } from './context/runtime-injector.js'
-import { collectGuards, enqueueGuardInjection, drainGuardInjections } from './runtime/hallucination-guard.js'
 import { selectContextSections } from './context/section-gate.js'
 import { getDB, getConfig, setConfig, getKnownEntities, getOrInitBirthTime, insertConversation, insertMemory, getRecentConversationPartners, getDueReminders, markReminderFired, advanceReminderDueAt, getNextPendingReminder, getMemoryCount, getRecentConversationTimeline, loadFocusStack, loadThreadState, saveThreadState, setCurrentFocusTopic, setCurrentThreadId, updateUserMessageFocusTopic, reassignConversationsThread, insertActionLog } from './db.js'
 import { calculateNextDueAt, detectOpenFollowupQuestion, executeTool } from './capabilities/executor.js'
+import fs from 'fs'
+import path from 'path'
 import { pushMessage } from './inbound-message.js'
 import { popMessage, hasMessages, hasUserMessages, getQueueSnapshot, setInterruptCallback, requeueMessage } from './queue.js'
 import { startTUI } from './tui.js'
@@ -33,7 +34,7 @@ import { registerProvider } from './providers/registry.js'
 import { MinimaxProvider } from './providers/minimax.js'
 import { isRunning, setScheduler } from './control.js'
 import { getCustomIntervalMs, consumeTick as consumeTickerTick, getStatus as getTickerStatus } from './ticker.js'
-import { seedSandboxOnce, rescueDataFromInstallDir } from './paths.js'
+import { seedSandboxOnce, rescueDataFromInstallDir, paths } from './paths.js'
 import { loadInstalledTools } from './capabilities/marketplace/index.js'
 import { dispatchSocialMessage } from './social/dispatch.js'
 import { startSocialConnectors } from './social/index.js'
@@ -47,7 +48,6 @@ import { refreshSkills, selectSkillsForMessage, formatSkillsForContext } from '.
 import { tryAutoConfigureKey } from './key-auto-config.js'
 import { PRIMARY_USER_ID, formatPresenceForPrompt, normalizeChannel, isExternalChannel, isVoiceChannel } from './identity.js'
 import { truncateToolResultForUI } from './runtime/tool-result-preview.js'
-import { deliverMessage } from './runtime/delivery.js'
 import { buildLLMMessages } from './runtime/messages.js'
 import { parseMarkers } from './runtime/markers.js'
 import { createConsciousnessLoop } from './runtime/consciousness-loop.js'
@@ -616,76 +616,6 @@ function deliverDirectReply(msg, content, finishTurn) {
   finishTurn?.(content)
 }
 
-// 显式斜杠指令 → 纯本地工具的「零 LLM 快车道」映射。
-// 验链接 / 验短信全程是本地规则研判，模型只是复述工具产出的 report，没有任何增量。
-// 一旦让它们走 LLM 主循环，key 欠费（402）或模型不可用时 handleLLMFailure 会直接 finishTurn()，
-// 用户一个字都收不到——而这恰恰是本地能力最该兜住的场景。
-const LOCAL_COMMAND_TOOLS = {
-  'verify-link': { tool: 'check_link', label: '验链接', usage: '用法：/check_link <链接>' },
-  'verify-sms': { tool: 'check_sms', label: '验短信', usage: '用法：/check_sms <短信内容>' },
-}
-
-/**
- * 执行纯本地的显式斜杠指令（/check_link、/check_sms）并把结果直接投递给用户。
- * 全程不触碰 LLM，因此在 LLM 余额不足 / 不可用时依然可用。
- * @param {string} capabilityId  能力 id（verify-link / verify-sms）
- * @param {string} input         用户原始输入（含斜杠指令头）
- * @param {Object} msg           入站消息
- * @returns {Promise<string>}    实际投递出去的回复文本
- */
-async function runLocalCommandTool(capabilityId, input, msg) {
-  const spec = LOCAL_COMMAND_TOOLS[capabilityId]
-  if (!spec) return ''
-
-  // 参数 = 指令头之后的全部内容。`/check_link https://a.com` → `https://a.com`
-  const argText = String(input || '').trim().replace(/^\/\S*\s*/, '').trim()
-  let reply = ''
-
-  if (!argText) {
-    reply = spec.usage
-  } else {
-    // check_link 同时给 url 与 text：text 让工具顺带跑一次话术规则引擎作为辅助信号。
-    const args = spec.tool === 'check_link'
-      ? { url: argText, text: argText }
-      : { text: argText }
-    const resultText = String(await executeTool(spec.tool, args, {}))
-
-    let parsed = null
-    try {
-      parsed = JSON.parse(resultText)
-    } catch {
-      parsed = null   // 非 JSON（理论上不会发生）→ 原样展示，绝不静默吞掉
-    }
-
-    if (!parsed) {
-      reply = resultText
-    } else if (parsed.ok === true) {
-      reply = String(parsed.report || '').trim() || resultText
-    } else {
-      reply = `${spec.label}失败：${parsed.message || parsed.error || '未知错误'}`
-    }
-
-    // 让前端「工具执行记录」与走 LLM 时保持一致的观感（格式对齐 callLLM 的 onToolCall）。
-    emitEvent('tool_call', {
-      name: spec.tool,
-      args,
-      result: truncateToolResultForUI(parsed, resultText),
-      ok: parsed ? parsed.ok !== false : true,
-    })
-  }
-
-  // 走正规投递通道：写 conversations + 广播 SSE + 外部渠道派发，与 send_message 完全一致。
-  // 带上当前 turn 的渠道信息，保证「在哪儿收的消息就回到哪儿」。
-  await deliverMessage(
-    { target_id: msg.fromId, content: reply, channel: msg.channel || 'AUTO' },
-    {
-      currentChannel: msg.notificationChannel || msg.channel || null,
-      currentExternalPartyId: msg.notificationExternalPartyId || msg.externalPartyId || null,
-    },
-  )
-  return reply
-}
-
 function tryHandleVerbatimTurn(input, msg, { finishTurn, conversationWindow = [] } = {}) {
   if (!msg || msg.silent === true) return false
   const text = String(input || '').trim()
@@ -895,6 +825,27 @@ async function projectWeatherSurfaceForTurn(message = '') {
   return { id, data, changed }
 }
 
+// 预研判报告：OCR + 规则引擎 → 结构化报告，绕过 LLM function calling
+function buildPreflightReport(ocrText, ruleParsed) {
+  const score = ruleParsed?.score ?? 0
+  const types = Array.isArray(ruleParsed?.hit_types) ? ruleParsed.hit_types : []
+  const playbook = Array.isArray(ruleParsed?.playbook) ? ruleParsed.playbook : []
+  const advice = Array.isArray(ruleParsed?.advice) ? ruleParsed.advice : []
+  const evidence = Array.isArray(ruleParsed?.evidence) ? ruleParsed.evidence : []
+  const emoji = score >= 90 ? '\u{1F534}' : score >= 70 ? '\u{1F7E0}' : score >= 50 ? '\u{1F7E1}' : score >= 30 ? '\u{1F7E2}' : '\u26AA'
+  const level = score >= 90 ? '严重诈骗' : score >= 70 ? '高风险' : score >= 50 ? '中风险' : score >= 30 ? '低风险' : '安全'
+
+  let r = '## \u{1F50D} 诈骗风险研判报告\n\n'
+  r += `**风险等级**：${emoji} ${level}  **风险评分**：${score}/100\n\n---\n\n`
+  r += `### \u{1F4CB} 信息概要\n${ocrText.slice(0, 300)}${ocrText.length > 300 ? '...' : ''}\n\n`
+  if (types.length) r += `### \u{1F3AD} 匹配诈骗类型\n${types.map(t => `- **${t}**`).join('\n')}\n\n`
+  if (evidence.length) r += `### \u{1F6A9} 可疑点\n${evidence.map((e,i) => `${i+1}. ${e}`).join('\n')}\n\n`
+  if (playbook.length) r += `### \u{1F4D6} 诈骗套路拆解\n${playbook.map((s,i) => `${i+1}. **${s}**`).join('\n')}\n\n`
+  if (advice.length) r += `### \u{1F6E1} 处置建议\n${advice.map(a => `- ${a}`).join('\n')}\n\n`
+  if (score >= 70) r += '---\n\n### \u26A0\uFE0F 紧急提醒\n> 存在明显诈骗特征，请勿转账/点击链接/泄露验证码。如已损失请立即拨打 **110**。\n'
+  return r
+}
+
 async function runTurn(input, label, msg = null) {
   const sessionRef = newSessionRef()
   const turnStartedAtMs = Date.now()
@@ -962,24 +913,55 @@ async function runTurn(input, label, msg = null) {
     //   （显式指令 / LLM 意图兜底）。关键词已命中的走原 detect 流程，不强制。
     let forcedCapabilityIds = []
     if (!isTick) {
-      const intent = await resolveCapabilityIntent(msg?.content || input, { callLLM, signal: controller.signal })
+      const intent = await resolveCapabilityIntent(input, { callLLM, signal: controller.signal })
       if (intent) {
         forcedCapabilityIds = [intent.capabilityId]
         console.log(`[intent] 强制激活能力 ${intent.capabilityId}（via=${intent.via}）`)
       }
+    }
 
-      // 零 LLM 快车道：显式指令命中纯本地能力（验链接 / 验短信）时，直接跑工具并投递结果，
-      // 跳过整个 LLM 主循环——LLM 欠费（402）时用户依然拿得到本地研判报告。
-      // 只认 via==='command'（用户手打 / 斜杠菜单预填）；via==='llm' 的意图兜底仍走 LLM 不变。
-      if (
-        intent?.via === 'command' &&
-        LOCAL_COMMAND_TOOLS[intent.capabilityId] &&
-        msg?.fromId &&
-        !silentSignal
-      ) {
-        const reply = await runLocalCommandTool(intent.capabilityId, msg?.content || input, msg)
-        finishTurn(reply)
-        return
+    // 图片预分析：OCR → 规则引擎 → 报告（绕过 LLM function calling）
+    if (!isTick && /!\[[^\]]*\]\([^)]+\)/.test(input)) {
+      const imgPath = (input.match(/!\[[^\]]*\]\(([^)]+)\)/) || [])[1] || ''
+      console.log('[preflight] 检测到图片:', imgPath.slice(0, 60))
+      if (imgPath.startsWith('/media/chat/')) {
+        let ocrText = ''
+        try {
+          const raw = await executeTool('analyze_image', { image_url: imgPath }, { visionTimeoutMs: 30_000 })
+          let p = null; try { p = typeof raw === 'string' ? JSON.parse(raw) : raw } catch {}
+          if (p?.ok && p?.result) ocrText = String(p.result).trim()
+        } catch (e) { console.warn('[preflight] OCR fail:', e?.message?.slice(0,80)) }
+        if (!ocrText) {
+          try {
+            const fp = path.join(paths.mediaDir, decodeURIComponent(imgPath.slice('/media/chat/'.length)))
+            if (fs.existsSync(fp)) {
+              const buf = fs.readFileSync(fp)
+              if (buf.length < 5*1024*1024) {
+                const m = { '.jpg':'image/jpeg','.jpeg':'image/jpeg','.png':'image/png','.webp':'image/webp','.gif':'image/gif' }
+                ocrText = 'data:'+(m[path.extname(fp).toLowerCase()]||'image/png')+';base64,'+buf.toString('base64')
+              }
+            }
+          } catch (e) { console.warn('[preflight] file fail:', e?.message) }
+        }
+        if (!ocrText) console.warn('[preflight] OCR 和文件回退均失败，放行到 LLM')
+        if (ocrText) {
+          if (ocrText.startsWith('data:')) {
+            input = input.replace(/!\[[^\]]*\]\([^)]+\)/g, '') + '\n\n[IMAGE_DATA]'+ocrText+'[/IMAGE_DATA]'
+          } else {
+            let chain = '[图片文字内容]\n'+ocrText+'\n[/图片文字内容]\n\n'; let rule = null
+            try {
+              const r = await executeTool('fraud_rule_screen', { text: ocrText }, {})
+              try { rule = typeof r === 'string' ? JSON.parse(r) : r } catch {}
+              if (rule?.ok) chain += '[规则引擎]\n'+JSON.stringify(rule,null,1)+'\n[/规则引擎]\n\n'
+            } catch (e) { console.warn('[preflight] rule fail:', e?.message?.slice(0,80)) }
+            input = input.replace(/!\[[^\]]*\]\([^)]+\)/g, chain.trim())
+            console.log('[preflight] rule=', !!rule, 'forcedIds=', forcedCapabilityIds)
+            if (rule && forcedCapabilityIds.includes('fraud-risk-assess')) {
+              finishTurn(buildPreflightReport(ocrText, rule)); return
+            }
+          }
+          console.log('[preflight] done')
+        }
       }
     }
 
@@ -1202,17 +1184,11 @@ directions.push('If the user asks you to read, repeat, or output exact text for 
 
     // 2. Build system prompt (stable hard-floor) + context block (per-round dynamic)
     const persona = getConfig('persona') || ''
-    const personaAgeMs = persona ? (Date.now() - (parseInt(getConfig('persona_updated_at') || '0') || Date.now())) : 0
-    const personaAgeHours = personaAgeMs > 0 ? Math.round(personaAgeMs / 3600000) : 0
     const agentName = getConfig('agent_name') || '小盾'
     const entities = getKnownEntities()
     const hasActiveTask = !!state.task
     const terminalStreamContext = formatTerminalStreamContext()
-    // Persona freshness: warn if stale (> 12h)
-    const personaFreshnessNote = personaAgeHours >= 12
-      ? `Note: Your self-description was last set ${personaAgeHours}h ago. It may be stale. If your behavior has drifted, revise with [UPDATE_PERSONA: ...].`
-      : ''
-    const extraContextJoined = [presenceText, runtimeInjection.contextText, terminalStreamContext, prefetchText, injection.uiSignalSummary, formatSceneManifest(sceneStore.manifest()), personaFreshnessNote].filter(Boolean).join('\n\n')
+    const extraContextJoined = [presenceText, runtimeInjection.contextText, terminalStreamContext, prefetchText, injection.uiSignalSummary, formatSceneManifest(sceneStore.manifest())].filter(Boolean).join('\n\n')
     const skillSelection = selectSkillsForMessage(msg?.content || input || '')
     const agentSkillsText = formatSkillsForContext(skillSelection)
     if (skillSelection.active.length > 0 || skillSelection.catalogRequested) {
@@ -1312,10 +1288,7 @@ directions.push('If the user asks you to read, repeat, or output exact text for 
       console.log(`[排除层] ${summary} | 参照系="${gateResult.meta.referenceFrame}"`)
     }
 
-    let contextBlock = buildContextBlock({
-      ...gateResult.args,
-      guardInjections: drainGuardInjections(),
-    })
+    let contextBlock = buildContextBlock(gateResult.args)
     const strictEvaluation = resolveStrictEvaluationMode(msg?.content || input || '', {
       strictEvaluation: msg?.strictEvaluation,
       forbiddenTools: msg?.forbiddenTools,
@@ -1381,7 +1354,6 @@ directions.push('If the user asks you to read, repeat, or output exact text for 
             ...gateResult.args,
             memories: enrichedMemoriesText,
             roundInfo: { round: refreshResult.roundsRun },
-            guardInjections: [],
           })
           llmMessages = buildMessagesWithContext(contextBlock)
           console.log(`[memory refresh] Done — ${refreshResult.roundsRun} round(s), appended ${refreshResult.additionalMemories.length} memory/memories`)
@@ -1480,7 +1452,6 @@ directions.push('If the user asks you to read, repeat, or output exact text for 
       tools: turnTools,
       temperature: voiceTurn ? Math.min(config.temperature, 0.35) : config.temperature,
       thinking: config.thinking === true,
-      maxTokens: 4096, // 反幻觉：硬截断单轮输出
       signal: controller.signal,
       toolContext,
       mustReply: !!msg?.fromId && !silentSignal,
@@ -1573,14 +1544,6 @@ directions.push('If the user asks you to read, repeat, or output exact text for 
 
   const response = llmResult.content
 
-  // ===== 反幻觉守卫 =====
-  const calledTools = new Set(toolCallLog.map(t => t.name))
-  const guardInjections = collectGuards(response, calledTools)
-  for (const injection of guardInjections) {
-    console.warn('[hallucination-guard]', injection.slice(0, 80))
-    enqueueGuardInjection(injection)
-  }
-
   // Store tool result for injection on the next TICK
   state.lastToolResult = llmResult.toolResult || null
 
@@ -1642,7 +1605,6 @@ directions.push('If the user asks you to read, repeat, or output exact text for 
   if (markers.updatePersona !== null) {
     const newPersona = markers.updatePersona.trim()
     setConfig('persona', newPersona)
-    setConfig('persona_updated_at', String(Date.now()))
     console.log('[system] Persona updated')
     emitEvent('persona_updated', { persona: newPersona.slice(0, 200) })
   }

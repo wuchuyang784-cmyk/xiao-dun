@@ -1,7 +1,16 @@
 // @ts-check
-// FraudCaseStore factory.
+// ─────────────────────────────────────────────────────────────
+// store-factory.js — FraudCaseStore 工厂
 //
-// Selects the storage adapter via FRAUD_STORE.
+// 通过环境变量 FRAUD_STORE 选择存储后端：
+//   - 'sqlite'（默认）：使用现有 SQLite 数据库
+//   - 'pgvector'：PostgreSQL 17 + pgvector（待接入）
+//
+// 用法：
+//   import { getFraudCaseStore } from './store-factory.js'
+//   const store = getFraudCaseStore()
+//   await store.searchSimilar(embedding, 5)
+// ─────────────────────────────────────────────────────────────
 
 let storeInstance = null
 
@@ -14,7 +23,7 @@ export async function getFraudCaseStore() {
   if (provider === 'pgvector' || provider === 'pg') {
     const { pgFraudCaseStore } = await import('./pg-fraud-case-store.js')
     storeInstance = pgFraudCaseStore
-    console.log('[fraud-case-store] using PostgreSQL store (FRAUD_STORE=pgvector)')
+    console.log('[fraud-case-store] using PostgreSQL + pgvector (FRAUD_STORE=pgvector)')
   } else {
     const { sqliteFraudCaseStore } = await import('./sqlite-fraud-case-store.js')
     storeInstance = sqliteFraudCaseStore
@@ -27,14 +36,16 @@ export async function getFraudCaseStore() {
 }
 
 /**
- * Force-set the store for tests.
+ * 强制设置 store（测试用）
  * @param {ReturnType<typeof import('./fraud-case-store.js').FraudCaseStoreContract>} store
  */
 export function _setFraudCaseStoreForTest(store) {
   storeInstance = store
 }
 
-/** Reset the cached store instance for tests. */
+/**
+ * 重置 store 单例（测试后清理）
+ */
 export function _resetFraudCaseStoreForTest() {
   storeInstance = null
 }

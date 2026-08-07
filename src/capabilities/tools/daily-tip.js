@@ -253,8 +253,17 @@ function generateTipFromIntel(cache) {
     }
   }
   if (allCases.length === 0) return null
-  const idx = hashDate(getTodayStr()) % allCases.length
-  const c = allCases[idx]
+
+  // 质量检查：确保选中的案例与诈骗相关（排除百度百科字典等垃圾结果）
+  const FRAUD_KW = ['诈骗', '骗局', '骗', '警情', '通报', '警方', '反诈', '受害', '套路', '手法', '案例', '预警', '96110']
+  const relevantCases = allCases.filter(c => {
+    const text = (c.title + ' ' + (c.summary || '')).toLowerCase()
+    return FRAUD_KW.some(kw => text.includes(kw))
+  })
+  if (relevantCases.length === 0) return null  // 缓存全是垃圾，回退到种子 tips
+
+  const idx = hashDate(getTodayStr()) % relevantCases.length
+  const c = relevantCases[idx]
   return {
     title: c.title,
     category: 'fraud_intel',
@@ -284,17 +293,12 @@ export function execGetDailyTip(args = {}) {
   // 优先级 1: 用户自定义 tips
   const userTips = readUserTips()
   if (userTips && userTips.length > 0) {
-    const matchingUserTips = categoryFilter
-      ? userTips.filter(t => String(t.category || '').toLowerCase() === categoryFilter)
-      : userTips
-    if (matchingUserTips.length > 0) {
-      pool = matchingUserTips
-      sourceType = 'user'
-    }
+    pool = userTips
+    sourceType = 'user'
   }
 
-  // 优先级 2: 实时情报 (仅当无用户tips且未指定其他类别时)
-  if (pool.length === 0 && (!categoryFilter || categoryFilter === 'fraud_intel')) {
+  // 优先级 2: 实时情报 (仅当无用户tips时)
+  if (pool.length === 0) {
     const intelTip = generateTipFromIntel(getFraudIntelCacheSafe())
     if (intelTip) {
       return toolJson({
@@ -309,10 +313,14 @@ export function execGetDailyTip(args = {}) {
 
   // 优先级 3: 种子 tips 池
   if (pool.length === 0) {
-    pool = categoryFilter
-      ? SEED_TIPS.filter(t => String(t.category || '').toLowerCase() === categoryFilter)
-      : SEED_TIPS
+    pool = SEED_TIPS
     sourceType = 'seed'
+  }
+
+  // 按类型筛选
+  if (categoryFilter) {
+    const filtered = pool.filter(t => String(t.category || '').toLowerCase() === categoryFilter)
+    if (filtered.length > 0) pool = filtered
   }
 
   if (pool.length === 0) {

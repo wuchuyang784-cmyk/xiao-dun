@@ -5,16 +5,13 @@ import { initChat, friendlyChannelLabel } from "./chat.js";
 import { initPanelCollapse } from "./panel-collapse.js";
 import { ThoughtStream } from "./thought-stream.js";
 import { initVoicePanel } from "./voice-panel.js";
-import { initHotspot, setHotspotMode, moveVoicePanelToBody, restoreVoicePanel } from "./hotspot.js";
+import { initHotspot, toggleHotspot, setHotspotMode, moveVoicePanelToBody, restoreVoicePanel } from "./hotspot.js";
 import { initDocPanel, setDocPanelMode } from "./doc.js";
 import { initFraudMap } from "./fraud-map.js";
-import { initRagMode } from "./rag-mode.js";
-import { initRagManager } from "./rag-manager.js";
 import { initWechatPopup, showWechatPopup } from "./wechat-popup.js";
 import { initFeishuPopup, showFeishuPopup } from "./feishu-popup.js";
 import { extractAssistantMessageContent, isAssistantMessageEvent, resolveAssistantMessageId } from "./message-event.js";
 import { sanitizeAssistantReplyForDelivery } from "../../runtime/markers.js";
-import { applyPlanEvent, createPlanState, getPlanDurationMs, getPlanProgress, PLAN_STATUS_ICONS, PLAN_STATUS_LABELS } from "./plan-state.js";
 renderBrainUiApp(document.body);
 const fraudMap = initFraudMap();
 const THEME_KEY = "jarvis-brain-ui-theme";
@@ -38,8 +35,6 @@ const focusDepthEl = document.getElementById("focus-depth");
 let agentName = DEFAULT_AGENT_NAME;
 let currentUiZoom = DEFAULT_UI_ZOOM;
 let chat = null;
-let ragMode = null;
-let ragManager = null;
 // Real-time assistant reply state. Keep these at module scope because the SSE
 // event handler and the stream handlers share the same conversation turn.
 let liveReplyActive = false;
@@ -171,8 +166,6 @@ function applyTheme(theme) {
   document.querySelectorAll(".theme-dot").forEach(el => {
     el.classList.toggle("active", el.dataset.t === theme);
   });
-  // 主题色变了，ECharts 渲染的地图配色需要重读 CSS 变量
-  fraudMap?.refresh?.();
 }
 
 (function initTheme() {
@@ -231,144 +224,67 @@ let currentPath = "l2";
 function currentStream() { return currentPath === "l1" ? L1 : L2; }
 
 // ---- 执行规划面板 ----
-let planState = createPlanState();
+let planPath = "idle";          // "active" | "idle"
+let planSteps = [];             // [{ toolName, status, startTime }]
+let planCardEl = null;
 
 const PLAN_TOOL_ZH = {
-  send_message: "回复用户",
-  web_search: "搜索网页",
-  fetch_url: "抓取网页",
-  read_file: "读取文件",
-  write_file: "写入文件",
-  search_memory: "检索记忆",
-  recall_memory: "唤起记忆",
-  fraud_rule_screen: "反诈规则初筛",
-  search_fraud_cases: "检索外部 RAG 案例",
+  send_message: "回复用户",  web_search: "搜索网页",  fetch_url: "抓取网页",
+  read_file: "读取文件",     write_file: "写入文件", search_memory: "检索记忆",
+  recall_memory: "唤起记忆",  fraud_rule_screen: "反诈规则筛查",
 };
-
 function planToolLabel(name) { return PLAN_TOOL_ZH[name] || name; }
-function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
+function escapeHtml(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 
-function formatPlanDuration(durationMs) {
-  if (durationMs == null) return "";
-  const seconds = durationMs / 1000;
-  return seconds < 10 ? `${seconds.toFixed(1)}s` : `${Math.round(seconds)}s`;
-}
-
-function planPhaseMeta(phase) {
-  if (phase === "complete") return { label: "已完成", className: "pill-done" };
-  if (phase === "failed") return { label: "执行失败", className: "pill-failed" };
-  if (phase === "active") return { label: "执行中", className: "pill-warm" };
-  return { label: "待命", className: "pill" };
-}
-
-function renderPlanTools(step) {
-  if (!step.tools?.length) return "";
-  const tools = step.tools.map(tool => {
-    const statusClass = tool.status || "pending";
-    const statusIcon = PLAN_STATUS_ICONS[statusClass] || PLAN_STATUS_ICONS.pending;
-    const duration = formatPlanDuration(tool.durationMs);
-    return `<span class="plan-tool-chip ${statusClass}">
-      <span class="plan-tool-chip-icon">${statusIcon}</span>
-      <span>${escapeHtml(planToolLabel(tool.name))}</span>
-      ${duration ? `<time>${duration}</time>` : ""}
-    </span>`;
-  }).join("");
-  return `<div class="plan-tool-detail" aria-label="工具执行详情">${tools}</div>`;
-}
-
-function renderPlanStep(step, index) {
-  const status = PLAN_STATUS_LABELS[step.status] ? step.status : "pending";
-  const duration = formatPlanDuration(step.durationMs);
-  const note = step.note ? `<div class="plan-step-note">${escapeHtml(step.note)}</div>` : "";
-  return `<div class="plan-step ${status}" data-step-index="${index}">
-    <span class="step-status" aria-hidden="true">${PLAN_STATUS_ICONS[status]}</span>
-    <div class="plan-step-main">
-      <span class="step-name">${escapeHtml(step.text)}</span>
-      ${note}
-      ${renderPlanTools(step)}
-    </div>
-    <span class="step-state">${PLAN_STATUS_LABELS[status]}</span>
-    ${duration ? `<time class="step-time">${duration}</time>` : ""}
-  </div>`;
-}
-
-function renderPlanState() {
+function openPlanCard(userText) {
+  planSteps = [];
   const list = document.getElementById("plan-list");
-  const pill = document.getElementById("pill-l2");
   if (!list) return;
-
-  const meta = planPhaseMeta(planState.phase);
-  if (pill) {
-    const progress = getPlanProgress(planState);
-    pill.textContent = planState.phase === "active" && progress.total ? progress.label : meta.label;
-    pill.className = `pill ${meta.className}`;
-  }
-
-  if (planState.phase === "idle") {
-    list.innerHTML = `<div class="plan-empty-state" id="plan-empty-state">
-      <span class="plan-empty-icon" aria-hidden="true">✦</span>
-      <div>
-        <strong>暂无执行任务</strong>
-        <span>发送问题后，小盾会展示处理步骤</span>
-      </div>
-    </div>`;
-    return;
-  }
-
-  const progress = getPlanProgress(planState);
-  const duration = formatPlanDuration(getPlanDurationMs(planState));
-  const hasExternalRag = planState.steps.some(step => step.tools?.some(tool => tool.name === "search_fraud_cases"));
-  const noSteps = !planState.steps.length
-    ? `<div class="plan-no-steps"><span class="plan-spinner" aria-hidden="true"></span><span>等待任务步骤…</span></div>`
-    : "";
-  const summary = planState.summary
-    ? `<div class="plan-summary">${escapeHtml(planState.summary)}</div>`
-    : "";
-  const error = planState.error
-    ? `<div class="plan-error">${escapeHtml(planState.error)}</div>`
-    : "";
-  const ragBadge = hasExternalRag
-    ? `<span class="plan-evidence-badge">外部 RAG 已参与</span>`
-    : "";
-  const steps = planState.steps.map(renderPlanStep).join("");
-
-  list.innerHTML = `<article class="plan-card plan-card-${planState.phase}">
-    <header class="plan-header">
-      <div class="plan-heading">
-        <span class="plan-kicker">执行规划</span>
-        <strong class="plan-title">${escapeHtml(planState.title || "执行任务")}</strong>
-      </div>
-      <span class="plan-progress" aria-label="任务进度">${progress.label}</span>
-    </header>
-    <div class="plan-body">
-      <div class="plan-task-line">
-        <span>${planState.phase === "complete" ? "任务已完成" : "正在处理"}</span>
-        ${ragBadge}
-      </div>
-      <div class="plan-steps">${noSteps}${steps}</div>
-      ${summary}
-      ${error}
-    </div>
-    <footer class="plan-footer">
-      <span>${progress.total ? `${progress.done} / ${progress.total} 步` : "等待步骤"}</span>
-      ${duration ? `<time>${duration}</time>` : ""}
-    </footer>
-  </article>`;
+  closePlanCard();
+  planCardEl = document.createElement("div");
+  planCardEl.className = "plan-card";
+  const now = new Date();
+  const time = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`;
+  planCardEl.innerHTML = `<div class="plan-header"><span class="plan-title">${escapeHtml(userText.slice(0,40))}</span><span class="plan-time">${time}</span></div><div class="plan-steps"></div>`;
+  list.prepend(planCardEl);
+  const pill = document.getElementById("pill-l2");
+  if (pill) { pill.textContent = "执行中"; pill.className = "pill pill-warm"; }
 }
 
-function applyPlanEventToUi(type, data = {}) {
-  planState = applyPlanEvent(planState, { type, data });
-  renderPlanState();
+function addPlanStep(toolName) {
+  if (!planCardEl) return;
+  const steps = planCardEl.querySelector(".plan-steps");
+  if (!steps) return;
+  const entry = { toolName, status: "pending", startTime: Date.now() };
+  planSteps.push(entry);
+  const stepEl = document.createElement("div");
+  stepEl.className = "plan-step";
+  stepEl.dataset.tool = toolName;
+  stepEl.innerHTML = `<span class="step-status">○</span><span class="step-name">${escapeHtml(planToolLabel(toolName))}</span><span class="step-time"></span>`;
+  steps.appendChild(stepEl);
 }
 
-renderPlanState();
+function updatePlanStep(toolName, status) {
+  if (!planCardEl) return;
+  const safeName = toolName.replace(/"/g,"");
+  const stepEl = planCardEl.querySelector(`.plan-step[data-tool="${safeName}"]`);
+  if (!stepEl) return;
+  const entry = planSteps.find(s => s.toolName === toolName);
+  const elapsed = entry ? ((Date.now() - entry.startTime) / 1000).toFixed(1) + "s" : "";
+  stepEl.querySelector(".step-status").textContent = status === "done" ? "\u2713" : "\u2717";
+  stepEl.querySelector(".step-status").className = `step-status ${status}`;
+  stepEl.querySelector(".step-time").textContent = elapsed;
+}
 
+function closePlanCard() {
+  if (planCardEl) { planCardEl.classList.add("plan-done"); }
+  planCardEl = null;
+  planSteps = [];
+  const pill = document.getElementById("pill-l2");
+  if (pill) { pill.textContent = "等待指令"; pill.className = "pill"; }
+}
+
+// ---- 运行时长计时器 ----
 let uptimeStart = Date.now();
 setInterval(() => {
   const el = document.getElementById("uptime");
@@ -396,8 +312,6 @@ const tokRateEl = document.getElementById("tok-rate");
 // 0 鍛戒腑鏁颁細璁╂暟瀛楀彉姗欐彁閱掞紙鍛戒腑鐜囦綆 = 鍙兘鏈夊彫鍥炴紡锛夛紱绾綉缁?鏈嶅姟澶辫触淇濇寔 鈥?涓嶅憡璀︺€?
 const memRecallEl = document.getElementById("mem-recall-rate");
 const memExtractEl = document.getElementById("mem-extract-rate");
-const ctxTokenCountEl = document.getElementById("ctx-token-count");
-const ctxStatEl = document.getElementById("ctx-stat");
 
 const llmProviderNameEl = document.getElementById("llm-provider-name");
 async function refreshLlmProviderName() {
@@ -423,7 +337,7 @@ const AI_TOOL_GROUPS = {
   "\u4e0a\u7f51": new Set(["fetch_url", "web_search", "browser_read"]),
   "\u8c03\u53d6\u8bb0\u5fc6": new Set(["search_memory", "recall_memory", "probe_memory", "upsert_memory", "merge_memories", "downgrade_memory"]),
   "推送界面": new Set(["ui_set", "focus_banner"]),
-  "媒体处理": new Set(["media_mode"]),
+  "媒体处理": new Set(["generate_image", "media_mode"]),
   "\u56de\u590d\u7528\u6237": new Set(["send_message", "express"]),
 };
 const aiActivityLog = [];
@@ -511,41 +425,6 @@ async function refreshMemoryAuditStats() {
 }
 refreshMemoryAuditStats();
 setInterval(refreshMemoryAuditStats, 60_000);
-
-async function refreshContextStats() {
-  if (!ctxTokenCountEl) return;
-  try {
-    const res = await fetch("/api/v1/context/stats", { cache: "no-store" });
-    if (!res.ok) return;
-    const env = await res.json();
-    const d = env.data || {};
-    const tokens = Number(d.estimatedTokens || 0);
-    if (!tokens) {
-      ctxTokenCountEl.textContent = "—";
-      ctxTokenCountEl.className = "stat-value";
-      return;
-    }
-    const formatted = tokens >= 1000 ? (tokens / 1000).toFixed(1) + "k" : String(tokens);
-    ctxTokenCountEl.textContent = formatted;
-    if (tokens >= 16000) ctxTokenCountEl.className = "stat-value ctx-high";
-    else if (tokens >= 8000) ctxTokenCountEl.className = "stat-value ctx-mid";
-    else ctxTokenCountEl.className = "stat-value ctx-low";
-  } catch {}
-}
-refreshContextStats();
-setInterval(refreshContextStats, 30_000);
-if (ctxStatEl) {
-  ctxStatEl.addEventListener("click", () => {
-    if (typeof window.__triggerContextCompress === 'function') {
-      window.__triggerContextCompress();
-    } else {
-      fetch("/api/v1/context/compress", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
-        .then(r => r.json())
-        .then(env => alert("✅ " + (env.data?.before || 0) + " → " + (env.data?.after || 0) + " 条消息已清理"))
-        .catch(e => alert("❌ 压缩失败：" + e.message));
-    }
-  });
-}
 
 function bumpTokens(text) {
   tokenAccum += (text || "").length / 3.4;
@@ -678,99 +557,11 @@ function connectSSE() {
   };
 }
 
-// TTS 音频播放：检测已配置则请求合成并播放，失败抛错
-let _ttsAudioEl = null
-let _ttsConfigured = null
-let _ttsPlaybackToken = 0
-
-function setTtsPlaybackState(active) {
-  window.xiaodunVoice?.setPlaybackState?.(active)
-}
-
-async function playTts(text) {
-  if (!text || !text.trim()) return
-  // 缓存配置检查，避免每条消息都查
-  if (_ttsConfigured === null) {
-    try {
-      const r = await fetch('/settings/tts')
-      const d = await r.json().catch(() => ({}))
-      _ttsConfigured = !!(d.tts && d.tts.configured)
-    } catch {
-      _ttsConfigured = false
-    }
-  }
-  if (!_ttsConfigured) return
-
-  // 停止上一个播放
-  // Stop the previous playback and reset the orb state.
-  if (_ttsAudioEl) {
-    setTtsPlaybackState(false)
-    try { _ttsAudioEl.pause() } catch {}
-    _ttsAudioEl = null
-  }
-
-  const url = '/tts/synthesize'
-  const playbackToken = ++_ttsPlaybackToken
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: text.slice(0, 1000) }),
-    })
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      console.warn('[tts] 服务异常:', err.error || res.status)
-      return
-    }
-    const blob = await res.blob()
-    const audioUrl = URL.createObjectURL(blob)
-    const audioEl = new Audio(audioUrl)
-    _ttsAudioEl = audioEl
-    const finish = () => {
-      URL.revokeObjectURL(audioUrl)
-      if (_ttsAudioEl === audioEl && _ttsPlaybackToken === playbackToken) {
-        _ttsAudioEl = null
-        setTtsPlaybackState(false)
-      }
-    }
-    audioEl.onended = finish
-    audioEl.onerror = finish
-    await audioEl.play()
-    if (_ttsAudioEl === audioEl && _ttsPlaybackToken === playbackToken) {
-      setTtsPlaybackState(true)
-    }
-  } catch (err) {
-    if (_ttsPlaybackToken === playbackToken) setTtsPlaybackState(false)
-    console.warn('[tts] 播放失败:', err.message)
-  }
-}
-
 function handle({ type, data = {} }) {
-  if (type === 'message' && typeof data.content === 'string') {
-    const hits = ['刷单返利', '冒充客服', '公检法', '投资理财', '杀猪盘', '贷款诈骗', '裸聊敲诈', '网络约炮', '虚假贷款']
-      .filter(k => data.content.includes(k)).length
-    if (hits >= 3) {
-      handle._boilerHits = (handle._boilerHits || 0) + 1
-      if (handle._boilerHits >= 3) {
-        console.warn('[boilerplate-guard] 连续 3 轮检测到诈骗关键词堆砌，建议 /clear 重置对话')
-        handle._boilerHits = 0
-      }
-    } else {
-      handle._boilerHits = 0
-    }
-    // TTS 自动播放（playTts 内部会自动停止上一个播放）
-    if (data.content) {
-      playTts(data.content).catch(err => console.warn('[tts] play failed:', err.message))
-    }
-  }
   switch (type) {
-    case "task_set":
-    case "task_step_updated":
-    case "task_cleared":
-      applyPlanEventToUi(type, data);
-      break;
     case "message_received": {
       currentPath = "l1";
+      planPath = "active";
       // 鍏滃簳锛氫笂涓€杞嫢琚墦鏂€乵essage/response 鍧囨湭鍒拌揪锛屽疄鏃舵皵娉′細鎴愬鍎裤€佹祦寮忎細璇濆彲鑳借繕鎸傜潃楹﹀厠椋?
       // 鈥斺€斿畾绋挎皵娉°€佹敹灏炬祦寮忎細璇濓紙鎭㈠楹﹀厠椋庯級銆佸浣嶇姸鎬侊紝鍐嶅紑鏂颁竴杞€?
       if (chat.hasLiveJarvisMsg()) chat.finalizeLiveJarvisMsg(null);
@@ -782,7 +573,7 @@ function handle({ type, data = {} }) {
         content: parsed.content,
         time: parsed.time || undefined,
       });
-      applyPlanEventToUi("message_received", { ...data, input: parsed.content || data.input });
+      openPlanCard(parsed.content || "用户消息");
       L1.startThinkingSession();
       break;
     }
@@ -819,14 +610,14 @@ function handle({ type, data = {} }) {
       // 正文段结束：把残句先送去合成，降低尾句延迟（不结束会话，可能还有后续正文段）
       break;
     case "tool_preparing": {
-      if (currentPath === "l1") applyPlanEventToUi("tool_preparing", data);
+      if (currentPath === "l1") addPlanStep(data.name);
       const stream = currentStream();
       const label = data.name ? stream.toolLabel(data.name) : "";
       stream.setStatus(label ? "准备调用 " + label + "…" : "准备工具调用…", "busy");
       break;
     }
     case "tool_executing": {
-      if (currentPath === "l1") applyPlanEventToUi("tool_executing", data);
+      if (currentPath === "l1") updatePlanStep(data.name, "running");
       const stream = currentStream();
       const label = data.name ? stream.toolLabel(data.name) : "工具";
       stream.setTimedStatus("正在执行 " + label + "…", "busy", {
@@ -836,13 +627,14 @@ function handle({ type, data = {} }) {
       break;
     }
     case "tool_call":
-      if (currentPath === "l1") applyPlanEventToUi("tool_call", data);
+      if (currentPath === "l1") updatePlanStep(data.name, data.ok ? "done" : "failed");
       currentStream().tool(data.name, data.args, data.result, data.ok);
       recordAiActivity(data.name);
       break;
     case "response":
       // Round complete — stop all animations
-      if (currentPath === "l1") applyPlanEventToUi("response", data);
+      if (currentPath === "l1") closePlanCard();
+      planPath = "idle";
       currentStream().end();
       // 鍏滃簳锛氭湰杞粨鏉熸椂锛坮esponse 蹇呭湪 message 涔嬪悗鍙戯級鑻ユ祦寮忓悎鎴愪細璇濅粛寮€鐫€鈥斺€旀瀬灏戣锛屾ā鍨嬪彧璋冧簡宸ュ叿
       // 娌′骇鍑哄彲鎶曢€掓鏂囥€乵essage 鏈埌杈锯€斺€旀爣璁版鏂囧凡灏借闃熷垪鏀惧畬鍗虫仮澶嶉害鍏嬮锛岄伩鍏嶉害鍏嬮涓€鐩存寕璧枫€?
@@ -850,7 +642,6 @@ function handle({ type, data = {} }) {
       if (chat.hasLiveJarvisMsg()) chat.finalizeLiveJarvisMsg(null);
       break;
     case "processing_preempted":
-      if (currentPath === "l1") applyPlanEventToUi("processing_preempted", data);
       currentStream().end();
       break;
     case "llm_retry": {
@@ -871,7 +662,6 @@ function handle({ type, data = {} }) {
       currentStream().setStatus("LLM 繁忙，重试次数已达上限", "failed");
       break;
     case "error":
-      if (currentPath === "l1") applyPlanEventToUi("error", data);
       if (isBusyErrorMessage(data.error)) {
         currentStream().startThinkingSession();
         currentStream().setStatus("LLM 繁忙，请稍后重试", "busy");
@@ -964,10 +754,6 @@ function handle({ type, data = {} }) {
       window.dispatchEvent(new CustomEvent("xiaodun:media", { detail: data }));
       break;
     case "hotspot_mode":
-      if (!!data.active || data.action === "show" || data.action === "open") {
-        ragMode?.close();
-        ragManager?.close();
-      }
       setHotspotMode(!!data.active || data.action === "show" || data.action === "open", { source: "agent_event" });
       break;
 
@@ -1024,26 +810,15 @@ chat = initChat({
   getAgentName: () => agentName,
   defaultInputPlaceholder,
   openSettings: (tab) => openSettingsRef?.(tab),
-  openHotspot: () => {
-    ragMode?.close();
-    ragManager?.close();
-    setHotspotMode(true);
+  onUserMessage: (text) => {
+    const value = String(text || "");
+    const hotspot = /\u70ed\u70b9|\u70ed\u641c|\u65b0\u95fb|\u8d8b\u52bf/i;
+    if (document.body.classList.contains("hotspot-mode") && hotspot.test(value)) {
+      toggleHotspot();
+      return;
+    }
+    if (hotspot.test(value) && !document.body.classList.contains("hotspot-mode")) toggleHotspot();
   },
-  openRag: () => {
-    ragManager?.close();
-    void ragMode?.open();
-  },
-  openRagManager: () => ragManager?.open(),
-});
-ragMode = initRagMode({
-  fraudMap,
-  openChat: () => chat?.openChat(),
-  closeHotspot: () => setHotspotMode(false),
-});
-ragManager = initRagManager({
-  openChat: () => chat?.openChat(),
-  closeHotspot: () => setHotspotMode(false),
-  closeRag: () => ragMode?.close(),
 });
 chat.applyActivationWarmupLock();
 connectSSE();
@@ -1053,56 +828,9 @@ chat.restoreChatHistory();
 chat.unlockAudioOnFirstGesture();
 
 bootstrapScene();  // Scene 鏋舵瀯 shell(/scene):澹版槑寮?Agent-UI 鎶曞奖灞傘€?
-initNarrowScreenPanelDefaults();
 initPanelCollapse();
-initCrossMenuButton();
 initWechatPopup();
 initFeishuPopup();
-
-/**
- * 窄屏下左右面板是覆盖式抽屉，默认展开会盖住地图与对话框，
- * 因此进入窄屏时强制收起两侧面板；用户仍可用左上/右上角的 tab 按钮随时召出。
- *
- * 必须在 initPanelCollapse() 之前调用：initPanelCollapse 只会按 localStorage
- * 追加 collapsed 类、不会移除，所以这里预置的收起状态会被保留。
- */
-function initNarrowScreenPanelDefaults() {
-  // 窄屏断点：与 styles.css 中面板抽屉化的媒体查询保持一致
-  const NARROW_SCREEN_QUERY = "(max-width: 780px)";
-  const mediaQuery = window.matchMedia?.(NARROW_SCREEN_QUERY);
-  if (!mediaQuery) return;
-
-  const collapseBothPanels = (query) => {
-    if (!query.matches) return;
-    document.body.classList.add("l1-collapsed", "l2-collapsed");
-  };
-
-  collapseBothPanels(mediaQuery);
-  // 桌面 → 窄屏的实时缩放同样需要收起，避免抽屉盖住对话框
-  mediaQuery.addEventListener?.("change", collapseBothPanels);
-}
-
-/**
- * 对话框左下角"十字架"按钮：调出与输入 "/" 完全一致的命令列表。
- * 列表内容、样式与执行路径全部复用 chat.js 内的斜杠命令实现。
- */
-function initCrossMenuButton() {
-  const crossBtn = document.getElementById("cross-menu-btn");
-  if (!crossBtn) return;
-
-  // 用 mousedown（与 .slash-item 一致）抢在输入框 blur 之前触发，避免菜单被 blur 关掉
-  crossBtn.addEventListener("mousedown", (event) => {
-    event.preventDefault();
-    chat?.openSlashMenuFromButton?.();
-  });
-
-  // 键盘可达性：Tab 聚焦后 Enter / Space 也能打开
-  crossBtn.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    chat?.openSlashMenuFromButton?.();
-  });
-}
 
 // 鈹€鈹€ Settings modal 鈹€鈹€
 (function initSettings() {
@@ -1153,7 +881,7 @@ function initCrossMenuButton() {
   let volcAsrKeyVisible = false;
   let volcAsrSaveTimer = null;
   let volcAsrSaveRequest = 0;
-  const agentNameRe = /^[\p{L}\p{N} _-]+$/u;
+  const agentNameRe = /^[\\p{L}\\p{N} _-]+$/u;
   const CUSTOM_MODEL_VALUE = "__custom_model__";
 
   overlay.querySelectorAll(".settings-nav-item").forEach(btn => {
@@ -1880,58 +1608,6 @@ function initCrossMenuButton() {
     applyVoiceProviderUI(savedProvider);
   }
 
-  // === TTS Settings ===
-  async function loadTtsSettings() {
-    const provSel = document.getElementById('tts-provider-select')
-    const keyInp = document.getElementById('tts-apikey')
-    const key2Row = document.getElementById('tts-apikey2-row')
-    const key2Inp = document.getElementById('tts-apikey2')
-    const voiceSel = document.getElementById('tts-voice-select')
-    const speedInp = document.getElementById('tts-speed')
-    const speedVal = document.getElementById('tts-speed-val')
-    const toggleApikey2 = () => {
-      const isTencent = provSel?.value === 'tencent'
-      if (key2Row) key2Row.style.display = isTencent ? '' : 'none'
-      if (keyInp) keyInp.placeholder = isTencent ? 'SecretId' : '输入 API Key'
-    }
-    try {
-      const r = await fetch('/settings/tts')
-      const d = await r.json().catch(() => ({}))
-      if (r.ok && d.tts) {
-        if (provSel) provSel.value = d.tts.provider || 'doubao'
-        if (keyInp) keyInp.value = d.tts.apiKey || ''
-        if (key2Inp) key2Inp.value = d.tts.apiKey2 || ''
-        if (speedInp && d.tts.speed) { speedInp.value = String(d.tts.speed); if (speedVal) speedVal.textContent = d.tts.speed }
-      }
-    } catch {}
-    if (provSel) {
-      provSel.addEventListener('change', () => { toggleApikey2(); fetchTtsVoices(provSel.value, voiceSel) })
-      toggleApikey2()
-      fetchTtsVoices(provSel.value, voiceSel)
-    }
-    if (speedInp && speedVal) {
-      speedInp.addEventListener('input', () => { speedVal.textContent = speedInp.value })
-    }
-  }
-
-  async function fetchTtsVoices(provider, voiceSel) {
-    if (!voiceSel) return
-    voiceSel.innerHTML = '<option value="">加载中…</option>'
-    try {
-      const r = await fetch('/tts/voices?provider=' + encodeURIComponent(provider))
-      const d = await r.json().catch(() => ({}))
-      if (r.ok && Array.isArray(d.voices)) {
-        voiceSel.innerHTML = d.voices.map(v => `<option value="${v.id}">${v.label}</option>`).join('')
-      } else {
-        voiceSel.innerHTML = '<option value="">服务异常</option>'
-      }
-    } catch {
-      voiceSel.innerHTML = '<option value="">服务异常</option>'
-    }
-  }
-
-  loadTtsSettings()
-
   if (voiceThreshSlider && voiceThreshVal) {
     voiceThreshSlider.addEventListener("input", () => {
       voiceThreshVal.textContent = parseFloat(voiceThreshSlider.value).toFixed(3);
@@ -2006,35 +1682,12 @@ function initCrossMenuButton() {
       } else {
         showFeedback(voiceFeedback, "已保存");
       }
-
-      // 同时保存 TTS 配置
-      const ttsProvider = document.getElementById('tts-provider-select')?.value || ''
-      const ttsApiKey = document.getElementById('tts-apikey')?.value?.trim() || ''
-      const ttsApiKey2 = document.getElementById('tts-apikey2')?.value?.trim() || ''
-      const ttsVoiceId = document.getElementById('tts-voice-select')?.value || ''
-      const ttsSpeed = document.getElementById('tts-speed')?.value || '1.0'
-      if (ttsProvider && (ttsApiKey || ttsApiKey2)) {
-        try {
-          await fetch('/settings/tts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              provider: ttsProvider,
-              apiKey: ttsApiKey,
-              apiKey2: ttsApiKey2,
-              voiceId: ttsVoiceId,
-              speed: ttsSpeed,
-            }),
-          })
-        } catch {}
-      }
     });
   }
 
 
   function openSettings(tab = null) {
     overlay.hidden = false;
-    overlay.querySelectorAll(".theme-switcher").forEach(el => el.classList.add("visible"));
     loadSettings();
     loadVoiceSettings();
     if (tab) {

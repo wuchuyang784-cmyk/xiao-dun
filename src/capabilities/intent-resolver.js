@@ -23,31 +23,33 @@ import {
   getCapability,
   listCapabilities,
 } from './capability-registry.js'
-import { isHotspotOpenCommand } from './hotspot-command.js'
 
 // 显式斜杠指令 → 能力 id 的快车道映射。
 const EXPLICIT_COMMANDS = {
+  '/hotspot': 'hotspot',
+  '/热点': 'hotspot',
   '/weather': 'weather',
   '/天气': 'weather',
   '/web': 'web',
   '/上网': 'web',
-  '/check_link': 'verify-link',
-  '/验链接': 'verify-link',
-  '/check_sms': 'verify-sms',
+  // 反诈功能 #2 — 诈骗情报
   '/fraud_intel': 'fraud-intel',
   '/诈骗情报': 'fraud-intel',
+  // 反诈功能 #3 — 每日提醒
   '/daily_tip': 'daily-tip',
   '/每日提醒': 'daily-tip',
+  // 反诈功能 #4 — 反诈工具箱（4 个工具共用一个能力）
   '/report_fraud': 'fraud-toolkit',
   '/举报': 'fraud-toolkit',
   '/search_law': 'fraud-toolkit',
   '/查法规': 'fraud-toolkit',
   '/check_qrcode': 'fraud-toolkit',
-  '/qrcode': 'fraud-toolkit',
   '/查二维码': 'fraud-toolkit',
   '/verify_identity': 'fraud-toolkit',
   '/核实身份': 'fraud-toolkit',
-  '/验短信': 'verify-sms',
+  // 反诈功能 #1 — 诈骗风险研判
+  '/analyze': 'fraud-risk-assess',
+  '/研判': 'fraud-risk-assess',
 }
 
 // 纯闲聊 / 无意义短消息：这些永远不需要打开面板，直接跳过 LLM 兜底分类以省延迟。
@@ -56,7 +58,6 @@ const GREETING_RE = /^(你好|您好|hi|hello|hey|在吗|在么|在不在|谢谢
 
 export function resolveExplicitCommand(message = '') {
   const m = String(message || '').trim()
-  if (isHotspotOpenCommand(m)) return 'hotspot'
   if (!m.startsWith('/')) return null
   const head = m.split(/\s+/)[0].toLowerCase()
   return EXPLICIT_COMMANDS[head] || null
@@ -131,7 +132,6 @@ export async function resolveCapabilityIntent(message, { callLLM, signal } = {})
       parsed &&
       parsed.capability &&
       parsed.capability !== 'none' &&
-      parsed.capability !== 'hotspot' &&
       getCapability(parsed.capability)
     ) {
       return { capabilityId: parsed.capability, via: 'llm' }

@@ -60,7 +60,7 @@ export const commsSchemas = {
         '• A "你好"/"在吗" greeting deserves a brief greeting back. Do not steer it toward a topic the user did not raise. If you have a pending thought from your own tick loop, hold it until the user shows interest.',
         '• Your tick-loop thoughts are NOT part of the conversation the user sees. Do not summarize them as "we talked about X" — the user did not talk about X with you.',
         '',
-        'The same canonical user ID (e.g. ID:000001) may be reachable on multiple channels. On a social inbound turn, omit channel (AUTO) or keep the incoming social channel; do not choose TUI for an ordinary reply unless the user explicitly asks for local/web UI output.',
+        'The same canonical user ID (e.g. ID:000001) may be reachable on multiple channels — use the optional channel parameter to override the default routing.',
       ].join('\n'),
       parameters: {
         type: 'object',
@@ -84,7 +84,7 @@ export const commsSchemas = {
           channel: {
             type: 'string',
             enum: ['WECHAT', 'DISCORD', 'FEISHU', 'WECOM', 'TUI', 'AUTO'],
-            description: 'Optional delivery channel. AUTO (default) follows the user\'s most recent channel; on a social inbound turn this means replying on that same channel. Use TUI only when the user explicitly asks to show the result in the local web UI; otherwise omit channel.'
+            description: 'Optional delivery channel. AUTO (default) follows the channel of the user\'s most recent message — if they last reached you on WECHAT, your message goes to WECHAT (this also holds for follow-ups triggered later by reminders or ticks). Pass an explicit channel (e.g. TUI for long-form output that belongs on the local UI) to override.'
           }
         },
         required: ['target_id']

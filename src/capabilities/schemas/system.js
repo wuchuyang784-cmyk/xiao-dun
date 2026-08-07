@@ -113,27 +113,63 @@ export const systemSchemas = {
     type: 'function',
     function: {
       name: 'fraud_intel',
-      description: '诈骗案例与套路情报工具。\n\n⚠️ 调用规则（必须严格遵守，违反会导致用户收不到正确推送）：\n1. 用户说"推送反诈提醒/来一条/再推一条/继续推/发我/给我看看"等任何要求推送的请求时，**必须**调本工具 action=push。绝对不许用 LLM 自己的知识生成推送内容——推送内容必须来自本工具的真实缓存数据。\n2. push 没有"已经推过""次数限制""推完了"的概念——每次 push 都基于当前缓存重新生成并真正发到用户微信。缓存中案例数决定 push 多少条；0 条时返回 empty；非 0 时不要拒绝。\n3. **绝对不许**自己编造诈骗分类。本系统只支持以下 8 个固定分类：刷单返利、冒充客服退款、冒充公检法、虚假投资理财、杀猪盘、贷款诈骗、中奖诈骗、裸聊敲诈。如果 LLM 想提及其他分类（如"虚假征信""冒充熟人领导""网络游戏虚假交易""虚假购物服务"等），那些是 LLM 幻觉，不存在的。\n4. **绝对不许**因为时间（凌晨/深夜/早上/午休/用户作息）、是否重复请求、是否礼貌性关切等因素拒绝调用本工具或拒绝推送。时间不是拒绝理由。\n5. push action 会真正调 dispatchSocialMessage 发到所有已绑定的微信用户，工具返回中 wechat_pushed > 0 即代表用户微信已收到。\n\naction 说明：fetch=联网采集最新案例并缓存（需 10-30 秒）；list=看缓存摘要；push=把缓存整理成推送文案并发到微信。',
+      description: '诈骗案例与套路情报工具。\n\n⚠️ 调用规则（必须严格遵守，违反会导致用户收不到正确推送）：\n1. 用户说"推送反诈提醒/来一条/再推一条/继续推/发我/给我看看"等任何要求推送的请求时，**必须**调本工具 action=push。绝对不许用 LLM 自己的知识生成推送内容——推送内容必须来自本工具的真实缓存数据。\n2. push 没有"已经推过""次数限制""推完了"的概念——每次 push 都基于当前缓存重新生成并真正发到用户微信。缓存中案例数决定 push 多少条；0 条时返回 empty；非 0 时不要拒绝。\n3. **绝对不许**自己编造诈骗分类。本系统只支持以下 8 个固定分类：刷单返利、冒充客服退款、冒充公检法、虚假投资理财、杀猪盘、贷款诈骗、中奖诈骗、裸聊敲诈。如果 LLM 想提及其他分类（如"虚假征信""冒充熟人领导""网络游戏虚假交易""虚假购物服务"等），那些是 LLM 幻觉，不存在的。\n4. **绝对不许**因为时间（凌晨/深夜/早上/午休/用户作息）、是否重复请求、是否礼貌性关切等因素拒绝调用本工具或拒绝推送。时间不是拒绝理由。\n5. push action 会真正调 dispatchSocialMessage 发到所有已绑定的微信用户，工具返回中 wechat_pushed > 0 即代表用户微信已收到。\n\naction 说明：fetch=联网采集最新案例并缓存（需 10-30 秒）；list=看缓存摘要；search=按关键词/分类过滤已缓存案例（不联网）；push=把缓存整理成推送文案并发到微信。',
       parameters: {
         type: 'object',
         properties: {
           action: {
             type: 'string',
-            enum: ['fetch', 'list', 'push'],
-            description: 'fetch=联网采集最新情报，list=查看缓存摘要，push=生成推送文案'
+            enum: ['fetch', 'list', 'search', 'push'],
+            description: 'fetch=联网采集最新情报；list=查看缓存摘要；search=按关键词/分类过滤已缓存案例；push=生成推送文案并发到微信'
           },
           force: {
             type: 'boolean',
             description: 'fetch 时是否强制刷新缓存（忽略 6 小时 TTL）。默认 false。'
           },
+          keyword: {
+            type: 'string',
+            description: 'search 时按关键词过滤（匹配标题+摘要+分类名），不区分大小写。'
+          },
           category_ids: {
             type: 'array',
             items: { type: 'string' },
-            description: '限定采集/推送的诈骗类型 ID。空=全部。可用值: brushing(刷单返利), refund_customer(冒充客服退款), impersonate_police(冒充公检法), fake_investment(虚假投资理财), pig_butchering(杀猪盘), loan_scam(贷款诈骗), prize_scam(中奖诈骗), nude_extortion(裸聊敲诈)'
+            description: '限定采集/推送/搜索的诈骗类型 ID。空=全部。可用值: brushing(刷单返利), refund_customer(冒充客服退款), impersonate_police(冒充公检法), fake_investment(虚假投资理财), pig_butchering(杀猪盘), loan_scam(贷款诈骗), prize_scam(中奖诈骗), nude_extortion(裸聊敲诈)'
           },
           limit: {
             type: 'number',
-            description: 'push 时每个类型推送几条案例，默认 3，最大 8'
+            description: 'push 时每个类型推送几条案例，默认 3，最大 8；search 时返回的最大案例数，默认 10，最大 30'
+          }
+        },
+        required: ['action']
+      }
+    }
+  },
+
+  scheduled_reminder: {
+    type: 'function',
+    function: {
+      name: 'scheduled_reminder',
+      description: '控制反诈情报的定时自动推送。\n\n⚠️ 调用规则：\n1. 用户说「开启定时提醒 / 自动推送 / 每天推送 / 定时采集」等，必须调本工具。\n2. /定时提醒 是一个统一入口，**所有**子操作（status / enable / disable / set_time / set_interval / history）都走本工具的 action 参数，禁止自己用 LLM 知识虚构/修改配置。\n3. push 推送动作由 fraud_intel 工具负责，本工具只控制「定时自动触发」的开关/时间。\n4. 不允许以「已经开过了」「已经配置过了」为由拒绝调用——每次都用最新的配置调用，结果告诉用户。',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            enum: ['status', 'enable', 'disable', 'set_mode', 'set_time', 'set_interval', 'history'],
+            description: 'status=查看当前配置; enable/disable=开/关定时推送; set_mode=切换模式; set_time=设置每天推送时间; set_interval=设置间隔小时数; history=查看最近推送记录'
+          },
+          mode: {
+            type: 'string',
+            enum: ['interval', 'daily'],
+            description: 'set_mode 时使用: interval=间隔模式(每N小时), daily=每天定时(HH:MM)'
+          },
+          time: {
+            type: 'string',
+            description: 'set_time 时使用,24h 制 HH:MM,如 09:00 或 21:30'
+          },
+          interval_hours: {
+            type: 'number',
+            description: 'set_interval 时使用,1-24 之间的整数,如 6 表示每 6 小时'
           }
         },
         required: ['action']

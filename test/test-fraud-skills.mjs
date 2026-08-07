@@ -192,17 +192,17 @@ console.log('\n【测试5】verify_identity — 综合身份核实\n')
   assert(data.risk_level, `risk_level存在 (actual: ${data.risk_level})`)
   assert(data.risk_score >= 0 && data.risk_score <= 100, `risk_score在0-100 (actual: ${data.risk_score})`)
   assert(data.findings && data.findings.length >= 1, `findings>=1 (actual: ${data.findings?.length})`)
-
+  
   const ruleEngineFinding = data.findings.find(f => f.source === 'rule_engine')
   assert(ruleEngineFinding, '包含规则引擎分析结果')
   assert(ruleEngineFinding.matched === true, '规则引擎命中诈骗话术')
-
+  
   const urlFinding = data.findings.find(f => f.source === 'url_analysis')
   assert(urlFinding, '包含URL分析结果')
-
+  
   const phoneFinding = data.findings.find(f => f.source === 'phone_analysis')
   assert(phoneFinding, '包含电话号码分析结果')
-
+  
   assert(data.risk_level === 'critical' || data.risk_level === 'high', `综合风险等级为critical或high (actual: ${data.risk_level})`)
   assert(data.hotline === '96110', 'hotline=96110')
 }

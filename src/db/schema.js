@@ -498,8 +498,7 @@ export function initializeSchema(db) {
 
   // 重建 FTS 索引（覆盖已有数据，确保历史记忆也被索引）
   // Fraud-case MVP persistence: the map reads province aggregates from this table.
-  // This table stores case records and review metadata only; external RAG owns
-  // case retrieval and indexing.
+  // This intentionally does not include RAG indexing or a review workflow.
   db.exec(`
     CREATE TABLE IF NOT EXISTS fraud_cases (
       id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -518,19 +517,23 @@ export function initializeSchema(db) {
       review_status TEXT NOT NULL DEFAULT 'approved',
       version       INTEGER NOT NULL DEFAULT 1,
       source        TEXT NOT NULL DEFAULT '',
+      vector_indexed INTEGER NOT NULL DEFAULT 0,
+      indexed_at    TEXT,
       created_at    TEXT NOT NULL,
       updated_at    TEXT NOT NULL
     );
   `)
 
-  // Keep legacy installs compatible, but do not create any vector-specific
-  // columns or indexes here.
+  // 增量迁移：为已存在的库补上 RAG 索引状态列与内容/审核字段（新库已在上面的 CREATE 中包含）
+  // 必须在建索引之前执行，因为下面的 idx_fraud_cases_vector_indexed 依赖 vector_indexed 列
   try {
     const existingCols = db.prepare('PRAGMA table_info(fraud_cases)').all().map((c) => c.name)
     if (!existingCols.includes('content')) db.exec("ALTER TABLE fraud_cases ADD COLUMN content TEXT NOT NULL DEFAULT ''")
     if (!existingCols.includes('review_status')) db.exec("ALTER TABLE fraud_cases ADD COLUMN review_status TEXT NOT NULL DEFAULT 'approved'")
     if (!existingCols.includes('version')) db.exec('ALTER TABLE fraud_cases ADD COLUMN version INTEGER NOT NULL DEFAULT 1')
     if (!existingCols.includes('source')) db.exec("ALTER TABLE fraud_cases ADD COLUMN source TEXT NOT NULL DEFAULT ''")
+    if (!existingCols.includes('vector_indexed')) db.exec('ALTER TABLE fraud_cases ADD COLUMN vector_indexed INTEGER NOT NULL DEFAULT 0')
+    if (!existingCols.includes('indexed_at')) db.exec('ALTER TABLE fraud_cases ADD COLUMN indexed_at TEXT')
   } catch (err) {
     console.warn('[schema] fraud_cases migration skipped:', err.message)
   }
@@ -540,6 +543,7 @@ export function initializeSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_fraud_cases_occurred_at ON fraud_cases(occurred_at);
     CREATE INDEX IF NOT EXISTS idx_fraud_cases_risk_level ON fraud_cases(risk_level);
     CREATE INDEX IF NOT EXISTS idx_fraud_cases_status ON fraud_cases(status);
+    CREATE INDEX IF NOT EXISTS idx_fraud_cases_vector_indexed ON fraud_cases(vector_indexed);
   `)
 
   // AI 分析记录：本地个人使用的反诈分析历史记录

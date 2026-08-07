@@ -16,7 +16,6 @@ import { execManageToolFactory } from './tool-factory.js'
 import { TOOL_SCHEMAS } from './schemas.js'
 import { TOOL_GROUPS } from '../memory/tool-router.js'
 import { findCapabilitiesByQuery } from './capability-registry.js'
-import { HOTSPOT_OPEN_COMMAND, isHotspotOpenCommand } from './hotspot-command.js'
 import { throwIfAborted } from './abort-utils.js'
 import { execUISet } from './tools/scene.js'
 import { SANDBOX_ROOT } from './sandbox.js'
@@ -33,11 +32,10 @@ import { execAnalyzeImage, execManageApiCapability, execRunApiCapability } from 
 import { execManageRule } from './tools/rules.js'
 import { execFraudRuleScreen } from './tools/fraud-rule.js'
 import { execFraudIntel } from './tools/fraud-intel.js'
-import { execCheckLink } from './tools/check-link.js'
-import { execCheckSms } from './tools/check-sms.js'
 import { execGetDailyTip } from './tools/daily-tip.js'
+import { execScheduledReminder } from './tools/scheduled-reminder.js'
 import { execReportFraud, execSearchLaw, execCheckQrcode, execVerifyIdentity } from './tools/fraud-toolkit.js'
-import { execMediaMode } from './tools/media.js'
+import { execGenerateImage, execMediaMode } from './tools/media.js'
 import { execSearchFraudCases } from './tools/fraud.js'
 import { runWorkReview } from '../review/reviewer.js'
 import { CAPABILITY_DEMO_INTRO, runCapabilityDemo } from '../capability-demo.js'
@@ -268,13 +266,14 @@ async function executeToolUnchecked(name, args, context = {}) {
         return await execDowngradeMemory(args)
       case 'skip_consolidation':
         return await execSkipConsolidation(args)
-
+      case 'generate_image':
+        return await execGenerateImage(args)
       case 'set_tick_interval':
         return execSetTickInterval(args)
       case 'media_mode':
         return execMediaMode(args)
       case 'hotspot_mode':
-        return execHotspotMode(args, context)
+        return execHotspotMode(args)
       case 'open_doc_panel':
         return execOpenDocPanel(args)
       case 'schedule_reminder':
@@ -288,10 +287,8 @@ async function executeToolUnchecked(name, args, context = {}) {
         return execFraudRuleScreen(args)
       case 'fraud_intel':
         return await execFraudIntel(args)
-      case 'check_link':
-        return await execCheckLink(args)
-      case 'check_sms':
-        return await execCheckSms(args)
+      case 'scheduled_reminder':
+        return execScheduledReminder(args)
       case 'get_daily_tip':
         return execGetDailyTip(args)
       case 'report_fraud':
@@ -600,7 +597,7 @@ function execCapabilityDemo(args = {}, context = {}) {
   })
 }
 
-function execHotspotMode(args = {}, context = {}) {
+function execHotspotMode(args = {}) {
   const action = String(args.action || 'status').trim().toLowerCase()
   if (!['show', 'open', 'hide', 'close', 'toggle', 'status'].includes(action)) {
     return JSON.stringify({ ok: false, tool: 'hotspot_mode', error: 'unsupported action' })
@@ -610,14 +607,6 @@ function execHotspotMode(args = {}, context = {}) {
   if (action === 'show' || action === 'open') nextActive = true
   if (action === 'hide' || action === 'close') nextActive = false
   if (action === 'toggle') nextActive = !getHotspotPanelState().active
-
-  if (nextActive === true && !isHotspotOpenCommand(context.currentUserMessage)) {
-    return JSON.stringify({
-      ok: false,
-      tool: 'hotspot_mode',
-      error: `hotspot panel can only be opened with ${HOTSPOT_OPEN_COMMAND}`,
-    })
-  }
 
   const state = typeof nextActive === 'boolean'
     ? setHotspotPanelState({ active: nextActive, source: 'agent_tool' })

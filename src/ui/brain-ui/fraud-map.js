@@ -1,31 +1,5 @@
 import { fetchChinaGeoJson, fetchFraudCases, fetchFraudSnapshot } from './fraud-map-data.js'
-import { createFraudMapStore, provinceRiskValue } from './fraud-map-store.js'
-
-// 读取当前主题 CSS 变量，让地图配色跟随主题变化
-function readThemeVars() {
-  const style = getComputedStyle(document.body)
-  const pick = (name, fallback) => (style.getPropertyValue(name).trim() || fallback)
-  return {
-    low: pick('--map-low', '#142b4a'),
-    mid: pick('--map-mid', '#1d5f79'),
-    high: pick('--map-high', '#ffbe6b'),
-    area: pick('--map-area', '#142437'),
-    border: pick('--map-border', 'rgba(130, 180, 224, 0.44)'),
-    hover: pick('--map-hover', '#286d91'),
-    selected: pick('--map-selected', '#ff9f1c'),
-    selectedBorder: pick('--map-selected-border', '#ffe4a3'),
-    pulse: pick('--map-pulse', '#ff9f1c'),
-    riskLow: pick('--map-risk-low', '#4f8cff'),
-    riskMedium: pick('--map-risk-medium', '#ffbe6b'),
-    riskHigh: pick('--map-risk-high', '#ff7b72'),
-    riskCritical: pick('--map-risk-critical', '#ff3d71'),
-    riskUnknown: pick('--map-risk-unknown', '#a2adbd'),
-  }
-}
-
-function riskColor(level, vars) {
-  return ({ low: vars.riskLow, medium: vars.riskMedium, high: vars.riskHigh, critical: vars.riskCritical })[level] || vars.riskUnknown
-}
+import { createFraudMapStore, provinceRiskValue, riskColor } from './fraud-map-store.js'
 
 const SNAPSHOT_RECONCILE_INTERVAL_MS = 60 * 60 * 1000
 const PULSE_TTL_MS = 60 * 1000
@@ -62,7 +36,6 @@ function createMapOptions(state) {
   const visiblePulses = state.recentPulses
     .filter(item => Date.now() - Date.parse(item.occurredAt) <= PULSE_TTL_MS)
     .slice(0, MAX_VISIBLE_PULSES)
-  const v = readThemeVars()
 
   return {
     animationDurationUpdate: 0,
@@ -76,7 +49,7 @@ function createMapOptions(state) {
         }
         const row = provinces.find(item => item.provinceName === params.name)
         if (isSimulated) {
-          return `<strong>${escapeHtml(params.name || '未知省份')}</strong><br>模拟样本：${row?.sampleCount || 0}<br><span style="color:${v.high}">比赛模拟数据 · 非真实案发率</span>`
+          return `<strong>${escapeHtml(params.name || '未知省份')}</strong><br>模拟样本：${row?.sampleCount || 0}<br><span style="color:#ffbe6b">比赛模拟数据 · 非真实案发率</span>`
         }
         return `<strong>${escapeHtml(params.name || '未知省份')}</strong><br>案件：${row?.caseCount || 0}<br>高风险：${row?.highRiskCount || 0}<br>待复核：${row?.pendingCount || 0}`
       },
@@ -86,7 +59,7 @@ function createMapOptions(state) {
       max: maxValue,
       show: false,
       calculable: false,
-      inRange: { color: [v.low, v.mid, v.high, v.riskHigh, v.riskCritical] },
+      inRange: { color: ['#142b4a', '#1d5f79', '#ffbe6b', '#ff7b72', '#ff3d71'] },
       seriesIndex: 0,
     },
     geo: {
@@ -94,7 +67,11 @@ function createMapOptions(state) {
       roam: false,
       silent: false,
       selectedMode: false,
+      // The provided GeoJSON includes the 100000_JD inset. Keep the province area fully visible and centered.
       center: [104, 28.7],
+      // 容器 .map-stage 已锁定为固定 480x574（见 styles.css），所以这里用百分比
+      // 填满该固定容器即可——地图渲染尺寸恒定，窗口怎么 resize 都和第一张图一致，
+      // 彻底消除缩放跳动感。
       layoutCenter: ['50%', '50%'],
       layoutSize: '95%',
       zoom: 1,
@@ -102,15 +79,15 @@ function createMapOptions(state) {
       aspectScale: 0.92,
       label: { show: false },
       itemStyle: {
-        areaColor: v.area,
-        borderColor: v.border,
+        areaColor: '#142437',
+        borderColor: 'rgba(130, 180, 224, 0.44)',
         borderWidth: 0.8,
       },
       emphasis: {
-        label: { show: true, color: v.high, fontSize: 11 },
-        itemStyle: { areaColor: v.hover },
+        label: { show: true, color: '#effcff', fontSize: 11 },
+        itemStyle: { areaColor: '#286d91' },
       },
-      regions: selectedName ? [{ name: selectedName, itemStyle: { areaColor: v.selected, borderColor: v.selectedBorder, borderWidth: 1.5 } }] : [],
+      regions: selectedName ? [{ name: selectedName, itemStyle: { areaColor: '#ff9f1c', borderColor: '#ffe4a3', borderWidth: 1.5 } }] : [],
     },
     series: [
       {
@@ -129,7 +106,7 @@ function createMapOptions(state) {
         zlevel: 2,
         rippleEffect: { brushType: 'stroke', scale: 4 },
         symbolSize: item => Math.min(20, 8 + Math.sqrt(Number(item[2]) || 0) / 18),
-        itemStyle: { color: item => riskColor(item.data?.case?.riskLevel, v), shadowBlur: 12, shadowColor: v.pulse },
+        itemStyle: { color: item => riskColor(item.data?.case?.riskLevel), shadowBlur: 12, shadowColor: '#ff9f1c' },
         data: visiblePulses.map(item => ({
           name: item.caseId,
           value: [item.longitude, item.latitude, item.lossAmount],
@@ -142,7 +119,7 @@ function createMapOptions(state) {
         coordinateSystem: 'geo',
         zlevel: 3,
         symbolSize: 7,
-        itemStyle: { color: item => riskColor(item.data?.case?.riskLevel, v), borderColor: v.area, borderWidth: 0.5 },
+        itemStyle: { color: item => riskColor(item.data?.case?.riskLevel), borderColor: '#fff', borderWidth: 0.5 },
         data: state.cases
           .filter(item => ['high', 'critical'].includes(item.riskLevel))
           .slice(0, 40)
@@ -213,7 +190,6 @@ export function initFraudMap() {
   let destroyed = false
   let reconcileTimer = null
   let pulseTimer = null
-  let active = false
   const seenCases = new Set()
 
   function render(state) {
@@ -223,7 +199,7 @@ export function initFraudMap() {
     chart.setOption(createMapOptions(state), { notMerge: true, lazyUpdate: true })
   }
 
-  async function reconcile({ throwOnError = false } = {}) {
+  async function reconcile() {
     const controller = new AbortController()
     try {
       const snapshot = await fetchFraudSnapshot({ signal: controller.signal })
@@ -234,16 +210,12 @@ export function initFraudMap() {
       store.setSnapshot(snapshot)
       store.setCases(items)
       items.forEach(item => seenCases.add(item.caseId))
-      return snapshot
     } catch (error) {
       if (!destroyed) store.setError(error)
-      if (throwOnError) throw error
-      return null
     }
   }
 
   function onSseEvent(event) {
-    if (!active) return
     const { type, data } = event.detail || {}
     if (type === 'fraud_case_created' && data?.caseId) {
       if (store.getState().snapshot?.isSimulated) return
@@ -303,6 +275,8 @@ export function initFraudMap() {
     }).catch(error => store.setError(error))
   }
 
+  void reconcile()
+  reconcileTimer = setInterval(reconcile, SNAPSHOT_RECONCILE_INTERVAL_MS)
   pulseTimer = setInterval(() => {
     const state = store.getState()
     if (state.recentPulses.length) store.clearPulses()
@@ -313,27 +287,6 @@ export function initFraudMap() {
   return {
     store,
     reconcile,
-    async activate() {
-      if (destroyed) throw new Error('Fraud map has been destroyed')
-      active = true
-      const snapshot = await reconcile({ throwOnError: true })
-      clearInterval(reconcileTimer)
-      reconcileTimer = setInterval(() => void reconcile(), SNAPSHOT_RECONCILE_INTERVAL_MS)
-      requestAnimationFrame(() => chart?.resize())
-      return snapshot
-    },
-    deactivate() {
-      active = false
-      clearInterval(reconcileTimer)
-      reconcileTimer = null
-    },
-    resize() {
-      chart?.resize()
-    },
-    // 主题切换时调用，让 ECharts 用最新的 CSS 变量重绘
-    refresh() {
-      if (chart && mapReady) chart.setOption(createMapOptions(store.getState()), { notMerge: true, lazyUpdate: true })
-    },
     destroy() {
       destroyed = true
       clearInterval(reconcileTimer)
