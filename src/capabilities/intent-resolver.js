@@ -47,6 +47,9 @@ const EXPLICIT_COMMANDS = {
   '/查二维码': 'fraud-toolkit',
   '/verify_identity': 'fraud-toolkit',
   '/核实身份': 'fraud-toolkit',
+  // 反诈功能 #1 — 诈骗风险研判
+  '/analyze': 'fraud-risk-assess',
+  '/研判': 'fraud-risk-assess',
 }
 
 // 纯闲聊 / 无意义短消息：这些永远不需要打开面板，直接跳过 LLM 兜底分类以省延迟。

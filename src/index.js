@@ -20,7 +20,9 @@ import { recordSelfEvolutionFromMemories } from './memory/self-evolution.js'
 import { runRuntimeInjector } from './context/runtime-injector.js'
 import { selectContextSections } from './context/section-gate.js'
 import { getDB, getConfig, setConfig, getKnownEntities, getOrInitBirthTime, insertConversation, insertMemory, getRecentConversationPartners, getDueReminders, markReminderFired, advanceReminderDueAt, getNextPendingReminder, getMemoryCount, getRecentConversationTimeline, loadFocusStack, loadThreadState, saveThreadState, setCurrentFocusTopic, setCurrentThreadId, updateUserMessageFocusTopic, reassignConversationsThread, insertActionLog } from './db.js'
-import { calculateNextDueAt, detectOpenFollowupQuestion } from './capabilities/executor.js'
+import { calculateNextDueAt, detectOpenFollowupQuestion, executeTool } from './capabilities/executor.js'
+import fs from 'fs'
+import path from 'path'
 import { pushMessage } from './inbound-message.js'
 import { popMessage, hasMessages, hasUserMessages, getQueueSnapshot, setInterruptCallback, requeueMessage } from './queue.js'
 import { startTUI } from './tui.js'
@@ -32,7 +34,7 @@ import { registerProvider } from './providers/registry.js'
 import { MinimaxProvider } from './providers/minimax.js'
 import { isRunning, setScheduler } from './control.js'
 import { getCustomIntervalMs, consumeTick as consumeTickerTick, getStatus as getTickerStatus } from './ticker.js'
-import { seedSandboxOnce, rescueDataFromInstallDir } from './paths.js'
+import { seedSandboxOnce, rescueDataFromInstallDir, paths } from './paths.js'
 import { loadInstalledTools } from './capabilities/marketplace/index.js'
 import { dispatchSocialMessage } from './social/dispatch.js'
 import { startSocialConnectors } from './social/index.js'
@@ -823,6 +825,27 @@ async function projectWeatherSurfaceForTurn(message = '') {
   return { id, data, changed }
 }
 
+// 预研判报告：OCR + 规则引擎 → 结构化报告，绕过 LLM function calling
+function buildPreflightReport(ocrText, ruleParsed) {
+  const score = ruleParsed?.score ?? 0
+  const types = Array.isArray(ruleParsed?.hit_types) ? ruleParsed.hit_types : []
+  const playbook = Array.isArray(ruleParsed?.playbook) ? ruleParsed.playbook : []
+  const advice = Array.isArray(ruleParsed?.advice) ? ruleParsed.advice : []
+  const evidence = Array.isArray(ruleParsed?.evidence) ? ruleParsed.evidence : []
+  const emoji = score >= 90 ? '\u{1F534}' : score >= 70 ? '\u{1F7E0}' : score >= 50 ? '\u{1F7E1}' : score >= 30 ? '\u{1F7E2}' : '\u26AA'
+  const level = score >= 90 ? '严重诈骗' : score >= 70 ? '高风险' : score >= 50 ? '中风险' : score >= 30 ? '低风险' : '安全'
+
+  let r = '## \u{1F50D} 诈骗风险研判报告\n\n'
+  r += `**风险等级**：${emoji} ${level}  **风险评分**：${score}/100\n\n---\n\n`
+  r += `### \u{1F4CB} 信息概要\n${ocrText.slice(0, 300)}${ocrText.length > 300 ? '...' : ''}\n\n`
+  if (types.length) r += `### \u{1F3AD} 匹配诈骗类型\n${types.map(t => `- **${t}**`).join('\n')}\n\n`
+  if (evidence.length) r += `### \u{1F6A9} 可疑点\n${evidence.map((e,i) => `${i+1}. ${e}`).join('\n')}\n\n`
+  if (playbook.length) r += `### \u{1F4D6} 诈骗套路拆解\n${playbook.map((s,i) => `${i+1}. **${s}**`).join('\n')}\n\n`
+  if (advice.length) r += `### \u{1F6E1} 处置建议\n${advice.map(a => `- ${a}`).join('\n')}\n\n`
+  if (score >= 70) r += '---\n\n### \u26A0\uFE0F 紧急提醒\n> 存在明显诈骗特征，请勿转账/点击链接/泄露验证码。如已损失请立即拨打 **110**。\n'
+  return r
+}
+
 async function runTurn(input, label, msg = null) {
   const sessionRef = newSessionRef()
   const turnStartedAtMs = Date.now()
@@ -894,6 +917,51 @@ async function runTurn(input, label, msg = null) {
       if (intent) {
         forcedCapabilityIds = [intent.capabilityId]
         console.log(`[intent] 强制激活能力 ${intent.capabilityId}（via=${intent.via}）`)
+      }
+    }
+
+    // 图片预分析：OCR → 规则引擎 → 报告（绕过 LLM function calling）
+    if (!isTick && /!\[[^\]]*\]\([^)]+\)/.test(input)) {
+      const imgPath = (input.match(/!\[[^\]]*\]\(([^)]+)\)/) || [])[1] || ''
+      console.log('[preflight] 检测到图片:', imgPath.slice(0, 60))
+      if (imgPath.startsWith('/media/chat/')) {
+        let ocrText = ''
+        try {
+          const raw = await executeTool('analyze_image', { image_url: imgPath }, { visionTimeoutMs: 30_000 })
+          let p = null; try { p = typeof raw === 'string' ? JSON.parse(raw) : raw } catch {}
+          if (p?.ok && p?.result) ocrText = String(p.result).trim()
+        } catch (e) { console.warn('[preflight] OCR fail:', e?.message?.slice(0,80)) }
+        if (!ocrText) {
+          try {
+            const fp = path.join(paths.mediaDir, decodeURIComponent(imgPath.slice('/media/chat/'.length)))
+            if (fs.existsSync(fp)) {
+              const buf = fs.readFileSync(fp)
+              if (buf.length < 5*1024*1024) {
+                const m = { '.jpg':'image/jpeg','.jpeg':'image/jpeg','.png':'image/png','.webp':'image/webp','.gif':'image/gif' }
+                ocrText = 'data:'+(m[path.extname(fp).toLowerCase()]||'image/png')+';base64,'+buf.toString('base64')
+              }
+            }
+          } catch (e) { console.warn('[preflight] file fail:', e?.message) }
+        }
+        if (!ocrText) console.warn('[preflight] OCR 和文件回退均失败，放行到 LLM')
+        if (ocrText) {
+          if (ocrText.startsWith('data:')) {
+            input = input.replace(/!\[[^\]]*\]\([^)]+\)/g, '') + '\n\n[IMAGE_DATA]'+ocrText+'[/IMAGE_DATA]'
+          } else {
+            let chain = '[图片文字内容]\n'+ocrText+'\n[/图片文字内容]\n\n'; let rule = null
+            try {
+              const r = await executeTool('fraud_rule_screen', { text: ocrText }, {})
+              try { rule = typeof r === 'string' ? JSON.parse(r) : r } catch {}
+              if (rule?.ok) chain += '[规则引擎]\n'+JSON.stringify(rule,null,1)+'\n[/规则引擎]\n\n'
+            } catch (e) { console.warn('[preflight] rule fail:', e?.message?.slice(0,80)) }
+            input = input.replace(/!\[[^\]]*\]\([^)]+\)/g, chain.trim())
+            console.log('[preflight] rule=', !!rule, 'forcedIds=', forcedCapabilityIds)
+            if (rule && forcedCapabilityIds.includes('fraud-risk-assess')) {
+              finishTurn(buildPreflightReport(ocrText, rule)); return
+            }
+          }
+          console.log('[preflight] done')
+        }
       }
     }
 

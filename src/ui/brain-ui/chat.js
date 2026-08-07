@@ -257,17 +257,26 @@ export function initChat({
   function addMsg(role, text, options = {}) {
     const { alert = role === "jarvis", pending = true, label, messageId, source = "event", dedupe = true } = options;
     const defaultLabel = role === "user" ? "You" : role === "jarvis" ? getAgentName() : "Peer";
-    const labelText = label || defaultLabel;
-    if (!claimRenderedMessage({ messageId, role, text, label: labelText, source, dedupe })) return false;
-    const div = document.createElement("div");
-    div.className = `msg msg-${role}`;
+    const labelText = label || defaultLabel;
+    let isUrgent = false, displayText = text;
+    if (typeof text === 'string' && text.includes('<!--RISK_ALERT:URGENT-->')) {
+      isUrgent = true; displayText = text.replace(/<!--RISK_ALERT:URGENT-->/g, '');
+    }
+    if (!claimRenderedMessage({ messageId, role, text, label: labelText, source, dedupe })) return false;
+    const div = document.createElement("div");
+    div.className = `msg msg-${role}` + (isUrgent ? ' msg-risk-urgent' : '');
+    if (isUrgent) {
+      const b = document.createElement("div"); b.className = "risk-urgent-banner";
+      b.innerHTML = '<span class="risk-urgent-icon">🆘</span><span class="risk-urgent-text">⚠️ 紧急提醒：您可能已遭受诈骗！请立即止付并报警！</span>';
+      div.appendChild(b);
+    }
     const normalizedId = normalizeMessageId(messageId);
     if (normalizedId) div.dataset.messageId = normalizedId;
     const labelSpan = document.createElement("span");
     labelSpan.className = "msg-label";
     labelSpan.textContent = labelText;
     div.appendChild(labelSpan);
-    div.appendChild(createMarkdownBody(text));
+    div.appendChild(createMarkdownBody(displayText));
     chatMessages.appendChild(div);
 
     while (chatMessages.children.length > maxHistory) {
@@ -612,9 +621,14 @@ export function initChat({
     {
       cmd: "/核实身份", keys: ["verify_identity", "核实身份", "身份核实", "号码查询", "归属地"],
       label: "身份风险核实", desc: "核实可疑身份、号码或对话的风险（可跟内容）",
-      run: () => fillSlash("/核实身份 "),
-    },
-    {
+      run: () => fillSlash("/核实身份 "),
+    },
+    {
+      cmd: "/analyze", keys: ["analyze", "研判", "风险研判", "诈骗分析", "鉴定", "安全检测", "风险评估", "fraud", "risk"],
+      label: "诈骗风险研判", desc: "粘贴可疑信息（截图/聊天/链接/转账），AI多维度研判风险",
+      run: () => fillSlash("/analyze "),
+    },
+    {
       cmd: "/help", keys: ["help", "帮助", "命令"],
       label: "查看全部命令", desc: "列出所有可用斜杠命令",
       run: showSlashHelp,

@@ -38,6 +38,7 @@ export const FRAUD_RAG_TOOLS = ['search_fraud_cases']
 export const FRAUD_INTEL_TOOLS = ['fraud_intel']
 export const DAILY_TIP_TOOLS = ['get_daily_tip']
 export const FRAUD_TOOLKIT_TOOLS = ['report_fraud', 'search_law', 'check_qrcode', 'verify_identity']
+export const FRAUD_RISK_ASSESS_TOOLS = ['fraud_rule_screen', 'search_fraud_cases', 'web_search', 'verify_identity', 'check_qrcode', 'manage_reminder', 'upsert_memory']
 
 // ---- 触发词 / 触发正则 ----
 // 工具半历史上用字面包含的字符串数组（tool-router），工作流半用正则（prompt）。两者各自
@@ -59,6 +60,7 @@ const FRAUD_RAG_KEYWORD_RE = /诈骗|骗局|骗钱|可疑|风险|转账|汇款|�
 const FRAUD_INTEL_KEYWORD_RE = /最新诈骗|新型骗局|新套路|诈骗案例|诈骗趋势|诈骗情报|诈骗新闻|骗术|骗局|反诈情报|fraud intel/i
 const DAILY_TIP_KEYWORD_RE = /每日提醒|反诈提醒|反诈知识|反诈科普|今日提醒|每天一题|反诈演练|daily tip|anti.fraud tip/i
 const FRAUD_TOOLKIT_KEYWORD_RE = /举报|报案|投诉|法规|法律|条文|量刑|二维码|扫码|身份核实|号码查询|归属地|report.fraud|search.law|check.qrcode|verify.identity/i
+const FRAUD_ASSESS_INTENT_RE = /(帮(我|忙)).*(看看|分析|鉴定|判断|查|检测|研判)|(是不是|是否是|会不会是).*(诈骗|骗子|骗局|钓鱼)|(安全|可靠|可信|正规)(吗|不|性)|风险(研判|评估|分析|检测|鉴定)|(被骗|上当|受骗)(了|过)/i
 
 // ---- 工作流块（prompt 注入用；从 prompt.js / index.js 搬来，文本逐字保留）----
 const WEATHER_CONTEXT_BLOCK = `### Weather Surface Rules
@@ -101,6 +103,13 @@ const FRAUD_TOOLKIT_CONTEXT_BLOCK = `### Fraud Toolkit
 - search_law: Searches built-in anti-fraud law articles (反诈法, 刑法266条, etc.). Call when user asks about legal provisions or sentencing.
 - check_qrcode: Analyzes QR code content (URL safety, phishing patterns, risk scoring). Call when user scans a QR code and wants to check safety.
 - verify_identity: Comprehensive identity verification using local rule engine + URL/phone pattern analysis. Call when user wants to verify a phone number, URL, or text for fraud risk.`
+
+const FRAUD_RISK_ASSESS_CONTEXT_BLOCK = `### Fraud Risk Assessment (fraud-risk-assess)
+**CRITICAL**: When user message contains ![pasted image] → call analyze_image FIRST, never skip.
+- /analyze triggers full fraud risk assessment workflow per Agent Skill.
+- Key tools: fraud_rule_screen, search_fraud_cases (fallback web_search), verify_identity, check_qrcode, analyze_image, manage_reminder, upsert_memory.
+- For loss cases: use <!--RISK_ALERT:URGENT--> marker, call report_fraud for reporting guidance.
+- RAG unavailable → web_search fallback for similar cases.`
 
 // 安装工作流：原先以 directions.unshift 注入在 index.js，现归位为能力 context，统一经
 // buildSystemPrompt 注入（同一份文本、同一道 isSoftwareInstallRequest 门）。
@@ -204,6 +213,17 @@ export const CAPABILITIES = [
     tools: FRAUD_TOOLKIT_TOOLS,
     detect: (ctx) => FRAUD_TOOLKIT_KEYWORD_RE.test(ctx.rawText || ''),
     context: FRAUD_TOOLKIT_CONTEXT_BLOCK,
+    prefeed: null,
+  },
+  {
+    id: 'fraud-risk-assess',
+    label: '诈骗风险研判',
+    summary: '对可疑信息（文本/截图/聊天记录/语音/链接/转账）执行完整反诈研判：规则引擎→案例匹配→链接/二维码检测→风险评级→结构化报告。',
+    triggers: ['风险研判', '诈骗分析', '安全检测', '诈骗鉴定', '帮我鉴定', '这个安全吗', '有没有风险', '被骗', 'fraud check', 'risk assess', '/analyze', '/研判'],
+    tools: FRAUD_RISK_ASSESS_TOOLS,
+    detect: (ctx) => FRAUD_ASSESS_INTENT_RE.test(ctx.rawText || ''),
+    toolWhen: (ctx) => FRAUD_ASSESS_INTENT_RE.test(ctx.rawText || ''),
+    context: FRAUD_RISK_ASSESS_CONTEXT_BLOCK,
     prefeed: null,
   },
 

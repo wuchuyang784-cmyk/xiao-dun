@@ -3714,3 +3714,13 @@ body.video-mode   > #voice-panel #voice-canvas{
   .panel { display: none; }
   .console { left: 12px; right: 12px; }
 }
+
+/* 诈骗风险研判 — 已损失紧急提醒 */
+.msg-risk-urgent { border-left: 3px solid var(--danger) !important; box-shadow: 0 0 20px rgba(248,113,113,0.18), var(--shadow-soft) !important; animation: risk-pulse 2s ease-in-out infinite; }
+@keyframes risk-pulse { 0%,100%{border-left-color:var(--danger)} 50%{border-left-color:#ff3d71} }
+.risk-urgent-banner { display:flex; align-items:center; gap:10px; margin:-6px -6px 12px; padding:12px 16px; border-radius:10px; background:linear-gradient(135deg,rgba(248,113,113,0.22),rgba(255,61,113,0.16)); border:1px solid rgba(248,113,113,0.42); animation:risk-shimmer 1.8s ease-in-out infinite; }
+@keyframes risk-shimmer { 0%,100%{background:linear-gradient(135deg,rgba(248,113,113,0.22),rgba(255,61,113,0.16))} 50%{background:linear-gradient(135deg,rgba(255,61,113,0.28),rgba(248,113,113,0.22))} }
+.risk-urgent-icon { font-size:24px; flex-shrink:0; animation:risk-bounce 1s ease-in-out infinite; }
+@keyframes risk-bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+.risk-urgent-text { font-size:13px; font-weight:700; color:var(--danger); letter-spacing:0.04em; line-height:1.4; }
+@media (prefers-reduced-motion:reduce) { .msg-risk-urgent,.risk-urgent-banner,.risk-urgent-icon{animation:none} }
