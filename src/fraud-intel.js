@@ -89,14 +89,14 @@ function htmlToText(html) {
 // ─── 诈骗类型分类（与 fraud-rule-engine 对齐） ──────────────────────────────────
 
 const FRAUD_CATEGORIES = [
-  { id: 'brushing',           type: '刷单返利',     query: '最新 刷单返利诈骗 警方通报 案例' },
-  { id: 'refund_customer',    type: '冒充客服退款',  query: '最新 冒充客服退款诈骗 警方通报 案例' },
-  { id: 'impersonate_police', type: '冒充公检法',   query: '最新 冒充公检法诈骗 警方通报 案例' },
-  { id: 'fake_investment',    type: '虚假投资理财',  query: '最新 投资理财诈骗 警方通报 案例' },
-  { id: 'pig_butchering',     type: '杀猪盘',       query: '最新 杀猪盘诈骗 警方通报 案例' },
-  { id: 'loan_scam',          type: '贷款诈骗',     query: '最新 网贷贷款诈骗 警方通报 案例' },
-  { id: 'prize_scam',         type: '中奖诈骗',     query: '最新 中奖诈骗 警方通报 案例' },
-  { id: 'nude_extortion',     type: '裸聊敲诈',     query: '最新 裸聊敲诈诈骗 警方通报 案例' },
+  { id: 'brushing',           type: '刷单返利',     query: '最新刷单返利诈骗 警方通报 案例' },
+  { id: 'refund_customer',    type: '冒充客服退款',  query: '最新冒充客服退款诈骗 警方通报 案例' },
+  { id: 'impersonate_police', type: '冒充公检法',   query: '最新冒充公检法诈骗 警方通报 案例' },
+  { id: 'fake_investment',    type: '虚假投资理财',  query: '最新投资理财诈骗 警方通报 案例' },
+  { id: 'pig_butchering',     type: '杀猪盘',       query: '最新杀猪盘诈骗 警方通报 案例' },
+  { id: 'loan_scam',          type: '贷款诈骗',     query: '最新网贷贷款诈骗 警方通报 案例' },
+  { id: 'prize_scam',         type: '中奖诈骗',     query: '最新中奖诈骗 警方通报 案例' },
+  { id: 'nude_extortion',     type: '裸聊敲诈',     query: '最新裸聊敲诈诈骗 警方通报 案例' },
 ]
 
 // ─── 搜索引擎 ─────────────────────────────────────────────────────────────────
@@ -245,15 +245,15 @@ function filterSearchResults(results) {
   return results.filter(isFraudRelevant)
 }
 
-// 搜索引擎调度：DuckDuckGo（中文最佳，已修复）→ Serper（有 key）→ Bing（最后兜底）
+// 搜索引擎调度：Serper（有 key，最稳定）→ DuckDuckGo（中文最佳）→ Bing（最后兜底）
 async function searchFraud(query, limit = 5) {
-  // 1. DuckDuckGo（中文诈骗查询质量最好）
-  const ddgResult = await searchViaDDG(query, limit)
-  if (ddgResult && ddgResult.length > 0) return { results: ddgResult, engine: 'duckduckgo' }
-
-  // 2. Serper（如果配了 key）
+  // 1. Serper（如果配了 key，Google SERP JSON 最稳定）
   const serperResult = await searchViaSerper(query, limit)
   if (serperResult && serperResult.length > 0) return { results: serperResult, engine: 'serper' }
+
+  // 2. DuckDuckGo（无 key，中文诈骗查询质量最好）
+  const ddgResult = await searchViaDDG(query, limit)
+  if (ddgResult && ddgResult.length > 0) return { results: ddgResult, engine: 'duckduckgo' }
 
   // 3. Bing（最后兜底，中文质量差）
   const bingResult = await searchViaBing(query, limit)
@@ -500,17 +500,17 @@ function buildPushText(newCases) {
  *     · mode='interval'  → 每 interval_hours 小时采集一次，发现新案例推送
  *     · mode='daily'     → 每分钟检测一次，到达 daily_time 触发采集+推送
  *
- * @param {number} intervalHours  启动时的默认间隔（仅在配置不存在时使用）
+ * @param {number} intervalHours  启动时的默认间隔（仅在配置不存在时使用），默认 12
  */
-export function startFraudIntelScheduler(intervalHours = 6) {
+export function startFraudIntelScheduler(intervalHours = 12) {
   if (_schedulerTimer) {
     console.log('[fraud-intel] 调度器已在运行，跳过')
     return
   }
 
-  // 读取配置（缺省时用启动参数）
+  // 读取配置（缺省时用启动参数，默认自动启用）
   let cfg = safe(getReminderConfig, null) || {
-    enabled: false, mode: 'interval', interval_hours: intervalHours, daily_time: '09:00',
+    enabled: true, mode: 'interval', interval_hours: intervalHours, daily_time: '09:00',
   }
   if (!cfg.interval_hours) cfg.interval_hours = intervalHours
   console.log(`[fraud-intel] 启动定时调度器: ${cfg.enabled ? '已启用' : '未启用'} / ${cfg.mode}${cfg.mode === 'daily' ? ` @ ${cfg.daily_time}` : ` ${cfg.interval_hours}h`}`)
@@ -519,6 +519,8 @@ export function startFraudIntelScheduler(intervalHours = 6) {
   collectFraudIntel().then(result => {
     if (result?.categories) {
       _lastCaseData = extractCaseTitles(result)
+      // 记录初始触发时间，避免启动后第一分钟立即重复触发
+      _lastDailyTrigger = new Date().toISOString()
       console.log('[fraud-intel] 初始采集完成，记录 ' + _lastCaseData.titles.size + ' 条案例基线')
     }
   }).catch(() => {})
@@ -618,7 +620,7 @@ function shouldTriggerNow(cfg, lastTriggerISO, now) {
     return true
   }
   // interval 模式
-  const ms = (Number(cfg.interval_hours) || 6) * 60 * 60 * 1000
+  const ms = (Number(cfg.interval_hours) || 12) * 60 * 60 * 1000
   if (!lastTriggerISO) return true
   return (now.getTime() - new Date(lastTriggerISO).getTime()) >= ms
 }

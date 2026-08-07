@@ -11,10 +11,10 @@ const CFG_FILE = path.join(DATA_DIR, 'scheduled-reminder.json')
 const HISTORY_LIMIT = 10
 
 const DEFAULT_CONFIG = {
-  enabled: false,                  // 默认关闭：避免用户无意识被骚扰
+  enabled: true,                   // 默认开启：每12小时自动采集推送，用户可通过 /定时提醒 disable 关闭
   mode: 'interval',                // 'interval' = 每 N 小时；'daily' = 每天 HH:MM
   daily_time: '09:00',             // daily 模式的目标时间（24h 制）
-  interval_hours: 6,               // interval 模式的间隔
+  interval_hours: 12,              // interval 模式的间隔（小时）
   history: [],                     // 最近推送记录
   last_run_at: null,               // 上次成功触发的时间（避免重复）
   created_at: null,

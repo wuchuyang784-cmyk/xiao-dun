@@ -169,7 +169,7 @@ export const systemSchemas = {
           },
           interval_hours: {
             type: 'number',
-            description: 'set_interval 时使用,1-24 之间的整数,如 6 表示每 6 小时'
+            description: 'set_interval 时使用,1-24 之间的整数,如 12 表示每 12 小时'
           }
         },
         required: ['action']

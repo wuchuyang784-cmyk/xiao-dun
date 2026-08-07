@@ -101,7 +101,7 @@ function parseScheduledReminderSubcommand(text) {
     if (m[3]) return { action: 'disable', raw: t }
     if (m[4]) return { action: 'status', raw: t }
     if (m[5]) return { action: 'set_time', time: m[6] || '', raw: t }  // empty time → status hint
-    if (m[7]) return { action: 'set_interval', interval_hours: parseInt(m[8] || '6', 10), raw: t }
+    if (m[7]) return { action: 'set_interval', interval_hours: parseInt(m[8] || '12', 10), raw: t }
     if (m[9]) return { action: 'history', raw: t }
   }
   if (t.match(SCHEDULED_REMINDER_BARE_RE)) {
