@@ -27,7 +27,6 @@ import { emitEvent } from './events.js'
 import { pushMessage } from './inbound-message.js'
 import { getAllClawbotTokens } from './db.js'
 import { dispatchSocialMessage } from './social/dispatch.js'
-import { getReminderConfig, recordReminderRun } from './capabilities/tools/scheduled-reminder.js'
 
 const INTEL_FILE     = path.join(paths.dataDir, 'fraud-intel.json')
 const INTEL_VERSION  = 1
@@ -89,14 +88,14 @@ function htmlToText(html) {
 // ─── 诈骗类型分类（与 fraud-rule-engine 对齐） ──────────────────────────────────
 
 const FRAUD_CATEGORIES = [
-  { id: 'brushing',           type: '刷单返利',     query: '最新 刷单返利诈骗 警方通报 案例' },
-  { id: 'refund_customer',    type: '冒充客服退款',  query: '最新 冒充客服退款诈骗 警方通报 案例' },
-  { id: 'impersonate_police', type: '冒充公检法',   query: '最新 冒充公检法诈骗 警方通报 案例' },
-  { id: 'fake_investment',    type: '虚假投资理财',  query: '最新 投资理财诈骗 警方通报 案例' },
-  { id: 'pig_butchering',     type: '杀猪盘',       query: '最新 杀猪盘诈骗 警方通报 案例' },
-  { id: 'loan_scam',          type: '贷款诈骗',     query: '最新 网贷贷款诈骗 警方通报 案例' },
-  { id: 'prize_scam',         type: '中奖诈骗',     query: '最新 中奖诈骗 警方通报 案例' },
-  { id: 'nude_extortion',     type: '裸聊敲诈',     query: '最新 裸聊敲诈诈骗 警方通报 案例' },
+  { id: 'brushing',           type: '刷单返利',     query: '最新刷单返利诈骗 警方通报 案例' },
+  { id: 'refund_customer',    type: '冒充客服退款',  query: '最新冒充客服退款诈骗 警方通报 案例' },
+  { id: 'impersonate_police', type: '冒充公检法',   query: '最新冒充公检法诈骗 警方通报 案例' },
+  { id: 'fake_investment',    type: '虚假投资理财',  query: '最新投资理财诈骗 警方通报 案例' },
+  { id: 'pig_butchering',     type: '杀猪盘',       query: '最新杀猪盘诈骗 警方通报 案例' },
+  { id: 'loan_scam',          type: '贷款诈骗',     query: '最新网贷贷款诈骗 警方通报 案例' },
+  { id: 'prize_scam',         type: '中奖诈骗',     query: '最新中奖诈骗 警方通报 案例' },
+  { id: 'nude_extortion',     type: '裸聊敲诈',     query: '最新裸聊敲诈诈骗 警方通报 案例' },
 ]
 
 // ─── 搜索引擎 ─────────────────────────────────────────────────────────────────
@@ -164,7 +163,6 @@ function parseDdgResults(html, limit = 5) {
 }
 
 async function searchViaDDG(query, limit = 5) {
-  // 注意：duckduckgo.com/html/ 已失效，必须用 html.duckduckgo.com/html/
   const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`
   const html = await fetchText(searchUrl, { headers: WEB_HEADERS }, 12000)
   if (!html) return null
@@ -203,59 +201,17 @@ async function searchViaBing(query, limit = 5) {
   return results
 }
 
-// ─── 搜索结果质量过滤 ────────────────────────────────────────────────────────
-
-// 诈骗相关关键词——标题/摘要至少包含一个才保留
-const FRAUD_KEYWORDS = [
-  '诈骗', '骗局', '骗', '诈', '警情', '通报', '警方', '公安', '反诈',
-  '受害', '涉案', '转账', '赃', '预警', '提醒', '案例', '作案', '嫌疑人',
-  '96110', '损失', '被骗', '套路', '手法', '新型',
-]
-
-// 无关域名黑名单——这些站点返回的结果直接丢弃
-const DOMAIN_BLACKLIST = [
-  'baike.baidu.com',     // 百度百科字典释义
-  'hanyuguoxue.com',     // 汉语国学字典
-  'ebay.com', 'ebay.cn', // eBay 商品
-  'iqiyi.com',           // 爱奇艺视频
-  'bilibili.com',       // B站视频
-  'youku.com',           // 优酷视频
-  'taobao.com', 'tmall.com', // 电商商品页
-  'jd.com',              // 京东商品
-]
-
-function isFraudRelevant(result) {
-  const text = (result.title + ' ' + result.snippet).toLowerCase()
-  const url = result.url || ''
-
-  // 1. 域名黑名单直接排除
-  try {
-    const host = new URL(url).hostname
-    if (DOMAIN_BLACKLIST.some(d => host.includes(d))) return false
-  } catch {}
-
-  // 2. 标题或摘要必须包含至少一个诈骗关键词
-  const hasKeyword = FRAUD_KEYWORDS.some(kw => text.includes(kw))
-  if (!hasKeyword) return false
-
-  return true
-}
-
-function filterSearchResults(results) {
-  return results.filter(isFraudRelevant)
-}
-
-// 搜索引擎调度：DuckDuckGo（中文最佳，已修复）→ Serper（有 key）→ Bing（最后兜底）
+// 搜索引擎调度：Serper（有 key）→ DuckDuckGo（中文最佳）→ Bing（最后兜底）
 async function searchFraud(query, limit = 5) {
-  // 1. DuckDuckGo（中文诈骗查询质量最好）
-  const ddgResult = await searchViaDDG(query, limit)
-  if (ddgResult && ddgResult.length > 0) return { results: ddgResult, engine: 'duckduckgo' }
-
-  // 2. Serper（如果配了 key）
+  // 1. Serper（如果配了 key）
   const serperResult = await searchViaSerper(query, limit)
   if (serperResult && serperResult.length > 0) return { results: serperResult, engine: 'serper' }
 
-  // 3. Bing（最后兜底，中文质量差）
+  // 2. DuckDuckGo（中文诈骗查询质量最好）
+  const ddgResult = await searchViaDDG(query, limit)
+  if (ddgResult && ddgResult.length > 0) return { results: ddgResult, engine: 'duckduckgo' }
+
+  // 3. Bing（最后兜底）
   const bingResult = await searchViaBing(query, limit)
   if (bingResult && bingResult.length > 0) return { results: bingResult, engine: 'bing' }
 
@@ -307,7 +263,7 @@ export async function collectFraudIntel(opts = {}) {
   console.log(`[fraud-intel] 开始采集 ${categories.length} 个诈骗类型的最新情报...`)
 
   const results = []
-  const LIMIT_PER_CATEGORY = 5
+  const LIMIT_PER_CATEGORY = 3
   let usedEngine = 'none'
 
   for (const cat of categories) {
@@ -326,18 +282,9 @@ export async function collectFraudIntel(opts = {}) {
       continue
     }
 
-    // 质量过滤：排除字典释义、电商商品、游戏攻略等无关结果
-    const filtered = filterSearchResults(searchResults)
-    if (filtered.length === 0) {
-      console.log(`[fraud-intel] ${cat.type}: ${searchResults.length} 条结果全部被过滤（无关内容）`)
-      results.push({ ...cat, cases: [] })
-      continue
-    }
-    searchResults = filtered
-
-    // 对前 3 条结果尝试提取正文摘要（控制并发和时间）
+    // 对前 2 条结果尝试提取正文摘要（控制并发和时间）
     const enriched = []
-    for (const r of searchResults.slice(0, 3)) {
+    for (const r of searchResults.slice(0, 2)) {
       let summary = r.snippet || ''
       if (!summary || summary.length < 30) {
         const jinaSummary = await fetchSummaryViaJina(r.url)
@@ -351,7 +298,7 @@ export async function collectFraudIntel(opts = {}) {
       })
     }
     // 补上没提取正文的剩余条目（只带 snippet）
-    for (const r of searchResults.slice(3)) {
+    for (const r of searchResults.slice(2)) {
       enriched.push({
         title: r.title,
         url: r.url,
@@ -428,9 +375,9 @@ export function getFraudCategories() {
 // ─── 定时调度器：定时采集 + 主动推送 ────────────────────────────────────────
 
 let _schedulerTimer = null
-let _lastCaseData = null    // 上次采集的案例数据 { titles: Set, urls: Set }，用于检测新增
+let _lastCaseData = null  // 上次采集的案例数据 { titles:Set, urls:Set }，用于检测新增
 
-// 标题归一化：去除标点、空格、常见噪音词后做模糊对比
+// 标题归一化：去标点、空格、常见前缀词后做模糊匹配
 function normalizeTitle(title) {
   return String(title || '')
     .replace(/[\s\u3000\|\-\_—–·•【】\[\]()（）,，.。!！?？:：""]/g, '')
@@ -439,7 +386,7 @@ function normalizeTitle(title) {
     .trim()
 }
 
-// 从采集结果中提取所有案例的归一化标题和 URL，用于对比是否有新案例
+// 从采集结果中提取案例标题和URL，用于对比是否有新案例
 function extractCaseTitles(result) {
   if (!result?.categories) return { titles: new Set(), urls: new Set() }
   const titles = new Set()
@@ -453,21 +400,20 @@ function extractCaseTitles(result) {
   return { titles, urls }
 }
 
-// 找出新案例（当前有但上次没有的）——标题归一化 + URL 双重去重
+// 找出新案例（标题和URL都没见过的才算新）
 function findNewCases(lastData, result) {
   if (!lastData || (!lastData.titles && !lastData.urls)) return []
   const lastTitles = lastData.titles || new Set()
   const lastUrls = lastData.urls || new Set()
   if (lastTitles.size === 0 && lastUrls.size === 0) return []
-
   const newCases = []
   for (const cat of result.categories || []) {
     for (const item of cat.cases || []) {
       const normTitle = normalizeTitle(item.title)
       const url = item.url || ''
-      // 标题和 URL 都没见过才算新案例
       const titleIsNew = normTitle && !lastTitles.has(normTitle)
       const urlIsNew = url && !lastUrls.has(url)
+      // 标题和URL都没见过才算新案例（避免同一篇文章不同标题重复推送）
       if (titleIsNew && urlIsNew) {
         newCases.push({ ...item, category: cat.type })
       }
@@ -476,7 +422,7 @@ function findNewCases(lastData, result) {
   return newCases
 }
 
-// 把新案例整理成推送文案（含来源链接）
+// 把新案例整理成推送文案
 function buildPushText(newCases) {
   if (newCases.length === 0) return ''
   const lines = ['【反诈情报更新】检测到 ' + newCases.length + ' 条新诈骗案例：\n']
@@ -493,14 +439,8 @@ function buildPushText(newCases) {
 
 /**
  * 启动定时采集调度器。
- *
- * 配置来源：data/scheduled-reminder.json（由 /定时提醒 工具维护）
- * - enabled=false  → 只采集不推送（且不计入推送历史）
- * - enabled=true：
- *     · mode='interval'  → 每 interval_hours 小时采集一次，发现新案例推送
- *     · mode='daily'     → 每分钟检测一次，到达 daily_time 触发采集+推送
- *
- * @param {number} intervalHours  启动时的默认间隔（仅在配置不存在时使用）
+ * 每 intervalHours 小时强制刷新一次，发现新案例时主动推送给用户。
+ * @param {number} intervalHours  采集间隔（小时），默认 6
  */
 export function startFraudIntelScheduler(intervalHours = 6) {
   if (_schedulerTimer) {
@@ -508,14 +448,9 @@ export function startFraudIntelScheduler(intervalHours = 6) {
     return
   }
 
-  // 读取配置（缺省时用启动参数）
-  let cfg = safe(getReminderConfig, null) || {
-    enabled: false, mode: 'interval', interval_hours: intervalHours, daily_time: '09:00',
-  }
-  if (!cfg.interval_hours) cfg.interval_hours = intervalHours
-  console.log(`[fraud-intel] 启动定时调度器: ${cfg.enabled ? '已启用' : '未启用'} / ${cfg.mode}${cfg.mode === 'daily' ? ` @ ${cfg.daily_time}` : ` ${cfg.interval_hours}h`}`)
+  const intervalMs = intervalHours * 60 * 60 * 1000
 
-  // 立即做一次基线采集（不推送，只为建立 new-case 检测基线）
+  // 立即采集一次（如果缓存过期）
   collectFraudIntel().then(result => {
     if (result?.categories) {
       _lastCaseData = extractCaseTitles(result)
@@ -523,28 +458,16 @@ export function startFraudIntelScheduler(intervalHours = 6) {
     }
   }).catch(() => {})
 
-  // 定时器：每分钟唤醒一次，根据当前 config 决定是否真正触发采集+推送
+  // 定时采集
   _schedulerTimer = setInterval(async () => {
     try {
-      const liveCfg = safe(getReminderConfig, null)
-      if (!liveCfg) return
-
-      // 未启用 → 跳过（但仍保留定时器，每分钟检测重新启用）
-      if (!liveCfg.enabled) return
-
-      const now = new Date()
-      const trigger = shouldTriggerNow(liveCfg, _lastDailyTrigger, now)
-      if (!trigger) return
-      _lastDailyTrigger = now.toISOString()
-
-      console.log('[fraud-intel] 定时采集触发（模式=' + liveCfg.mode + '）...')
+      console.log('[fraud-intel] 定时采集触发...')
       const result = await collectFraudIntel({ force: true })
-      const newData = extractCaseTitles(result)
+      const newTitles = extractCaseTitles(result)
       const newCases = findNewCases(_lastCaseData, result)
 
-      let pushedToWechat = 0
       if (newCases.length > 0) {
-        // 1. SSE 事件推给前端
+        // 1. SSE 事件推给前端（实时通知卡片）
         emitEvent('fraud_intel_update', {
           new_count: newCases.length,
           total_cases: result.total_cases,
@@ -553,19 +476,19 @@ export function startFraudIntelScheduler(intervalHours = 6) {
             type: c.category,
             title: c.title,
             source: c.source,
-            url: c.url || '',
             summary: (c.summary || '').slice(0, 200),
           })),
         })
-        // 2. pushMessage 让 Agent 在下个 TICK 看到
+        // 2. pushMessage 让 Agent 在下个 TICK 看到，可主动在对话里提醒用户
         const pushText = buildPushText(newCases)
         pushMessage('SYSTEM', pushText, 'FRAUD_INTEL', {})
-        // 3. 微信推送
+        // 3. 推送到所有已绑定的微信会话（clawbot）
         const tokens = getAllClawbotTokens()
         for (const { from_user_id } of tokens) {
           dispatchSocialMessage(`wechat:clawbot:${from_user_id}`, { text: pushText })
             .then(r => {
-              if (r?.ok) pushedToWechat++
+              if (r?.ok) console.log('[fraud-intel] 已推送到微信用户 ' + from_user_id)
+              else console.log('[fraud-intel] 微信推送跳过 ' + from_user_id + ': ' + (r?.reason || r?.error || 'unknown'))
             })
             .catch(err => console.warn('[fraud-intel] 微信推送失败 ' + from_user_id + ':', err.message))
         }
@@ -574,57 +497,16 @@ export function startFraudIntelScheduler(intervalHours = 6) {
         console.log('[fraud-intel] 定时采集完成，无新案例')
       }
 
-      _lastCaseData = newData
-
-      // 写入推送历史（不管是否有新案例，都记录一次触发）
-      safe(() => recordReminderRun({
-        type: liveCfg.mode,
-        new_count: newCases.length,
-        users: getAllClawbotTokens().length,
-        status: newCases.length > 0 ? 'pushed' : 'no_change',
-      }), null)
+      _lastCaseData = newTitles
     } catch (err) {
       console.log('[fraud-intel] 定时采集失败: ' + (err?.message || err))
     }
-  }, 60 * 1000)  // 每分钟唤醒一次
+  }, intervalMs)
 
+  // 防止 setInterval 阻止进程退出
   if (_schedulerTimer.unref) _schedulerTimer.unref()
-  console.log('[fraud-intel] 定时调度器已启动（每分钟检测，模式由配置决定）')
-}
 
-// ─── 触发判定 ───────────────────────────────────────────────────────────────
-
-let _lastDailyTrigger = null  // ISO 字符串，daily 模式下已触发的最后时间
-
-/**
- * 判定当前时间是否该触发一次采集+推送。
- * - interval 模式：距上次触发超过 interval_hours 小时
- * - daily 模式：当前 HH:MM 等于 daily_time 且今天还没触发过
- *
- * @param {object} cfg   当前配置
- * @param {string|null} lastTriggerISO  上次触发的 ISO 时间
- * @param {Date} now     当前时间
- * @returns {boolean}
- */
-function shouldTriggerNow(cfg, lastTriggerISO, now) {
-  if (cfg.mode === 'daily') {
-    const target = String(cfg.daily_time || '09:00')
-    const cur = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
-    if (cur !== target) return false
-    if (!lastTriggerISO) return true
-    // 同一分钟内最多触发一次（同分钟多次滚动不算）
-    const last = new Date(lastTriggerISO)
-    if (sameDay(last, now) && last.getHours() === now.getHours() && last.getMinutes() === now.getMinutes()) return false
-    return true
-  }
-  // interval 模式
-  const ms = (Number(cfg.interval_hours) || 6) * 60 * 60 * 1000
-  if (!lastTriggerISO) return true
-  return (now.getTime() - new Date(lastTriggerISO).getTime()) >= ms
-}
-
-function sameDay(a, b) {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+  console.log('[fraud-intel] 定时调度器已启动，每 ' + intervalHours + ' 小时采集一次')
 }
 
 /**
