@@ -81,7 +81,7 @@ class SentenceTransformerEmbeddingClient:
     def embed(self, text: str, request_id: str) -> tuple[float, ...]:
         del request_id
         vector = self._load_model().encode(
-            self.QUERY_INSTRUCTION + text,
+            text,
             normalize_embeddings=True,
             convert_to_numpy=True,
             show_progress_bar=False,

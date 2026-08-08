@@ -141,6 +141,38 @@ export const systemSchemas = {
     }
   },
 
+  scheduled_reminder: {
+    type: 'function',
+    function: {
+      name: 'scheduled_reminder',
+      description: '控制反诈情报的定时自动推送。\n\n⚠️ 调用规则：\n1. 用户说「开启定时提醒 / 自动推送 / 每天推送 / 定时采集」等，必须调本工具。\n2. /定时提醒 是一个统一入口，**所有**子操作（status / enable / disable / set_time / set_interval / history）都走本工具的 action 参数，禁止自己用 LLM 知识虚构/修改配置。\n3. push 推送动作由 fraud_intel 工具负责，本工具只控制「定时自动触发」的开关/时间。\n4. 不允许以「已经开过了」「已经配置过了」为由拒绝调用——每次都用最新的配置调用，结果告诉用户。',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            enum: ['status', 'enable', 'disable', 'set_mode', 'set_time', 'set_interval', 'history'],
+            description: 'status=查看当前配置; enable/disable=开/关定时推送; set_mode=切换模式; set_time=设置每天推送时间; set_interval=设置间隔小时数; history=查看最近推送记录'
+          },
+          mode: {
+            type: 'string',
+            enum: ['interval', 'daily'],
+            description: 'set_mode 时使用: interval=间隔模式(每N小时), daily=每天定时(HH:MM)'
+          },
+          time: {
+            type: 'string',
+            description: 'set_time 时使用,24h 制 HH:MM,如 09:00 或 21:30'
+          },
+          interval_hours: {
+            type: 'number',
+            description: 'set_interval 时使用,1-24 之间的整数,如 12 表示每 12 小时'
+          }
+        },
+        required: ['action']
+      }
+    }
+  },
+
   connect_wechat: {
     type: 'function',
     function: {

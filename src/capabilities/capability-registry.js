@@ -28,6 +28,7 @@ import { buildHotspotRuntimeContext } from '../hotspots.js'
 import { buildWeatherRuntimeContext } from '../weather.js'
 import { listApiSlotCapabilities } from './api-slots.js'
 import { getFraudIntelBlock } from '../fraud-intel.js'
+import { shouldAnalyzeFraudImage } from './fraud-image-intent.js'
 
 // ---- 已迁能力的工具名数组（本模块为唯一定义处；tool-router 从这里 import）----
 export const WEB_TOOLS = ['web_search', 'fetch_url', 'browser_read']
@@ -35,6 +36,7 @@ export const HOTSPOT_TOOLS = ['hotspot_mode']
 export const CASES_IMPORT_TOOLS = []
 export const RECORD_TOOLS = []
 export const FRAUD_RAG_TOOLS = ['search_fraud_cases', 'fraud_rule_screen']
+export const FRAUD_IMAGE_TOOLS = ['analyze_fraud_image']
 export const VERIFY_LINK_TOOLS = ['check_link']
 export const VERIFY_SMS_TOOLS = ['check_sms']
 export const FRAUD_INTEL_TOOLS = ['fraud_intel']
@@ -98,6 +100,13 @@ const VERIFY_SMS_CONTEXT_BLOCK = `### SMS / Chat Risk Breakdown (check_sms)
 - When the user wants to analyze a suspicious SMS, chat transcript, or transfer-invite text, call check_sms with the original text (e.g. { "text": "..." }).
 - It reuses the fraud rule engine (runFraudRuleEngine) for script matching and searchRiskTexts for similar-case retrieval, then assembles a structured risk breakdown (script evidence, playbook, similar cases, advice).
 - If the user only types "/check_sms <text>", force this capability and call check_sms directly; present the returned report.`
+
+const FRAUD_IMAGE_CONTEXT_BLOCK = `### Image Fraud Analysis (analyze_fraud_image)
+- analyze_fraud_image is a built-in XiaoDun anti-fraud tool.
+- Call it only when the current user message contains an image AND the user asks for fraud, scam, or risk analysis.
+- Do not call it for ordinary image description, pets, scenery, UI screenshots, translation, or design questions.
+- If the user sends only an image without fraud-analysis intent, ask whether they want scam-risk analysis instead of calling tools.
+- The tool performs OCR/vision extraction, rule screening, external RAG similar-case retrieval, link checks, and returns a structured report.`
 
 const FRAUD_INTEL_CONTEXT_BLOCK = `### Fraud Intelligence
 - Latest fraud intelligence is available in your context (prefeed). Use it directly for proactive alerts.
@@ -180,6 +189,17 @@ export const CAPABILITIES = [
     toolWhen: () => false,
     context: HOTSPOT_CONTEXT_BLOCK,
     prefeed: (ctx) => buildHotspotRuntimeContext(ctx.rawText || ''),
+  },
+  {
+    id: 'fraud-image-analysis',
+    label: '图片涉诈分析',
+    summary: '内置图片反诈分析工具：仅在图片存在且用户表达诈骗/风险分析意图时，对聊天截图、转账截图、二维码、链接截图进行 OCR、规则、外部 RAG 和链接检测。',
+    triggers: ['图片反诈', '验图片', '聊天截图', '截图诈骗', '可疑图片', '二维码风险', 'check_image', 'image fraud'],
+    tools: FRAUD_IMAGE_TOOLS,
+    detect: (ctx) => shouldAnalyzeFraudImage(ctx.rawText || ''),
+    toolWhen: (ctx) => shouldAnalyzeFraudImage(ctx.rawText || ''),
+    context: FRAUD_IMAGE_CONTEXT_BLOCK,
+    prefeed: null,
   },
   {
     id: 'fraud-rag',

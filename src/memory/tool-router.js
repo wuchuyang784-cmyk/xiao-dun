@@ -24,6 +24,7 @@
 //   - startupSelfCheckActive  启动自检激活标志
 //   - localVisualTurn      是否能安全展示本机 UI（TUI/voice 是 true，微信等外部渠道是 false）
 //   - fastUserPath         可选——是否实时用户消息（用于"再激进省一点"，未传按 false）
+//   - conversationWindow   最近对话；用于“上面图片/刚才那张图”这类跟进问题复用附件
 //
 // 输出：去重后的 tools: string[]
 
@@ -75,6 +76,7 @@ const ADMIN_TOOLS       = [
   'manage_api_capability',
 ]
 const INLINE_IMAGE_RE = /!\[[^\]]*]\(|\/media\/chat\/|data:image\//i
+const FOLLOW_UP_IMAGE_INTENT_RE = /上面图片|刚才图片|前面图片|上一张图|这张图|这幅图|该图片|图片(?:里|中|内容)?(?:是什么|看到什么|看到了什么|怎么了|识别|分析|描述)|图(?:里|中)?(?:是什么|看到什么|看到了什么|内容|识别|分析|描述)/i
 const API_KEY_RE = /\b(?:sk|ak|rk|pk|ark)-[A-Za-z0-9_\-.]{12,180}\b/i
 const API_DOCS_RE = /https?:\/\/|api|docs?|platform|capability|endpoint|base[-_\s]?url|model|auth|\u6587\u6863|\u63a5\u53e3|\u914d\u7f6e|\u80fd\u529b/i
 const API_CONFIG_CONFIRM_RE = /^(?:yes|yep|ok|okay|sure|do it|go ahead|\u662f|\u662f\u7684|\u53ef\u4ee5|\u597d|\u597d\u7684|\u5bf9|\u884c|\u914d\u7f6e|\u914d\u4e0a|\u8bbe\u7f6e|\u8bbe\u6210)$/i
@@ -208,9 +210,17 @@ export function selectTools(ctx = {}) {
     startupSelfCheckActive = false,
     localVisualTurn = true,
     fastUserPath = false,
+    conversationWindow = [],
   } = ctx
 
   const body = (messageBody || '').toLowerCase()
+  const recentConversationText = Array.isArray(conversationWindow)
+    ? conversationWindow.slice(-12).map(item => item?.content || '').join('\n')
+    : ''
+  const hasInlineImage = INLINE_IMAGE_RE.test(messageBody)
+  const hasReferencedRecentImage = !hasInlineImage
+    && FOLLOW_UP_IMAGE_INTENT_RE.test(messageBody)
+    && INLINE_IMAGE_RE.test(recentConversationText)
   const out = new Set(CORE_TOOLS)
   // 被显式抑制的工具名:ActionLog 保活 / installed 列表 / fallback 兜底都要跳过,
   // 最后一道 delete 兜底,确保不被任何路径加回来。用于跨 turn 抑制 set_tick_interval 等，以及挡住已移除的旧工具名。
@@ -259,9 +269,15 @@ export function selectTools(ctx = {}) {
   }
   // —— 能力注册表：已迁能力（web / hotspot / web/weather）的工具注入 ——
   // 每个能力用自己的 toolWhen 门（web=关键词、hotspot=不自动、
-  const capCtx = { text: body, rawText: messageBody, isTick, mmCaps, hasTask }
+  const capCtx = {
+    text: hasReferencedRecentImage ? `${body}\n${recentConversationText}` : body,
+    rawText: messageBody,
+    isTick,
+    mmCaps,
+    hasTask,
+  }
   for (const t of capabilityToolsFor(capCtx)) out.add(t)
-  if (INLINE_IMAGE_RE.test(messageBody)) out.add('analyze_image')
+  if (hasInlineImage || hasReferencedRecentImage) out.add('analyze_image')
   if (hits(body, TERMINAL_STREAM_TRIGGERS)) {
     for (const t of TERMINAL_STREAM_TOOLS) out.add(t)
   }

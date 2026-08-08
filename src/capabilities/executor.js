@@ -33,8 +33,10 @@ import { execAnalyzeImage, execManageApiCapability, execRunApiCapability } from 
 import { execManageRule } from './tools/rules.js'
 import { execFraudRuleScreen } from './tools/fraud-rule.js'
 import { execFraudIntel } from './tools/fraud-intel.js'
+import { execScheduledReminder } from './tools/scheduled-reminder.js'
 import { execCheckLink } from './tools/check-link.js'
 import { execCheckSms } from './tools/check-sms.js'
+import { execAnalyzeFraudImage } from './tools/fraud-image.js'
 import { execGetDailyTip } from './tools/daily-tip.js'
 import { execReportFraud, execSearchLaw, execCheckQrcode, execVerifyIdentity } from './tools/fraud-toolkit.js'
 import { execMediaMode } from './tools/media.js'
@@ -288,6 +290,10 @@ async function executeToolUnchecked(name, args, context = {}) {
         return execFraudRuleScreen(args)
       case 'fraud_intel':
         return await execFraudIntel(args)
+      case 'analyze_fraud_image':
+        return await execAnalyzeFraudImage(args, context)
+      case 'scheduled_reminder':
+        return execScheduledReminder(args)
       case 'check_link':
         return await execCheckLink(args)
       case 'check_sms':
