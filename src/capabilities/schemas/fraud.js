@@ -46,6 +46,23 @@ export const fraudSchemas = {
       },
     },
   },
+  analyze_fraud_image: {
+    type: 'function',
+    function: {
+      name: 'analyze_fraud_image',
+      description: 'Analyze an uploaded chat screenshot or suspicious image for scam risk. Use only when the current message contains an image and the user explicitly asks for fraud, scam, or risk analysis. Performs vision OCR, scam-rule screening, external RAG similar-case retrieval, link checks, and returns a structured report.',
+      parameters: {
+        type: 'object',
+        properties: {
+          image_path: { type: 'string', description: 'Local image path, file:// URL, or /media/chat/<filename>. Optional when the current message contains a Markdown image.' },
+          image_url: { type: 'string', description: 'http(s) image URL or data:image URL. Optional when image_path is provided.' },
+          user_intent: { type: 'string', description: 'The user’s fraud-analysis request in their own words.' },
+          top_k: { type: 'integer', minimum: 1, maximum: 20, description: 'Number of external RAG similar cases to include. Default 5.' },
+        },
+        required: [],
+      },
+    },
+  },
   get_daily_tip: {
     type: 'function',
     function: {

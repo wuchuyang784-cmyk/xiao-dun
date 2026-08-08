@@ -282,6 +282,78 @@ function visionTemperatureForSlot(slot = {}) {
   return 0.2
 }
 
+function isQwenOmniSlot(slot = {}) {
+  const provider = String(slot.provider || '').trim().toLowerCase()
+  const model = String(slot.api?.model || '').trim().toLowerCase()
+  return provider === 'qwen' && model.includes('omni')
+}
+
+function getVisionModelIssue(slot = {}) {
+  const provider = String(slot.provider || '').trim().toLowerCase()
+  const model = String(slot.api?.model || '').trim().toLowerCase()
+  if (provider === 'qwen' && /^qwen3\.7-max(?:-2026-05-20)?$/.test(model)) {
+    return {
+      error: 'model_not_vision_capable',
+      guide: '当前 Qwen 模型是文本模型，不能直接识别图片。请切换到明确支持视觉输入的模型（例如 qwen3.7-max-2026-06-08、qwen3.7-plus 或带 vision/omni 标识的模型），或配置独立视觉能力槽。',
+    }
+  }
+  return null
+}
+
+function readVisionContentPart(value) {
+  if (typeof value === 'string') return value
+  if (Array.isArray(value)) {
+    return value.map(item => readVisionContentPart(item)).join('')
+  }
+  if (value && typeof value === 'object') {
+    return readVisionContentPart(value.text ?? value.content ?? '')
+  }
+  return ''
+}
+
+async function readStreamingVisionResponse(response) {
+  if (!response.body?.getReader) {
+    throw new Error('vision streaming response body is unavailable')
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let content = ''
+  let streamDone = false
+
+  const consumeLine = (line) => {
+    const trimmed = line.trim()
+    if (!trimmed || !trimmed.startsWith('data:')) return
+    const payload = trimmed.slice('data:'.length).trim()
+    if (payload === '[DONE]') {
+      streamDone = true
+      return
+    }
+    try {
+      const data = JSON.parse(payload)
+      const delta = data?.choices?.[0]?.delta?.content
+        ?? data?.choices?.[0]?.message?.content
+        ?? data?.output_text
+        ?? ''
+      content += readVisionContentPart(delta)
+    } catch {
+      // Ignore non-JSON SSE keepalive/comment frames.
+    }
+  }
+
+  while (!streamDone) {
+    const { value, done } = await reader.read()
+    buffer += decoder.decode(value || new Uint8Array(), { stream: !done })
+    const lines = buffer.split(/\r?\n/)
+    buffer = lines.pop() || ''
+    for (const line of lines) consumeLine(line)
+    if (done) break
+  }
+  if (buffer) consumeLine(buffer)
+  return content
+}
+
 function getActiveLlmVisionFallback() {
   const apiKey = String(config.apiKey || '').trim()
   const model = String(config.model || '').trim()
@@ -342,6 +414,7 @@ function combineAbortSignals(...signals) {
 async function callOpenAICompatibleVision(slot, { imageUrl, prompt, detail = 'auto' }, context = {}, credentialOverride = '') {
   const apiKey = String(credentialOverride || getApiCapabilityCredential(slot) || '').trim()
   if (!apiKey) throw new Error('slot credential is not configured')
+  const streaming = isQwenOmniSlot(slot)
   const body = {
     model: slot.api.model,
     messages: [
@@ -354,7 +427,7 @@ async function callOpenAICompatibleVision(slot, { imageUrl, prompt, detail = 'au
       },
     ],
     temperature: visionTemperatureForSlot(slot),
-    stream: false,
+    stream: streaming,
   }
   const res = await fetch(buildChatCompletionUrl(slot), {
     method: 'POST',
@@ -365,13 +438,22 @@ async function callOpenAICompatibleVision(slot, { imageUrl, prompt, detail = 'au
     body: JSON.stringify(body),
     signal: combineAbortSignals(context.signal, AbortSignal.timeout(visionTimeoutMs(context))),
   })
+  if (!res.ok) {
+    const errorText = await res.text()
+    let errorData = null
+    try { errorData = errorText ? JSON.parse(errorText) : null } catch {}
+    const message = errorData?.error?.message || errorData?.message || errorText || `HTTP ${res.status}`
+    throw new Error(message.slice(0, 1000))
+  }
+  if (streaming) {
+    const result = await readStreamingVisionResponse(res)
+    if (!result) throw new Error('vision API returned no streaming content')
+    return result
+  }
+
   const text = await res.text()
   let data = null
   try { data = text ? JSON.parse(text) : null } catch {}
-  if (!res.ok) {
-    const message = data?.error?.message || data?.message || text || `HTTP ${res.status}`
-    throw new Error(message.slice(0, 1000))
-  }
   const content = data?.choices?.[0]?.message?.content
   if (!content) throw new Error('vision API returned no choices[0].message.content')
   return String(content)
@@ -387,6 +469,17 @@ export async function execAnalyzeImage(args = {}, context = {}) {
       tool: 'analyze_image',
       error: 'not_configured',
       guide: 'No available vision analyzer. Configure a vision-capable LLM model, or set the current LLM to one that supports image input.',
+    })
+  }
+  const modelIssue = getVisionModelIssue(slot)
+  if (modelIssue) {
+    return toolJson({
+      ok: false,
+      tool: 'analyze_image',
+      error: modelIssue.error,
+      provider: slot.provider,
+      model: slot.api?.model || '',
+      guide: modelIssue.guide,
     })
   }
 

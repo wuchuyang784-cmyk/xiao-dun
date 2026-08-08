@@ -37,11 +37,11 @@ export const apiCapabilitySchemas = {
     type: 'function',
     function: {
       name: 'analyze_image',
-      description: 'Analyze, OCR, describe, or answer questions about an image using any configured vision API capability slot. Use when the user asks you to inspect a picture, screenshot, photo, chart, UI, document image, or any visual content. If the current user message contains a markdown image, the tool can infer it, but pass image_path or image_url explicitly when possible.',
+      description: 'Analyze, OCR, describe, or answer questions about an image using any configured vision API capability slot. Use when the user asks you to inspect a picture, screenshot, photo, chart, UI, document image, or any visual content. For a current or recent conversation image, call this tool even when the user only says “the image above”; it automatically reuses the most recent image. Pass image_path or image_url explicitly when possible.',
       parameters: {
         type: 'object',
         properties: {
-          image_path: { type: 'string', description: 'Local image file path, file:// URL, or /media/chat/<filename>. Optional if the current message contains a markdown image.' },
+          image_path: { type: 'string', description: 'Local image file path, file:// URL, or /media/chat/<filename>. Optional when the current message or recent conversation contains a markdown image; the tool uses the most recent image automatically.' },
           image_url: { type: 'string', description: 'http(s) image URL or data:image base64 URL. Optional if image_path is provided.' },
           prompt: { type: 'string', description: 'Question or instruction for the image analysis. Use Chinese by default for Chinese users.' },
           detail: { type: 'string', enum: ['auto', 'low', 'high'], description: 'Optional image detail level for OpenAI-compatible vision APIs. Default auto.' },

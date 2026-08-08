@@ -8,7 +8,7 @@ from .repository import RiskTextRepository
 
 LATIN_OR_NUMBER = re.compile(r"[a-z0-9_]{2,}", re.IGNORECASE)
 CHINESE_CHARACTER = re.compile(r"[\u4e00-\u9fff]")
-MIN_RELIABLE_SCORE = 0.60
+MIN_RELIABLE_SCORE = 0.35
 
 
 def search_tokens(text: str) -> set[str]:
