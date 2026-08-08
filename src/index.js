@@ -120,8 +120,8 @@ reportStartupProgress('trending', 'done', '热点采集完成', '热点采集完
 reportStartupProgress('fraud-intel', 'running', '采集诈骗案例情报', '正在采集诈骗情报')
 await withStartupTimeout(collectFraudIntel(), 15000, '[startup] fraud-intel')
 reportStartupProgress('fraud-intel', 'done', '诈骗情报采集完成', '诈骗情报采集完成')
-// Start periodic fraud intel scheduler (every 6h, auto-push new cases to user)
-startFraudIntelScheduler(6)
+// Start periodic fraud intel scheduler (every 12h, auto-push new cases to user)
+startFraudIntelScheduler(12)
 
 // Scan locally installed AI agents (Claude Code, Codex, Hermes, OpenClaw, etc.) and persist to known_agents table
 reportStartupProgress('agents', 'running', 'Claude Code / Codex / Hermes', '正在扫描本地 Agent')
