@@ -169,3 +169,16 @@ test('[已知行为] 预填后继续输入参数会过滤为 0 条（触发"无�
   assert.deepEqual(menuFor('/check_link https://example.com'), [])
   assert.deepEqual(menuFor('/check_sms 您的快递已到付'), [])
 })
+
+
+test('legacy /rag command is not exposed after the China heatmap became the default view', () => {
+  const commands = buildCommands(makeInput())
+  assert.equal(commands.some(command => command.cmd === '/rag'), false)
+  assert.equal(source.includes('cmd: "/rag"'), false)
+
+  const appShell = readFileSync(fileURLToPath(new URL('../src/ui/brain-ui/app-shell.js', import.meta.url)), 'utf8')
+  assert.doesNotMatch(appShell, /rag-boot-overlay|rag-boot-title|rag-close/)
+
+  const fraudMap = readFileSync(fileURLToPath(new URL('../src/ui/brain-ui/fraud-map.js', import.meta.url)), 'utf8')
+  assert.ok(fraudMap.includes('void reconcile().then(() => render(store.getState()))'))
+})

@@ -49,7 +49,6 @@ export function initChat({
   openSettings = null,
 
   openHotspot = null,
-  openRag = null,
   openRagManager = null,
 } = {}) {
 
@@ -1189,12 +1188,6 @@ export function initChat({
 
       run: () => openHotspot?.(),
 
-    },
-
-    {
-      cmd: "/rag", keys: ["rag", "knowledge", "vector", "map"],
-      label: "RAG \u77e5\u8bc6\u5e93", desc: "\u5bfc\u5165 RAG \u6570\u636e\u5e76\u4e14\u5c55\u793a",
-      run: () => openRag?.(),
     },
 
     {

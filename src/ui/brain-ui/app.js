@@ -8,7 +8,6 @@ import { initVoicePanel } from "./voice-panel.js";
 import { initHotspot, setHotspotMode, moveVoicePanelToBody, restoreVoicePanel } from "./hotspot.js";
 import { initDocPanel, setDocPanelMode } from "./doc.js";
 import { initFraudMap } from "./fraud-map.js";
-import { initRagMode } from "./rag-mode.js";
 import { initRagManager } from "./rag-manager.js";
 import { initWechatPopup, showWechatPopup } from "./wechat-popup.js";
 import { initFeishuPopup, showFeishuPopup } from "./feishu-popup.js";
@@ -38,7 +37,6 @@ const focusDepthEl = document.getElementById("focus-depth");
 let agentName = DEFAULT_AGENT_NAME;
 let currentUiZoom = DEFAULT_UI_ZOOM;
 let chat = null;
-let ragMode = null;
 let ragManager = null;
 // Real-time assistant reply state. Keep these at module scope because the SSE
 // event handler and the stream handlers share the same conversation turn.
@@ -964,10 +962,7 @@ function handle({ type, data = {} }) {
       window.dispatchEvent(new CustomEvent("xiaodun:media", { detail: data }));
       break;
     case "hotspot_mode":
-      if (!!data.active || data.action === "show" || data.action === "open") {
-        ragMode?.close();
-        ragManager?.close();
-      }
+      if (!!data.active || data.action === "show" || data.action === "open") ragManager?.close();
       setHotspotMode(!!data.active || data.action === "show" || data.action === "open", { source: "agent_event" });
       break;
 
@@ -1025,25 +1020,14 @@ chat = initChat({
   defaultInputPlaceholder,
   openSettings: (tab) => openSettingsRef?.(tab),
   openHotspot: () => {
-    ragMode?.close();
     ragManager?.close();
     setHotspotMode(true);
   },
-  openRag: () => {
-    ragManager?.close();
-    void ragMode?.open();
-  },
   openRagManager: () => ragManager?.open(),
-});
-ragMode = initRagMode({
-  fraudMap,
-  openChat: () => chat?.openChat(),
-  closeHotspot: () => setHotspotMode(false),
 });
 ragManager = initRagManager({
   openChat: () => chat?.openChat(),
   closeHotspot: () => setHotspotMode(false),
-  closeRag: () => ragMode?.close(),
 });
 chat.applyActivationWarmupLock();
 connectSSE();

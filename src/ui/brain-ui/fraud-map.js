@@ -299,7 +299,8 @@ export function initFraudMap() {
       if (destroyed) return
       charting.registerMap('china', geoJson)
       mapReady = true
-      render(store.getState())
+      // The China heatmap is the default view; fetch the external RAG snapshot immediately.
+      void reconcile().then(() => render(store.getState())).catch(() => render(store.getState()))
     }).catch(error => store.setError(error))
   }
 
@@ -313,23 +314,6 @@ export function initFraudMap() {
   return {
     store,
     reconcile,
-    async activate() {
-      if (destroyed) throw new Error('Fraud map has been destroyed')
-      active = true
-      const snapshot = await reconcile({ throwOnError: true })
-      clearInterval(reconcileTimer)
-      reconcileTimer = setInterval(() => void reconcile(), SNAPSHOT_RECONCILE_INTERVAL_MS)
-      requestAnimationFrame(() => chart?.resize())
-      return snapshot
-    },
-    deactivate() {
-      active = false
-      clearInterval(reconcileTimer)
-      reconcileTimer = null
-    },
-    resize() {
-      chart?.resize()
-    },
     // 主题切换时调用，让 ECharts 用最新的 CSS 变量重绘
     refresh() {
       if (chart && mapReady) chart.setOption(createMapOptions(store.getState()), { notMerge: true, lazyUpdate: true })

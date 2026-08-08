@@ -7,16 +7,6 @@ const createMapStage = () => `
 <div id="map-stage" class="map-stage" aria-label="China fraud case map">
   <div id="fraud-map-chart" class="fraud-map-chart" aria-label="\u4e2d\u56fd\u7701\u7ea7\u8bc8\u9a97\u6848\u4f8b\u70ed\u529b\u56fe"></div>
   <div class="fraud-map-empty" id="fraud-map-empty" hidden>\u7b49\u5f85\u4e2d\u56fd\u7701\u7ea7\u5730\u56fe\u6570\u636e</div>
-  <aside class="fraud-side-summary rag-map-summary" id="fraud-right-summary"></aside>
-  <button class="rag-close" id="rag-close" type="button" aria-label="\u5173\u95ed RAG \u5730\u56fe">\u00d7</button>
-  <div class="rag-boot-overlay" id="rag-boot-overlay" aria-live="polite">
-    <div class="rag-core" aria-hidden="true"><i></i><i></i><i></i><b>RAG</b></div>
-    <div class="rag-boot-kicker">XIAODUN VECTOR INTELLIGENCE</div>
-    <div class="rag-boot-title" id="rag-boot-title">\u7b49\u5f85 /rag \u6307\u4ee4</div>
-    <div class="rag-boot-detail" id="rag-boot-detail">\u77e5\u8bc6\u5e93\u5c06\u5728\u6821\u9a8c\u5b8c\u6210\u540e\u70b9\u4eae</div>
-    <div class="rag-progress"><span id="rag-progress-bar"></span></div>
-    <button class="rag-retry" id="rag-retry" type="button" hidden>\u91cd\u8bd5\u8fde\u63a5</button>
-  </div>
 </div>
 `;
 
