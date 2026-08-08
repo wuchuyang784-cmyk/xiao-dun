@@ -217,6 +217,8 @@ export function initFraudMap() {
   const seenCases = new Set()
 
   function render(state) {
+    renderRightPanel(state)
+    renderStatus(state)
     if (!chart || !mapReady) return
     chart.setOption(createMapOptions(state), { notMerge: true, lazyUpdate: true })
   }
@@ -297,7 +299,7 @@ export function initFraudMap() {
       if (destroyed) return
       charting.registerMap('china', geoJson)
       mapReady = true
-      // 首次加载即拉取数据，避免等 1 小时定时器
+      // The China heatmap is the default view; fetch the external RAG snapshot immediately.
       void reconcile().then(() => render(store.getState())).catch(() => render(store.getState()))
     }).catch(error => store.setError(error))
   }

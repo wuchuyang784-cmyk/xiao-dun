@@ -99,7 +99,7 @@ test('中文关键词与大小写/空格归一化均可命中', () => {
   assert.deepEqual(menuFor('/  check  '), ['/check_link', '/check_sms'], '应忽略首尾空格')
   // "诈骗" 同时命中两条：filter 对每条命令只求值一次，不会产生重复项
   const fraud = menuFor('/诈骗')
-  assert.deepEqual(fraud, ['/check_link', '/check_sms'])
+  assert.deepEqual(fraud, ['/check_link', '/check_sms', '/fraud_intel'])
   assert.equal(new Set(fraud).size, fraud.length, '多 key 同时命中不应产生重复条目')
 })
 
@@ -168,4 +168,17 @@ test('/help 输出会包含两条新命令的 label 与 desc', () => {
 test('[已知行为] 预填后继续输入参数会过滤为 0 条（触发"无匹配命令"浮层）', () => {
   assert.deepEqual(menuFor('/check_link https://example.com'), [])
   assert.deepEqual(menuFor('/check_sms 您的快递已到付'), [])
+})
+
+
+test('legacy /rag command is not exposed after the China heatmap became the default view', () => {
+  const commands = buildCommands(makeInput())
+  assert.equal(commands.some(command => command.cmd === '/rag'), false)
+  assert.equal(source.includes('cmd: "/rag"'), false)
+
+  const appShell = readFileSync(fileURLToPath(new URL('../src/ui/brain-ui/app-shell.js', import.meta.url)), 'utf8')
+  assert.doesNotMatch(appShell, /rag-boot-overlay|rag-boot-title|rag-close/)
+
+  const fraudMap = readFileSync(fileURLToPath(new URL('../src/ui/brain-ui/fraud-map.js', import.meta.url)), 'utf8')
+  assert.ok(fraudMap.includes('void reconcile().then(() => render(store.getState()))'))
 })

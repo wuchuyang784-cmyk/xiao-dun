@@ -4247,11 +4247,7 @@ body.video-mode   > #voice-panel #voice-canvas{
 /* 地图始终可见，RAG 模式仅切换布局与大小。 */
 .map-stage { transition: inset .46s cubic-bezier(.2,.8,.2,1), opacity .4s ease, transform .46s cubic-bezier(.2,.8,.2,1); }
 
-.rag-close, .rag-retry {
-  border: 1px solid rgba(77,231,255,.5); color: #baf7ff; background: rgba(4,20,30,.82);
-  font-family: "JetBrains Mono", ui-monospace, monospace; cursor: pointer;
-}
-/* /rag 模式已移除（地图直接展示，无需专用面板） */
+/* Legacy /rag mode removed: the China heatmap is the default view. */
 
 /* /rag-manage — manual knowledge ingestion cockpit. */
 .rag-manager-panel {
