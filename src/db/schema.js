@@ -568,6 +568,22 @@ export function initializeSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_analysis_records_input_hash    ON analysis_records(input_hash);
   `)
 
+  // 家长-子女微信绑定：家长反诈风险定向推送用。
+  //   child_wechat_id  为子女裸 clawbot id（不含 wechat:clawbot: 前缀），主键。
+  //   parent_wechat_id 为家长裸 clawbot id，用于风险触发时回送通知。
+  //   relation/status  预留多关系与启停位。
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS parent_bindings (
+      child_wechat_id  TEXT PRIMARY KEY,
+      parent_wechat_id TEXT NOT NULL,
+      relation         TEXT NOT NULL DEFAULT 'parent',
+      status           TEXT NOT NULL DEFAULT 'active',
+      created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_parent_bindings_parent ON parent_bindings(parent_wechat_id);
+  `)
+
   db.exec(`INSERT INTO memories_fts(memories_fts) VALUES('rebuild')`)
 }
 

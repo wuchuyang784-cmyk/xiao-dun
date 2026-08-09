@@ -52,6 +52,12 @@ const EXPLICIT_COMMANDS = {
   '/verify_identity': 'fraud-toolkit',
   '/核实身份': 'fraud-toolkit',
   '/验短信': 'verify-sms',
+  // 家长-子女绑定（零 LLM 直指令，由 runLocalCommandTool 按 capabilityId 直接处理；
+  // 这三条不对应真实能力，仅用于让 resolveExplicitCommand 返回非 null，进入快车道）。
+  '/bind_parent': 'bind-parent',
+  '/my_id': 'my-id',
+  '/unbind_parent': 'unbind-parent',
+  '/test_parent_notify': 'test-parent-notify',
 }
 
 // 纯闲聊 / 无意义短消息：这些永远不需要打开面板，直接跳过 LLM 兜底分类以省延迟。

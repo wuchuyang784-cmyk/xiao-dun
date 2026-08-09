@@ -298,9 +298,9 @@ async function executeToolUnchecked(name, args, context = {}) {
       case 'scheduled_reminder':
         return execScheduledReminder(args)
       case 'check_link':
-        return await execCheckLink(args)
+        return await execCheckLink(args, context)
       case 'check_sms':
-        return await execCheckSms(args)
+        return await execCheckSms(args, context)
       case 'get_daily_tip':
         return execGetDailyTip(args)
       case 'report_fraud':

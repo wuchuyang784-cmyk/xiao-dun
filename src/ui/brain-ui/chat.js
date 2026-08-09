@@ -1259,6 +1259,28 @@ export function initChat({
       run: () => fillSlash("/verify_identity "),
     },
 
+    // 家长-子女绑定 / 家长通知自测：让用户从"十字架"菜单发现并触发整条链路。
+    {
+      cmd: "/my_id", keys: ["my_id", "我的id", "微信id", "绑定id", "家长绑定"],
+      label: "查询我的ID", desc: "查询本微信账号的绑定 ID，发给家长完成绑定",
+      run: () => send({ text: "/my_id" }),
+    },
+    {
+      cmd: "/bind_parent", keys: ["bind_parent", "绑定家长", "绑定", "关联家长"],
+      label: "绑定家长", desc: "预填 /bind_parent，粘贴子女发来的 ID 完成绑定",
+      run: () => fillSlash("/bind_parent "),
+    },
+    {
+      cmd: "/unbind_parent", keys: ["unbind_parent", "解绑家长", "解绑", "取消绑定"],
+      label: "解绑家长", desc: "解除当前账号的家长 / 子女绑定关系",
+      run: () => send({ text: "/unbind_parent" }),
+    },
+    {
+      cmd: "/test_parent_notify", keys: ["test_parent_notify", "测试家长通知", "家长通知测试", "自测推送"],
+      label: "测试家长通知", desc: "手动触发一次家长风险推送，自测绑定→推送链路",
+      run: () => send({ text: "/test_parent_notify" }),
+    },
+
     {
       cmd: "/compress", keys: ["compress", "压缩", "压缩上下文"],
       label: "压缩上下文", desc: "删除旧消息，保留最近 8 条，腾出 LLM 上下文空间",

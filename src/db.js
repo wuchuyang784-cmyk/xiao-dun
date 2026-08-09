@@ -3,6 +3,7 @@ import { CANONICAL_USER_ID, normalizeConversationPartyId } from './db/utils.js'
 
 export { getDB, closeDBForTest }
 export { normalizeConversationPartyId }
+export * from './db/repositories/bindings.js'
 export * from './db/repositories/reminders.js'
 export * from './db/repositories/prefetch.js'
 export * from './db/repositories/media-history.js'
