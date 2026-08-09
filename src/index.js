@@ -836,15 +836,27 @@ async function runLocalCommandTool(capabilityId, input, msg) {
         })
         const notified = !!result?.notified
         const reason = result?.reason || 'unknown'
-        reply = [
+        const base = [
           '【家长通知测试】',
           `子女ID：${childId}`,
           `绑定家长ID：${binding.parentWechatId}（关系：${binding.relation}，状态：${binding.status}）`,
           `推送结果：${notified ? '已推送' : '未推送'}（${reason}）`,
           '· ok = 家长在线并已推送',
-          '· parent_offline = 家长账号当前未登录/未发消息，无法推送（真实微信场景需家长先给小盾发一条消息）',
+          '· parent_offline = 家长账号当前未通过微信连接小盾，无法推送',
           '· below_threshold / no_binding / dedup_skipped = 逻辑未命中',
-        ].join('\n')
+        ]
+        if (reason === 'parent_offline') {
+          base.push(
+            '',
+            '⚠️ 家长未在线（无可用微信推送通道）',
+            '网页端（brain-ui）本身不具备微信推送能力，家长必须改用微信渠道连接才能收到推送：',
+            '1) 家长用个人微信扫码连接小盾：设置面板 → 微信 ClawBot → 连接微信；',
+            '2) 家长连上后先给小盾发任意一条消息（如"你好"），小盾才会拿到推送凭证（写入 wechat_clawbot_tokens）；',
+            '3) 之后子女触发中高危风险，家长微信即可收到推送。',
+            '若你全程在网页端测试，推送必然显示"未推送（parent_offline）"——这是预期行为，不是 bug；要走真实推送必须用微信端。'
+          )
+        }
+        reply = base.join('\n')
       } catch (err) {
         reply = `家长通知测试失败：${err?.message || '未知错误'}`
       }
