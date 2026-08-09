@@ -928,14 +928,15 @@ function handle({ type, data = {} }) {
         const finalized = chat.finalizeLiveJarvisMsg(content, {
           messageId,
           source: "event",
+          riskMetadata: data.risk_metadata || data.riskMetadata || null,
         });
         // A stale in-memory de-duplication entry must never make a real
         // assistant reply disappear. If the message is not in the DOM, render it.
         if (!finalized && !chat.hasRenderedMessage(messageId)) {
-          addMsg("jarvis", content, { messageId, source: "event", dedupe: false });
+          addMsg("jarvis", content, { messageId, source: "event", dedupe: false, riskMetadata: data.risk_metadata || data.riskMetadata || null });
         }
       } else {
-        addMsg("jarvis", content, { messageId, source: "event" });
+        addMsg("jarvis", content, { messageId, source: "event", riskMetadata: data.risk_metadata || data.riskMetadata || null });
       }
       liveReplyActive = false;
       liveRawText = "";

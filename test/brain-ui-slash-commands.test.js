@@ -69,6 +69,18 @@ test('SLASH_COMMANDS 新增 /check_link 与 /check_sms，且字段结构与既�
   assert.equal(commands.find(c => c.cmd === '/check_sms').label, '验短信')
 })
 
+test('SLASH_COMMANDS exposes one unified /risk_assess command with Chinese search aliases', () => {
+  const commands = buildCommands(makeInput())
+  const risk = commands.filter(c => c.cmd === '/risk_assess')
+  assert.equal(risk.length, 1)
+  assert.ok(risk[0].keys.includes('风险研判'))
+  assert.ok(risk[0].keys.includes('诈骗研判'))
+  assert.equal(typeof risk[0].run, 'function')
+  assert.equal(risk[0].run.length, 0)
+  assert.deepEqual(menuFor('/risk'), ['/risk_assess'])
+  assert.deepEqual(menuFor('/风险研判'), ['/risk_assess'])
+})
+
 test('命令表无重复 cmd —— 两条命令共用 "check" key 不会造成条目冲突', () => {
   const cmds = buildCommands(makeInput()).map(c => c.cmd)
   assert.equal(new Set(cmds).size, cmds.length, `存在重复命令：${cmds.join(', ')}`)
@@ -90,6 +102,7 @@ test('前缀 /c /ch /che 逐级输入均能命中两条新命令', () => {
 test('输入完整命令时精确收敛到单条', () => {
   assert.deepEqual(menuFor('/check_link'), ['/check_link'])
   assert.deepEqual(menuFor('/check_sms'), ['/check_sms'])
+  assert.deepEqual(menuFor('/risk_assess'), ['/risk_assess'])
 })
 
 test('中文关键词与大小写/空格归一化均可命中', () => {
@@ -99,7 +112,7 @@ test('中文关键词与大小写/空格归一化均可命中', () => {
   assert.deepEqual(menuFor('/  check  '), ['/check_link', '/check_sms'], '应忽略首尾空格')
   // "诈骗" 同时命中两条：filter 对每条命令只求值一次，不会产生重复项
   const fraud = menuFor('/诈骗')
-  assert.deepEqual(fraud, ['/check_link', '/check_sms', '/fraud_intel'])
+  assert.deepEqual(fraud, ['/check_link', '/check_sms', '/risk_assess', '/fraud_intel'])
   assert.equal(new Set(fraud).size, fraud.length, '多 key 同时命中不应产生重复条目')
 })
 

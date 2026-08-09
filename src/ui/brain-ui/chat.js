@@ -514,7 +514,7 @@ export function initChat({
 
   function addMsg(role, text, options = {}) {
 
-    const { alert = role === "jarvis", pending = true, label, messageId, source = "event", dedupe = true } = options;
+    const { alert = role === "jarvis", pending = true, label, messageId, source = "event", dedupe = true, riskMetadata = null } = options;
 
     const defaultLabel = role === "user" ? "You" : role === "jarvis" ? getAgentName() : "Peer";
 
@@ -529,6 +529,8 @@ export function initChat({
     const normalizedId = normalizeMessageId(messageId);
 
     if (normalizedId) div.dataset.messageId = normalizedId;
+
+    if (riskMetadata) appendRiskBanner(div, riskMetadata);
 
     const labelSpan = document.createElement("span");
 
@@ -1216,6 +1218,15 @@ export function initChat({
         try { msgInput.focus(); } catch {}
       },
     },
+    {
+      cmd: "/risk_assess", keys: ["risk_assess", "risk", "fraud risk", "风险研判", "诈骗研判", "可疑信息", "截图"],
+      label: "诈骗风险研判", desc: "分析聊天、截图和链接，给出风险等级与处置建议",
+      run: () => {
+        msgInput.value = "/risk_assess ";
+        autoGrowInput();
+        try { msgInput.focus(); } catch {}
+      },
+    },
 
     {
       cmd: "/daily_tip", keys: ["daily_tip", "每日", "提醒", "反诈科普", "today tip"],
@@ -1708,6 +1719,20 @@ export function initChat({
 
   }
 
+  function appendRiskBanner(div, riskMetadata) {
+    const level = ["low", "medium", "high", "critical"].includes(String(riskMetadata?.level))
+      ? String(riskMetadata.level)
+      : "low";
+    const banner = document.createElement("div");
+    banner.className = `risk-assessment-banner risk-${level}`;
+    banner.dataset.riskLevel = level;
+    const score = Number(riskMetadata?.score);
+    const scoreText = Number.isFinite(score) ? ` ${Math.round(score)}/100` : "";
+    banner.textContent = `诈骗风险 ${level === "critical" ? "紧急" : level === "high" ? "高" : level === "medium" ? "中" : "低"}${scoreText}`;
+    div.querySelector(".risk-assessment-banner")?.remove();
+    div.insertBefore(banner, div.firstChild);
+  }
+
 
 
   function updateLiveJarvisMsg(text) {
@@ -1783,6 +1808,8 @@ export function initChat({
       const normalizedId = normalizeMessageId(options.messageId);
 
       if (normalizedId) liveEl.dataset.messageId = normalizedId;
+
+      if (options.riskMetadata) appendRiskBanner(liveEl, options.riskMetadata);
 
       const children = Array.from(liveEl.children);
 

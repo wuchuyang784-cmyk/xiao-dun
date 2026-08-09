@@ -623,6 +623,7 @@ function deliverDirectReply(msg, content, finishTurn) {
 const LOCAL_COMMAND_TOOLS = {
   'verify-link': { tool: 'check_link', label: '验链接', usage: '用法：/check_link <链接>' },
   'verify-sms': { tool: 'check_sms', label: '验短信', usage: '用法：/check_sms <短信内容>' },
+  'fraud-risk-assessment': { tool: 'assess_fraud_risk', label: '诈骗风险研判', usage: '用法：/risk_assess <可疑聊天或图片>', wechatReport: true },
 }
 
 /**
@@ -640,15 +641,25 @@ async function runLocalCommandTool(capabilityId, input, msg) {
   // 参数 = 指令头之后的全部内容。`/check_link https://a.com` → `https://a.com`
   const argText = String(input || '').trim().replace(/^\/\S*\s*/, '').trim()
   let reply = ''
+  let parsedRiskMetadata = null
 
-  if (!argText) {
+  const attachments = Array.isArray(msg?.attachments) ? msg.attachments : []
+  if (!argText && !(spec.tool === 'assess_fraud_risk' && attachments.length > 0)) {
     reply = spec.usage
   } else {
     // check_link 同时给 url 与 text：text 让工具顺带跑一次话术规则引擎作为辅助信号。
     const args = spec.tool === 'check_link'
       ? { url: argText, text: argText }
-      : { text: argText }
-    const resultText = String(await executeTool(spec.tool, args, {}))
+      : spec.tool === 'assess_fraud_risk'
+        ? { text: argText, attachments }
+        : { text: argText }
+    const resultText = String(await executeTool(spec.tool, args, {
+      currentUserMessage: msg?.content || input || '',
+      attachments,
+      currentChannel: msg?.notificationChannel || msg?.channel || null,
+      currentExternalPartyId: msg?.notificationExternalPartyId || msg?.externalPartyId || null,
+      callLLM,
+    }))
 
     let parsed = null
     try {
@@ -660,7 +671,16 @@ async function runLocalCommandTool(capabilityId, input, msg) {
     if (!parsed) {
       reply = resultText
     } else if (parsed.ok === true) {
-      reply = String(parsed.report || '').trim() || resultText
+      if (spec.tool === 'assess_fraud_risk') {
+        parsedRiskMetadata = {
+          level: parsed.risk?.level || parsed.risk_level || 'low',
+          score: parsed.risk?.score ?? parsed.risk_score ?? 0,
+          loss_status: parsed.loss_status || 'unknown',
+          record_id: parsed.record_id || '',
+        }
+      }
+      const isWechat = /^WECHAT/i.test(String(msg?.channel || '')) || /^wechat:/i.test(String(msg?.externalPartyId || ''))
+      reply = String(isWechat && spec.wechatReport ? parsed.wechat_report : parsed.report || '').trim() || resultText
     } else {
       reply = `${spec.label}失败：${parsed.message || parsed.error || '未知错误'}`
     }
@@ -676,11 +696,19 @@ async function runLocalCommandTool(capabilityId, input, msg) {
 
   // 走正规投递通道：写 conversations + 广播 SSE + 外部渠道派发，与 send_message 完全一致。
   // 带上当前 turn 的渠道信息，保证「在哪儿收的消息就回到哪儿」。
+  // The browser posts through the HTTP API, but its reply destination is the
+  // local chat UI. `API` is an ingress label rather than a delivery channel.
+  const replyChannel = String(msg?.channel || '').toUpperCase() === 'API'
+    ? 'TUI'
+    : (msg?.channel || 'AUTO')
   await deliverMessage(
-    { target_id: msg.fromId, content: reply, channel: msg.channel || 'AUTO' },
+    { target_id: msg.fromId, content: reply, channel: replyChannel },
     {
-      currentChannel: msg.notificationChannel || msg.channel || null,
+      currentChannel: msg.notificationChannel || replyChannel || null,
       currentExternalPartyId: msg.notificationExternalPartyId || msg.externalPartyId || null,
+      ...(spec.tool === 'assess_fraud_risk' && parsedRiskMetadata
+        ? { riskMetadata: parsedRiskMetadata }
+        : {}),
     },
   )
   return reply
@@ -1819,6 +1847,10 @@ async function main() {
 
   if (config.needsActivation) {
     console.log(`Please open http://127.0.0.1:${apiPort}/activation in your browser to activate before sending messages\n`)
+    // Keep the queue alive for deterministic local slash commands such as
+    // /risk_assess, /check_link, and /check_sms. These tools do not need an
+    // LLM, while ordinary turns still remain gated by activation.
+    await startConsciousnessLoop({ runImmediateTick: false, onlyUserMessages: true })
     return
   }
 

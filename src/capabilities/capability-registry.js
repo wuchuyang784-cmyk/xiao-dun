@@ -37,6 +37,7 @@ export const CASES_IMPORT_TOOLS = []
 export const RECORD_TOOLS = []
 export const FRAUD_RAG_TOOLS = ['search_fraud_cases', 'fraud_rule_screen']
 export const FRAUD_IMAGE_TOOLS = ['analyze_fraud_image']
+export const FRAUD_RISK_ASSESSMENT_TOOLS = ['assess_fraud_risk']
 export const VERIFY_LINK_TOOLS = ['check_link']
 export const VERIFY_SMS_TOOLS = ['check_sms']
 export const FRAUD_INTEL_TOOLS = ['fraud_intel']
@@ -62,6 +63,7 @@ const FRAUD_RAG_KEYWORD_RE = /诈骗|骗局|骗钱|可疑|风险|转账|汇款|�
 const FRAUD_INTEL_KEYWORD_RE = /最新诈骗|新型骗局|新套路|诈骗案例|诈骗趋势|诈骗情报|诈骗新闻|骗术|骗局|反诈情报|fraud intel/i
 const DAILY_TIP_KEYWORD_RE = /每日提醒|反诈提醒|反诈知识|反诈科普|今日提醒|每天一题|反诈演练|daily tip|anti.fraud tip/i
 const FRAUD_TOOLKIT_KEYWORD_RE = /举报|报案|投诉|法规|法律|条文|量刑|二维码|扫码|身份核实|号码查询|归属地|report.fraud|search.law|check.qrcode|verify.identity/i
+const FRAUD_RISK_ASSESSMENT_RE = /risk_assess|fraud risk|scam risk|诈骗风险|风险研判|风险分析|可疑信息|疑似诈骗|被骗|转账风险/i
 
 // ---- 工作流块（prompt 注入用；从 prompt.js / index.js 搬来，文本逐字保留）----
 const WEATHER_CONTEXT_BLOCK = `### Weather Surface Rules
@@ -199,6 +201,22 @@ export const CAPABILITIES = [
     detect: (ctx) => shouldAnalyzeFraudImage(ctx.rawText || ''),
     toolWhen: (ctx) => shouldAnalyzeFraudImage(ctx.rawText || ''),
     context: FRAUD_IMAGE_CONTEXT_BLOCK,
+    prefeed: null,
+  },
+  {
+    id: 'fraud-risk-assessment',
+    label: '诈骗风险研判',
+    summary: '固定编排诈骗风险研判：文本规则、图片 OCR/视觉、链接检测、RAG 相似案例、权威联网降级、损失状态和处置建议。',
+    triggers: ['risk_assess', '风险研判', '诈骗研判', '诈骗风险', '可疑信息', '被骗', 'scam risk', 'fraud risk'],
+    tools: FRAUD_RISK_ASSESSMENT_TOOLS,
+    detect: (ctx) => FRAUD_RISK_ASSESSMENT_RE.test(ctx.rawText || ''),
+    toolWhen: (ctx) => FRAUD_RISK_ASSESSMENT_RE.test(ctx.rawText || ''),
+    context: `### Fixed Fraud Risk Assessment
+- For /risk_assess, /风险研判, or /诈骗研判, call assess_fraud_risk as the single orchestration entry point.
+- It must combine text rules, extracted link checks, image OCR/vision, RAG similar cases, and authoritative web fallback. Do not claim an unreadable QR code is safe.
+- Use loss_status=confirmed only when the user states an actual transfer or loss; use none when they explicitly deny loss; otherwise ask one concise follow-up.
+- When loss_status=confirmed, return the generated fact-only case-report template. Never invent a time, amount, account, or identity; leave unknown fields as pending completion.
+- Present the structured result concisely. For WeChat, use the returned plain-text report without Markdown tables.`,
     prefeed: null,
   },
   {
