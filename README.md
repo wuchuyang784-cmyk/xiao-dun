@@ -9,6 +9,8 @@
 
 **核心能力**：实时追踪新型诈骗案例、可视化诈骗套路拆解、每日反诈科普推送、接收用户聊天/转账/链接内容进行自主风险研判，输出可视化风险拆解报告。
 
+> **上游项目声明**：本项目基于 [BaiLongma](https://github.com/xiaoyuanda666-ship-it/BaiLongma)（MIT License）构建。BaiLongma 提供了完整的 Agent 运行时基础设施——包括 LLM 调用与工具循环引擎、记忆系统（FTS5 + 向量检索）、自主意识循环（Consciousness Loop）、能力注册与执行框架、Brain UI 参考设计。XiaoDun 在此通用 Agent 框架基础上，重新定位为专注反诈领域的智能守护者，原创贡献集中在：反诈专用工具链（欺诈规则引擎、链接安全检测、资金行为识别、诈骗图片分析）、RAG 反诈案例知识库（9,975 条案例）、反诈人物设定与 System Prompt、风险研判与可视化报告、以及每日反诈科普推送体系。
+
 - `index.html` 加载 `src/ui/brain-ui/app.js` 与样式。
 - `src/index.js` 启动后端、HTTP API、SSE、WebSocket、主循环。
 - `src/prompt.js` 构建反诈人物设定、工具规划流程、输出模板。

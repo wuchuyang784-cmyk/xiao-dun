@@ -8,10 +8,7 @@ const INDEX_PATH = paths.indexHtml
 const DASHBOARD_PATH = paths.dashboardHtml
 const BRAIN_PATH = paths.brainHtml
 const BRAIN_UI_PATH = paths.brainUiHtml
-const WEBSITE_PATH = paths.websiteHtml
-const SYSTEM_PROMPT_PATH = paths.systemPromptHtml
 const ACTIVATION_PATH = paths.activationHtml
-const TURN_TRACE_PATH = paths.turnTraceHtml
 const BRAIN_UI_ASSET_ROOT = paths.brainUiAssetRoot
 const SITE_ICON_PATH = path.join(paths.resourcesDir, 'build', 'icon.png')
 const SCENE_SHELL_ASSET_ROOT = path.join(paths.resourcesDir, 'src', 'ui', 'scene-shell')
@@ -82,11 +79,6 @@ function serveAsset(req, res, assetRoot, relativePrefix) {
 }
 
 export async function handleStaticRoutes(req, res, url) {
-  if (req.method === 'GET' && (url.pathname === '/turn-trace' || url.pathname === '/turn-trace.html')) {
-    serveHtml(res, TURN_TRACE_PATH, 'turn-trace.html not found')
-    return true
-  }
-
   if (req.method === 'GET' && url.pathname === '/favicon.ico') {
     res.writeHead(204)
     res.end()
@@ -121,11 +113,6 @@ export async function handleStaticRoutes(req, res, url) {
     return true
   }
 
-  if (req.method === 'GET' && (url.pathname === '/site' || url.pathname === '/site.html')) {
-    serveHtml(res, WEBSITE_PATH, 'website.html not found')
-    return true
-  }
-
   if (req.method === 'GET' && url.pathname === '/site-assets/icon.png') {
     serveFile(res, SITE_ICON_PATH, 'site icon not found', 'public, max-age=31536000, immutable')
     return true
@@ -145,12 +132,6 @@ export async function handleStaticRoutes(req, res, url) {
     serveHtml(res, TERMINAL_STREAM_PATH, 'terminal-stream.html not found')
     return true
   }
-
-  if (req.method === 'GET' && url.pathname === '/systemPrompt.html') {
-    serveHtml(res, SYSTEM_PROMPT_PATH, 'systemPrompt.html not found')
-    return true
-  }
-
 
   if (req.method === 'GET' && url.pathname === '/vendor/echarts.min.js') {
     serveFile(res, ECHARTS_BUNDLE_PATH, 'echarts bundle not found', 'public, max-age=31536000, immutable')

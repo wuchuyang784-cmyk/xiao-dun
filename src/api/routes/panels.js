@@ -1,12 +1,8 @@
-import { buildHeartbeatSystemPromptPreview } from '../../system-prompt-preview.js'
 import { getHotspots, getHotspotPanelState, setHotspotPanelState } from '../../hotspots.js'
-
 import { DOC_TOPICS, getDocPanelState, setDocPanelState } from '../../docs.js'
 import { getGeoWeatherSnapshot } from '../../geo-weather.js'
 import { getAgentName } from '../agent.js'
 import { jsonResponse, parseBooleanish, readJsonBody } from '../utils.js'
-
-
 
 export async function handlePanelRoutes(req, res, url, { getStateSnapshot = null } = {}) {
   if (req.method === 'GET' && url.pathname === '/hotspots') {
@@ -65,17 +61,6 @@ export async function handlePanelRoutes(req, res, url, { getStateSnapshot = null
     getGeoWeatherSnapshot()
       .then((weather) => jsonResponse(res, 200, weather))
       .catch((err) => jsonResponse(res, 502, { ok: false, error: err.message }))
-    return true
-  }
-
-  if (req.method === 'GET' && url.pathname === '/system-prompt-preview') {
-    try {
-      const state = typeof getStateSnapshot === 'function' ? getStateSnapshot() : {}
-      const preview = await buildHeartbeatSystemPromptPreview(state)
-      jsonResponse(res, 200, { ok: true, prompt: preview })
-    } catch (err) {
-      jsonResponse(res, 500, { ok: false, error: err.message })
-    }
     return true
   }
 

@@ -1,0 +1,97 @@
+<h2>执行规划面板：你更希望哪种呈现？</h2>
+<p class="subtitle">当前问题：步骤数组为空时，前端自动补成“执行工具”，所以永远显示 0 / 1；下面是三种改法。</p>
+
+<div class="cards">
+  <div class="card" data-choice="A" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">A · 分阶段流程（推荐）</div>
+        <div class="mockup-body" style="background:#0f1722;color:#dfe9f4;padding:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <strong style="font-size:16px">图片诈骗分析</strong>
+            <span style="color:#f6b73c">2 / 5</span>
+          </div>
+          <div style="border-left:2px solid #2fbd7a;padding-left:12px;margin-bottom:10px">
+            <div style="color:#6ee7a8;font-weight:700">✓ 识别图片内容</div>
+            <small style="color:#8da0b3">analyze_image · 7.8s</small>
+          </div>
+          <div style="border-left:2px solid #f6b73c;padding-left:12px;margin-bottom:10px">
+            <div style="color:#f6b73c;font-weight:700">● 提取聊天文字与链接</div>
+            <small style="color:#8da0b3">OCR / 实体提取 · 执行中</small>
+          </div>
+          <div style="border-left:2px solid #334155;padding-left:12px;margin-bottom:10px;color:#94a3b8">○ 规则引擎筛查</div>
+          <div style="border-left:2px solid #334155;padding-left:12px;margin-bottom:10px;color:#94a3b8">○ 外部 RAG 检索相似案例</div>
+          <div style="border-left:2px solid #334155;padding-left:12px;color:#94a3b8">○ 汇总风险分析报告</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>阶段化计划</h3>
+      <p>后端创建具体步骤，工具挂在对应步骤下；进度会真实显示为 1/5、2/5，而不是把所有工具塞进一个“执行工具”。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="B" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">B · 时间线事件流</div>
+        <div class="mockup-body" style="background:#0f1722;color:#dfe9f4;padding:16px">
+          <strong style="font-size:16px">正在分析</strong>
+          <div style="border-left:2px solid #2fbd7a;margin:14px 0 0 8px;padding-left:16px">
+            <div style="color:#6ee7a8">23:01:12　图片已读取</div>
+            <div style="color:#6ee7a8;margin-top:10px">23:01:20　OCR 已完成</div>
+            <div style="color:#f6b73c;margin-top:10px">23:01:21　规则筛查中...</div>
+            <div style="color:#64748b;margin-top:10px">等待 RAG 案例检索</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>时间线</h3>
+      <p>更像运行日志，能看见先后顺序和耗时；但整体任务完成度不如阶段化步骤直观。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="C" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">C · 三段式简洁卡片</div>
+        <div class="mockup-body" style="background:#0f1722;color:#dfe9f4;padding:16px">
+          <div style="display:flex;gap:8px;margin-bottom:14px">
+            <span style="padding:5px 8px;border-radius:999px;background:#173d31;color:#6ee7a8">输入</span>
+            <span style="padding:5px 8px;border-radius:999px;background:#5a4218;color:#f6b73c">研判</span>
+            <span style="padding:5px 8px;border-radius:999px;background:#263244;color:#94a3b8">输出</span>
+          </div>
+          <div style="padding:12px;border:1px solid #334155;border-radius:10px">
+            <strong>研判中</strong>
+            <div style="margin-top:8px;color:#8da0b3">OCR → 规则 → RAG → 报告</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>摘要式流程</h3>
+      <p>占用空间最小，适合窄面板；但具体步骤仍然较少，排查“卡在哪一步”不如 A 清楚。</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="pros-cons">
+    <div class="pros">
+      <h4>我建议</h4>
+      <ul>
+        <li>选 A：把 Agent 规划出的步骤作为一等数据</li>
+        <li>工具只是步骤内的执行证据，不再充当步骤本身</li>
+        <li>没有规划时显示“正在生成计划”，不伪造 0 / 1</li>
+      </ul>
+    </div>
+    <div class="cons">
+      <h4>需要确认的行为</h4>
+      <ul>
+        <li>规划生成失败时，是否允许显示“未生成计划”</li>
+        <li>工具执行中是否实时展开当前步骤</li>
+      </ul>
+    </div>
+  </div>
+</div>
