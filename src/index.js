@@ -2,7 +2,7 @@
 import { config, getMinimaxKey as _getMinimaxKey, getSecurity } from './config.js'
 import { callLLM } from './llm.js'
 import { buildSystemPrompt, buildContextBlock, combinePromptForPreview } from './prompt.js'
-import { resolveCapabilityIntent } from './capabilities/intent-resolver.js'
+import { normalizeExplicitCommandMessage, resolveCapabilityIntent } from './capabilities/intent-resolver.js'
 import { enqueueTurnForRecognition, configureRecognizerScheduler } from './memory/recognizer-scheduler.js'
 import { runInjector, formatMemoriesForPrompt, formatActivePoliciesForPrompt, formatTaskKnowledge, formatPrefetchedItems, formatSceneManifest, formatTemporalRecall } from './memory/injector.js'
 import { formatToolPromptHintsForSchemas } from './memory/active-policies.js'
@@ -639,7 +639,7 @@ async function runLocalCommandTool(capabilityId, input, msg) {
   if (!spec) return ''
 
   // 参数 = 指令头之后的全部内容。`/check_link https://a.com` → `https://a.com`
-  const argText = String(input || '').trim().replace(/^\/\S*\s*/, '').trim()
+  const argText = normalizeExplicitCommandMessage(input).replace(/^\/\S*\s*/, '').trim()
   let reply = ''
   let parsedRiskMetadata = null
 
@@ -998,9 +998,11 @@ async function runTurn(input, label, msg = null) {
 
       // 零 LLM 快车道：显式指令命中纯本地能力（验链接 / 验短信）时，直接跑工具并投递结果，
       // 跳过整个 LLM 主循环——LLM 欠费（402）时用户依然拿得到本地研判报告。
-      // 只认 via==='command'（用户手打 / 斜杠菜单预填）；via==='llm' 的意图兜底仍走 LLM 不变。
+      // `command` covers slash commands. `image_risk` is the same deterministic
+      // path for a current image accompanied by an explicit risk question.
+      // `llm` intent fallback still uses the normal chat loop.
       if (
-        intent?.via === 'command' &&
+        (intent?.via === 'command' || intent?.via === 'image_risk') &&
         LOCAL_COMMAND_TOOLS[intent.capabilityId] &&
         msg?.fromId &&
         !silentSignal
