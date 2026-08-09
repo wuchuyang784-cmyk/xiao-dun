@@ -32,6 +32,50 @@ export function shouldAttachSystemScreenshot() {
 
 
 
+// 为每个浏览器分配并持久化一个唯一的 web 用户身份。
+
+// 使用 ID: 前缀，与后端 getMyClawbotId / parent_bindings 的 key 保持一致（裸 ID:xxxx）。
+
+// 首次调用时若 localStorage 中不存在则随机生成并持久化，之后复用，刷新后仍保持不变。
+
+export function getWebUserId() {
+
+  const KEY = "xiaodun_web_id";
+
+  try {
+
+    const existing = localStorage.getItem(KEY);
+
+    if (existing) return existing;
+
+  } catch {}
+
+
+
+  const cryptoObj = globalThis.crypto;
+
+  const id = cryptoObj?.randomUUID
+
+    ? `ID:${cryptoObj.randomUUID()}`
+
+    : `ID:${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+
+
+
+  try {
+
+    localStorage.setItem(KEY, id);
+
+  } catch {}
+
+
+
+  return id;
+
+}
+
+
+
 export function initChat({
 
   apiBase,
@@ -1004,7 +1048,7 @@ export function initChat({
 
       const backendText = (typeof override === "string") ? override : content;
 
-      const payload = { content: backendText, from_id: "ID:000001", client_message_id: newClientMessageId() };
+      const payload = { content: backendText, from_id: getWebUserId(), client_message_id: newClientMessageId() };
 
       if (prepared.attachments.length && backendText === content) payload.attachments = prepared.attachments;
 
