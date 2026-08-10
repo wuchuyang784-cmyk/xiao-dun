@@ -1311,7 +1311,7 @@ export function initChat({
     },
     {
       cmd: "/bind_parent", keys: ["bind_parent", "绑定家长", "绑定", "关联家长"],
-      label: "绑定家长", desc: "预填 /bind_parent，粘贴子女发来的 ID 完成绑定",
+      label: "家长·绑定子女", desc: "家长预填 /bind_parent，粘贴子女发来的微信 ID 完成绑定",
       run: () => fillSlash("/bind_parent "),
     },
     {

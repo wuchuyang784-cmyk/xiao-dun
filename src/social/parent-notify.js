@@ -33,6 +33,24 @@ export function getBinding(childId) {
   return getBindingRow(String(childId))
 }
 
+/**
+ * 同步预判家长推送的失败原因，用于在不阻塞主流程的前提下向子女报告可读提示。
+ * 仅覆盖「阈值 / 绑定 / 在线」类的确定性失败；去重与网络推送结果由 maybeNotifyBoundParent 异步处理。
+ * @param {string} childWechatId 触发风险的子女裸 clawbot id
+ * @param {number} score 风险分
+ * @returns {'below_threshold'|'no_binding'|'parent_offline'|'eligible'} 预判原因
+ */
+export function evaluateNotifyReason(childWechatId, score) {
+  if (Number(score) < RISK_PUSH_THRESHOLD) return 'below_threshold'
+  const binding = getBinding(String(childWechatId))
+  if (!binding || binding.status !== 'active') return 'no_binding'
+  const onlineParentIds = new Set(
+    (getAllClawbotTokens() || []).map(t => String(t.from_user_id))
+  )
+  if (!onlineParentIds.has(String(binding.parentWechatId))) return 'parent_offline'
+  return 'eligible'
+}
+
 export function unbindParent(id) {
   if (!id) return false
   const childDeleted = removeBinding(String(id))
@@ -75,6 +93,8 @@ export async function maybeNotifyBoundParent(childWechatId, {
     return { notified: false, reason: 'below_threshold' }
   }
   const binding = getBinding(String(childWechatId))
+  // [debug] 临时排障日志：打印触发推送的子女 ID 与绑定情况。
+  console.log('[家长通知] childWechatId=%s binding=%s', String(childWechatId), binding ? `${binding.parentWechatId}:${binding.status}` : 'null')
   if (!binding || binding.status !== 'active') {
     return { notified: false, reason: 'no_binding' }
   }

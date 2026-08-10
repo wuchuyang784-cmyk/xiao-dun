@@ -742,9 +742,14 @@ async function runLocalCommandTool(capabilityId, input, msg) {
     // 查询自己的裸 clawbot id（家长绑定用）。
     case 'my-id': {
       const meId = getMyClawbotId(msg)
-      reply = meId
-        ? `您的微信 ID 是：${meId}\n请将此 ID 发给家长，让家长使用 /bind_parent ${meId} 完成绑定。绑定后，当您触发中高危风险时，家长会收到小盾的风险通知。`
-        : '未能识别您的微信 ID（当前非微信渠道或上下文缺失，无法获取绑定所需的 ID）。'
+      if (meId && meId.startsWith('ID:')) {
+        // 网页端 ID 无法用于微信绑定，明确提示用户切换微信端。
+        reply = `您当前在网页端，显示的 ID（${meId}）无法用于微信绑定。请改用微信联系小盾，发送 /my_id 获取您的微信 ID，再交由家长执行 /bind_parent。`
+      } else {
+        reply = meId
+          ? `您的微信 ID 是：${meId}\n请将此 ID 发给家长，让家长使用 /bind_parent ${meId} 完成绑定。绑定后，当您触发中高危风险时，家长会收到小盾的风险通知。`
+          : '未能识别您的微信 ID（当前非微信渠道或上下文缺失，无法获取绑定所需的 ID）。'
+      }
       break
     }
 
@@ -757,6 +762,11 @@ async function runLocalCommandTool(capabilityId, input, msg) {
         reply = !meId
           ? '绑定失败：无法识别您的微信身份（非微信渠道或上下文缺失）。'
           : `${spec.usage}（缺少要绑定的子女 ID）`
+        break
+      }
+      // 网页端 ID（ID: 开头）无法用于微信绑定，提前拦截避免写入永不推送的死 ID。
+      if (childId.startsWith('ID:')) {
+        reply = '绑定必须使用微信账号 ID（形如 o9cq...@im.wechat）。请在微信端联系小盾，让孩子发送 /my_id 获取其微信 ID 后，再执行 /bind_parent <孩子的微信ID>。'
         break
       }
       try {

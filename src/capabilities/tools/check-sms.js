@@ -17,7 +17,7 @@ import {
   FRAUD_RULE_ENGINE_VERSION,
 } from '../../context/fraud-rule-engine.js'
 import { searchRiskTexts } from '../../services/rag-client.js'
-import { getMyClawbotId, getBinding, maybeNotifyBoundParent, RISK_PUSH_THRESHOLD } from '../../social/parent-notify.js'
+import { getMyClawbotId, getBinding, maybeNotifyBoundParent, RISK_PUSH_THRESHOLD, evaluateNotifyReason } from '../../social/parent-notify.js'
 
 /**
  * 风险分 → 风险等级（与 fraud-rule-engine 分档一致）。
@@ -126,8 +126,10 @@ export async function runCheckSms(input, { llm, topK, riskCategoryHint, ctx } = 
   // ── 家长推送触发（中高危时 fire-and-forget）──
   // 子女账号触发中高危风险且已绑定家长时，向家长微信定向推送风险通知。
   const childId = resolveChildClawbotId(input, ctx)
-  const bound = Boolean(getBinding(childId))
+  // 同步预判推送失败原因（不阻塞主流程），用于下方 report 可读提示。
+  const parentNotifyReason = Number(score) >= RISK_PUSH_THRESHOLD ? evaluateNotifyReason(childId, score) : 'below_threshold'
   if (Number(score) >= RISK_PUSH_THRESHOLD) {
+    // 实际家长微信推送：fire-and-forget，不阻塞主流程（结果已在 parentNotifyReason 中预判）。
     maybeNotifyBoundParent(childId, {
       score,
       level,
@@ -166,9 +168,17 @@ export async function runCheckSms(input, { llm, topK, riskCategoryHint, ctx } = 
     text, score, level, ruleHits, similarCases, ragOk, ragError,
     urls, advice, llmAnalysis, llmNote,
   })
-  // 中高危但子女未绑定家长：在报告末尾追加兜底引导，提示如何开启家长通知。
-  if (!bound) {
-    report += '\n\n⚠️ 风险已检出，但您尚未绑定家长微信，无法自动通知家长。发送 /my_id 查看您的ID，再让家长用 /bind_parent <您的ID> 完成绑定。'
+  // 若推送未成功且有意义的失败原因，在报告末尾追加可读提示（与 check-link 一致）。
+  if (parentNotifyReason && parentNotifyReason !== 'below_threshold' && parentNotifyReason !== 'eligible') {
+    let hint = ''
+    if (parentNotifyReason === 'no_binding') {
+      hint = '尚未绑定家长微信，发送 /my_id 并把 ID 给家长完成 /bind_parent 绑定。'
+    } else if (parentNotifyReason === 'parent_offline') {
+      hint = '家长微信当前未连接小盾，无法推送；请家长在微信端重新联系小盾并保持在线。'
+    }
+    if (hint) {
+      report += `\n\n[家长通知] ${hint}`
+    }
   }
 
   return {
