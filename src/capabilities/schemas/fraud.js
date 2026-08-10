@@ -63,6 +63,25 @@ export const fraudSchemas = {
       },
     },
   },
+  assess_fraud_risk: {
+    type: 'function',
+    function: {
+      name: 'assess_fraud_risk',
+      description: 'Run the fixed XiaoDun fraud-risk assessment workflow for suspicious text, screenshots, pasted images, or inbound WeChat messages. It combines the fraud rule engine, link checks, image OCR/vision, RAG similar cases, authoritative web fallback, loss-state handling, concise UI/WeChat reports, and a fact-only police-report template when loss_status is confirmed. Voice is not supported in this version.',
+      parameters: {
+        type: 'object',
+        properties: {
+          text: { type: 'string', description: 'Suspicious chat, SMS, payment request, or other text to assess.' },
+          image_path: { type: 'string', description: 'Optional local image path or /media/chat image URL.' },
+          image_url: { type: 'string', description: 'Optional http(s) or data:image URL.' },
+          attachments: { type: 'array', description: 'Optional inbound attachments from the browser or WeChat message.' },
+          loss_status: { type: 'string', enum: ['unknown', 'none', 'confirmed'], description: 'Whether the user has confirmed an actual transfer or loss. Defaults to unknown.' },
+          top_k: { type: 'integer', minimum: 1, maximum: 10, description: 'Number of similar cases to include. Default 5.' },
+        },
+        required: [],
+      },
+    },
+  },
   get_daily_tip: {
     type: 'function',
     function: {

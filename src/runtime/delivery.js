@@ -403,6 +403,7 @@ export async function deliverMessage({ target_id, content = '', channel = 'AUTO'
     conversation_id: insertedId,
     channel: channelLabel,
     external_party_id: delivery.externalTargetId || '',
+    ...(context.riskMetadata ? { risk_metadata: context.riskMetadata } : {}),
     ...(media ? { media_path: media.path, media_kind: media.kind, file_name: media.fileName } : {}),
   })
 

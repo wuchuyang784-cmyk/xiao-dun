@@ -37,6 +37,7 @@ import { execScheduledReminder } from './tools/scheduled-reminder.js'
 import { execCheckLink } from './tools/check-link.js'
 import { execCheckSms } from './tools/check-sms.js'
 import { execAnalyzeFraudImage } from './tools/fraud-image.js'
+import { execAssessFraudRisk } from './tools/fraud-risk-assessment.js'
 import { execGetDailyTip } from './tools/daily-tip.js'
 import { execReportFraud, execSearchLaw, execCheckQrcode, execVerifyIdentity } from './tools/fraud-toolkit.js'
 import { execMediaMode } from './tools/media.js'
@@ -292,12 +293,14 @@ async function executeToolUnchecked(name, args, context = {}) {
         return await execFraudIntel(args)
       case 'analyze_fraud_image':
         return await execAnalyzeFraudImage(args, context)
+      case 'assess_fraud_risk':
+        return await execAssessFraudRisk(args, context)
       case 'scheduled_reminder':
         return execScheduledReminder(args)
       case 'check_link':
-        return await execCheckLink(args)
+        return await execCheckLink(args, context)
       case 'check_sms':
-        return await execCheckSms(args)
+        return await execCheckSms(args, context)
       case 'get_daily_tip':
         return execGetDailyTip(args)
       case 'report_fraud':

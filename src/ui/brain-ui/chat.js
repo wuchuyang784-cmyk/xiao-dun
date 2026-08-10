@@ -32,6 +32,50 @@ export function shouldAttachSystemScreenshot() {
 
 
 
+// 为每个浏览器分配并持久化一个唯一的 web 用户身份。
+
+// 使用 ID: 前缀，与后端 getMyClawbotId / parent_bindings 的 key 保持一致（裸 ID:xxxx）。
+
+// 首次调用时若 localStorage 中不存在则随机生成并持久化，之后复用，刷新后仍保持不变。
+
+export function getWebUserId() {
+
+  const KEY = "xiaodun_web_id";
+
+  try {
+
+    const existing = localStorage.getItem(KEY);
+
+    if (existing) return existing;
+
+  } catch {}
+
+
+
+  const cryptoObj = globalThis.crypto;
+
+  const id = cryptoObj?.randomUUID
+
+    ? `ID:${cryptoObj.randomUUID()}`
+
+    : `ID:${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+
+
+
+  try {
+
+    localStorage.setItem(KEY, id);
+
+  } catch {}
+
+
+
+  return id;
+
+}
+
+
+
 export function initChat({
 
   apiBase,
@@ -514,7 +558,7 @@ export function initChat({
 
   function addMsg(role, text, options = {}) {
 
-    const { alert = role === "jarvis", pending = true, label, messageId, source = "event", dedupe = true } = options;
+    const { alert = role === "jarvis", pending = true, label, messageId, source = "event", dedupe = true, riskMetadata = null } = options;
 
     const defaultLabel = role === "user" ? "You" : role === "jarvis" ? getAgentName() : "Peer";
 
@@ -529,6 +573,8 @@ export function initChat({
     const normalizedId = normalizeMessageId(messageId);
 
     if (normalizedId) div.dataset.messageId = normalizedId;
+
+    if (riskMetadata) appendRiskBanner(div, riskMetadata);
 
     const labelSpan = document.createElement("span");
 
@@ -1002,7 +1048,7 @@ export function initChat({
 
       const backendText = (typeof override === "string") ? override : content;
 
-      const payload = { content: backendText, from_id: "ID:000001", client_message_id: newClientMessageId() };
+      const payload = { content: backendText, from_id: getWebUserId(), client_message_id: newClientMessageId() };
 
       if (prepared.attachments.length && backendText === content) payload.attachments = prepared.attachments;
 
@@ -1216,6 +1262,15 @@ export function initChat({
         try { msgInput.focus(); } catch {}
       },
     },
+    {
+      cmd: "/risk_assess", keys: ["risk_assess", "risk", "fraud risk", "风险研判", "诈骗研判", "可疑信息", "截图"],
+      label: "诈骗风险研判", desc: "分析聊天、截图和链接，给出风险等级与处置建议",
+      run: () => {
+        msgInput.value = "/risk_assess ";
+        autoGrowInput();
+        try { msgInput.focus(); } catch {}
+      },
+    },
 
     {
       cmd: "/daily_tip", keys: ["daily_tip", "每日", "提醒", "反诈科普", "today tip"],
@@ -1246,6 +1301,28 @@ export function initChat({
       cmd: "/verify_identity", keys: ["verify_identity", "核实身份", "身份核实", "号码查询", "归属地"],
       label: "身份风险核实", desc: "核实可疑身份、号码或对话的风险（可跟内容）",
       run: () => fillSlash("/verify_identity "),
+    },
+
+    // 家长-子女绑定 / 家长通知自测：让用户从"十字架"菜单发现并触发整条链路。
+    {
+      cmd: "/my_id", keys: ["my_id", "我的id", "微信id", "绑定id", "家长绑定"],
+      label: "查询我的ID", desc: "查询本微信账号的绑定 ID，发给家长完成绑定",
+      run: () => send({ text: "/my_id" }),
+    },
+    {
+      cmd: "/bind_parent", keys: ["bind_parent", "绑定家长", "绑定", "关联家长"],
+      label: "家长·绑定子女", desc: "家长预填 /bind_parent，粘贴子女发来的微信 ID 完成绑定",
+      run: () => fillSlash("/bind_parent "),
+    },
+    {
+      cmd: "/unbind_parent", keys: ["unbind_parent", "解绑家长", "解绑", "取消绑定"],
+      label: "解绑家长", desc: "解除当前账号的家长 / 子女绑定关系",
+      run: () => send({ text: "/unbind_parent" }),
+    },
+    {
+      cmd: "/test_parent_notify", keys: ["test_parent_notify", "测试家长通知", "家长通知测试", "自测推送"],
+      label: "测试家长通知", desc: "手动触发一次家长风险推送，自测绑定→推送链路",
+      run: () => send({ text: "/test_parent_notify" }),
     },
 
     {
@@ -1708,6 +1785,20 @@ export function initChat({
 
   }
 
+  function appendRiskBanner(div, riskMetadata) {
+    const level = ["low", "medium", "high", "critical"].includes(String(riskMetadata?.level))
+      ? String(riskMetadata.level)
+      : "low";
+    const banner = document.createElement("div");
+    banner.className = `risk-assessment-banner risk-${level}`;
+    banner.dataset.riskLevel = level;
+    const score = Number(riskMetadata?.score);
+    const scoreText = Number.isFinite(score) ? ` ${Math.round(score)}/100` : "";
+    banner.textContent = `诈骗风险 ${level === "critical" ? "紧急" : level === "high" ? "高" : level === "medium" ? "中" : "低"}${scoreText}`;
+    div.querySelector(".risk-assessment-banner")?.remove();
+    div.insertBefore(banner, div.firstChild);
+  }
+
 
 
   function updateLiveJarvisMsg(text) {
@@ -1783,6 +1874,8 @@ export function initChat({
       const normalizedId = normalizeMessageId(options.messageId);
 
       if (normalizedId) liveEl.dataset.messageId = normalizedId;
+
+      if (options.riskMetadata) appendRiskBanner(liveEl, options.riskMetadata);
 
       const children = Array.from(liveEl.children);
 

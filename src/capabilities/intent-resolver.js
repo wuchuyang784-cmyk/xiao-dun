@@ -24,6 +24,7 @@ import {
   listCapabilities,
 } from './capability-registry.js'
 import { isHotspotOpenCommand } from './hotspot-command.js'
+import { shouldAnalyzeFraudImage } from './fraud-image-intent.js'
 
 // 显式斜杠指令 → 能力 id 的快车道映射。
 const EXPLICIT_COMMANDS = {
@@ -34,6 +35,9 @@ const EXPLICIT_COMMANDS = {
   '/check_link': 'verify-link',
   '/验链接': 'verify-link',
   '/check_sms': 'verify-sms',
+  '/risk_assess': 'fraud-risk-assessment',
+  '/风险研判': 'fraud-risk-assessment',
+  '/诈骗研判': 'fraud-risk-assessment',
   '/fraud_intel': 'fraud-intel',
   '/诈骗情报': 'fraud-intel',
   '/daily_tip': 'daily-tip',
@@ -48,14 +52,28 @@ const EXPLICIT_COMMANDS = {
   '/verify_identity': 'fraud-toolkit',
   '/核实身份': 'fraud-toolkit',
   '/验短信': 'verify-sms',
+  // 家长-子女绑定（零 LLM 直指令，由 runLocalCommandTool 按 capabilityId 直接处理；
+  // 这三条不对应真实能力，仅用于让 resolveExplicitCommand 返回非 null，进入快车道）。
+  '/bind_parent': 'bind-parent',
+  '/my_id': 'my-id',
+  '/unbind_parent': 'unbind-parent',
+  '/test_parent_notify': 'test-parent-notify',
 }
 
 // 纯闲聊 / 无意义短消息：这些永远不需要打开面板，直接跳过 LLM 兜底分类以省延迟。
 // 仅靠极短长度 + 常见寒暄词判断；真实功能请求通常更长或含动作动词。
 const GREETING_RE = /^(你好|您好|hi|hello|hey|在吗|在么|在不在|谢谢|感谢|thanks|thank you|好的|好|ok|okay|嗯|恩|额|哈哈|哈哈哈|测试|test)/i
 
+const LEADING_IMAGE_MARKDOWN_RE = /^(?:!\[[^\]\r\n]*]\([^)\r\n]+\)\s*)+/i
+
+// Inbound media is normally appended after a slash command, but this keeps
+// command routing correct for messages persisted by older clients as well.
+export function normalizeExplicitCommandMessage(message = '') {
+  return String(message || '').trim().replace(LEADING_IMAGE_MARKDOWN_RE, '').trimStart()
+}
+
 export function resolveExplicitCommand(message = '') {
-  const m = String(message || '').trim()
+  const m = normalizeExplicitCommandMessage(message)
   if (isHotspotOpenCommand(m)) return 'hotspot'
   if (!m.startsWith('/')) return null
   const head = m.split(/\s+/)[0].toLowerCase()
@@ -107,11 +125,17 @@ export async function resolveCapabilityIntent(message, { callLLM, signal } = {})
   const explicit = resolveExplicitCommand(text)
   if (explicit) return { capabilityId: explicit, via: 'command' }
 
-  // 2) 关键词已命中：既有 detect 流程会注入 context，无需强制（保持原 toolWhen 行为）。
+  // 2) A current image with an explicit fraud/risk question must not enter the
+  // general chat loop. Its result must be grounded in this turn's image tools.
+  if (shouldAnalyzeFraudImage(text)) {
+    return { capabilityId: 'fraud-risk-assessment', via: 'image_risk' }
+  }
+
+  // 3) 关键词已命中：既有 detect 流程会注入 context，无需强制（保持原 toolWhen 行为）。
   const active = selectActiveCapabilities({ text: text.toLowerCase(), rawText: text })
   if (active.length > 0) return null
 
-  // 3) LLM 意图兜底：仅对非闲聊、非关键词命中的消息触发一次轻量分类。
+  // 4) LLM 意图兜底：仅对非闲聊、非关键词命中的消息触发一次轻量分类。
   if (looksLikeChat(text)) return null
   if (typeof callLLM !== 'function') return null
 

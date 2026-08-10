@@ -2,7 +2,9 @@
 import { config, getMinimaxKey as _getMinimaxKey, getSecurity } from './config.js'
 import { callLLM } from './llm.js'
 import { buildSystemPrompt, buildContextBlock, combinePromptForPreview } from './prompt.js'
-import { resolveCapabilityIntent } from './capabilities/intent-resolver.js'
+import { normalizeExplicitCommandMessage, resolveCapabilityIntent } from './capabilities/intent-resolver.js'
+import { getMyClawbotId, bindParent, unbindParent, getBinding, maybeNotifyBoundParent } from './social/parent-notify.js'
+import { execGetDailyTip } from './capabilities/tools/daily-tip.js'
 import { enqueueTurnForRecognition, configureRecognizerScheduler } from './memory/recognizer-scheduler.js'
 import { runInjector, formatMemoriesForPrompt, formatActivePoliciesForPrompt, formatTaskKnowledge, formatPrefetchedItems, formatSceneManifest, formatTemporalRecall } from './memory/injector.js'
 import { formatToolPromptHintsForSchemas } from './memory/active-policies.js'
@@ -623,12 +625,20 @@ function deliverDirectReply(msg, content, finishTurn) {
 const LOCAL_COMMAND_TOOLS = {
   'verify-link': { tool: 'check_link', label: '验链接', usage: '用法：/check_link <链接>' },
   'verify-sms': { tool: 'check_sms', label: '验短信', usage: '用法：/check_sms <短信内容>' },
+  'fraud-risk-assessment': { tool: 'assess_fraud_risk', label: '诈骗风险研判', usage: '用法：/risk_assess <可疑聊天或图片>', wechatReport: true },
+  // 家长绑定类 / 每日提醒：零 LLM 直指令，由下方 switch 直接处理，不依赖 LLM 主循环。
+  'my-id': { label: '我的ID', usage: '用法：/my_id' },
+  'bind-parent': { label: '绑定家长', usage: '用法：/bind_parent <子女ID>' },
+  'unbind-parent': { label: '解绑家长', usage: '用法：/unbind_parent' },
+  'daily-tip': { label: '每日提醒', usage: '用法：/daily_tip' },
+  'test-parent-notify': { label: '测试家长通知', usage: '用法：/test_parent_notify' },
 }
 
 /**
- * 执行纯本地的显式斜杠指令（/check_link、/check_sms）并把结果直接投递给用户。
+ * 执行纯本地的显式斜杠指令（/check_link、/check_sms、/my_id、/bind_parent、
+ * /unbind_parent、/daily_tip）并把结果直接投递给用户。
  * 全程不触碰 LLM，因此在 LLM 余额不足 / 不可用时依然可用。
- * @param {string} capabilityId  能力 id（verify-link / verify-sms）
+ * @param {string} capabilityId  能力 id
  * @param {string} input         用户原始输入（含斜杠指令头）
  * @param {Object} msg           入站消息
  * @returns {Promise<string>}    实际投递出去的回复文本
@@ -638,49 +648,250 @@ async function runLocalCommandTool(capabilityId, input, msg) {
   if (!spec) return ''
 
   // 参数 = 指令头之后的全部内容。`/check_link https://a.com` → `https://a.com`
-  const argText = String(input || '').trim().replace(/^\/\S*\s*/, '').trim()
+  const argText = normalizeExplicitCommandMessage(input).replace(/^\/\S*\s*/, '').trim()
+  // 零 LLM 直指令也要把「发起者裸 clawbot id / 外部渠道原始 ID」带给工具，
+  // 这样 /check_link、/check_sms、/risk_assess 才能正确识别子女身份并发家长风险推送。
+  const localCtx = {
+    currentUserMessage: msg?.content || input || '',
+    attachments: Array.isArray(msg?.attachments) ? msg.attachments : [],
+    currentChannel: msg?.notificationChannel || msg?.channel || null,
+    currentExternalPartyId: msg?.notificationExternalPartyId || msg?.externalPartyId || null,
+    fromUserId: getMyClawbotId(msg),
+    callLLM,
+  }
   let reply = ''
+  let parsedRiskMetadata = null
 
-  if (!argText) {
-    reply = spec.usage
-  } else {
-    // check_link 同时给 url 与 text：text 让工具顺带跑一次话术规则引擎作为辅助信号。
-    const args = spec.tool === 'check_link'
-      ? { url: argText, text: argText }
-      : { text: argText }
-    const resultText = String(await executeTool(spec.tool, args, {}))
+  switch (capabilityId) {
+    // 验链接 / 验短信：复用既有工具，结果直接投递（含家长推送触发）。
+    case 'verify-link':
+    case 'verify-sms': {
+      if (!argText) {
+        reply = spec.usage
+        break
+      }
+      const args = capabilityId === 'verify-link'
+        ? { url: argText, text: argText }
+        : { text: argText }
+      const resultText = String(await executeTool(spec.tool, args, localCtx))
 
-    let parsed = null
-    try {
-      parsed = JSON.parse(resultText)
-    } catch {
-      parsed = null   // 非 JSON（理论上不会发生）→ 原样展示，绝不静默吞掉
+      let parsed = null
+      try {
+        parsed = JSON.parse(resultText)
+      } catch {
+        parsed = null   // 非 JSON（理论上不会发生）→ 原样展示，绝不静默吞掉
+      }
+
+      if (!parsed) {
+        reply = resultText
+      } else if (parsed.ok === true) {
+        reply = String(parsed.report || '').trim() || resultText
+      } else {
+        reply = `${spec.label}失败：${parsed.message || parsed.error || '未知错误'}`
+      }
+
+      // 让前端「工具执行记录」与走 LLM 时保持一致的观感（格式对齐 callLLM 的 onToolCall）。
+      emitEvent('tool_call', {
+        name: spec.tool,
+        args,
+        result: truncateToolResultForUI(parsed, resultText),
+        ok: parsed ? parsed.ok !== false : true,
+      })
+      break
     }
 
-    if (!parsed) {
-      reply = resultText
-    } else if (parsed.ok === true) {
-      reply = String(parsed.report || '').trim() || resultText
-    } else {
-      reply = `${spec.label}失败：${parsed.message || parsed.error || '未知错误'}`
+    // 诈骗风险研判：统一风险研判（含图片），结果按渠道投递。
+    // 由 commit 68a1df2 引入的统一风险研判入口；这里保留其解析与微信报告分支。
+    case 'fraud-risk-assessment': {
+      const attachments = Array.isArray(msg?.attachments) ? msg.attachments : []
+      if (!argText && attachments.length === 0) {
+        reply = spec.usage
+        break
+      }
+      const args = { text: argText, attachments }
+      const resultText = String(await executeTool(spec.tool, args, localCtx))
+      let parsed = null
+      try {
+        parsed = JSON.parse(resultText)
+      } catch {
+        parsed = null   // 非 JSON（理论上不会发生）→ 原样展示，绝不静默吞掉
+      }
+      if (!parsed) {
+        reply = resultText
+      } else if (parsed.ok === true) {
+        parsedRiskMetadata = {
+          level: parsed.risk?.level || parsed.risk_level || 'low',
+          score: parsed.risk?.score ?? parsed.risk_score ?? 0,
+          loss_status: parsed.loss_status || 'unknown',
+          record_id: parsed.record_id || '',
+        }
+        const isWechat = /^WECHAT/i.test(String(msg?.channel || '')) || /^wechat:/i.test(String(msg?.externalPartyId || ''))
+        reply = String(isWechat && spec.wechatReport ? parsed.wechat_report : parsed.report || '').trim() || resultText
+      } else {
+        reply = `${spec.label}失败：${parsed.message || parsed.error || '未知错误'}`
+      }
+      emitEvent('tool_call', {
+        name: spec.tool,
+        args,
+        result: truncateToolResultForUI(parsed, resultText),
+        ok: parsed ? parsed.ok !== false : true,
+      })
+      break
     }
 
-    // 让前端「工具执行记录」与走 LLM 时保持一致的观感（格式对齐 callLLM 的 onToolCall）。
-    emitEvent('tool_call', {
-      name: spec.tool,
-      args,
-      result: truncateToolResultForUI(parsed, resultText),
-      ok: parsed ? parsed.ok !== false : true,
-    })
+    // 查询自己的裸 clawbot id（家长绑定用）。
+    case 'my-id': {
+      const meId = getMyClawbotId(msg)
+      if (meId && meId.startsWith('ID:')) {
+        // 网页端 ID 无法用于微信绑定，明确提示用户切换微信端。
+        reply = `您当前在网页端，显示的 ID（${meId}）无法用于微信绑定。请改用微信联系小盾，发送 /my_id 获取您的微信 ID，再交由家长执行 /bind_parent。`
+      } else {
+        reply = meId
+          ? `您的微信 ID 是：${meId}\n请将此 ID 发给家长，让家长使用 /bind_parent ${meId} 完成绑定。绑定后，当您触发中高危风险时，家长会收到小盾的风险通知。`
+          : '未能识别您的微信 ID（当前非微信渠道或上下文缺失，无法获取绑定所需的 ID）。'
+      }
+      break
+    }
+
+    // 家长发起：/bind_parent <子女ID> —— 把发送者(家长)与参数里的子女绑定。
+    case 'bind-parent': {
+      const meId = getMyClawbotId(msg)
+      // 参数里的子女 ID 可能带 wechat:clawbot: 前缀，统一去前缀存裸 id。
+      const childId = getMyClawbotId({ externalPartyId: argText, fromId: argText })
+      if (!meId || !childId) {
+        reply = !meId
+          ? '绑定失败：无法识别您的微信身份（非微信渠道或上下文缺失）。'
+          : `${spec.usage}（缺少要绑定的子女 ID）`
+        break
+      }
+      // 网页端 ID（ID: 开头）无法用于微信绑定，提前拦截避免写入永不推送的死 ID。
+      if (childId.startsWith('ID:')) {
+        reply = '绑定必须使用微信账号 ID（形如 o9cq...@im.wechat）。请在微信端联系小盾，让孩子发送 /my_id 获取其微信 ID 后，再执行 /bind_parent <孩子的微信ID>。'
+        break
+      }
+      try {
+        bindParent(childId, meId)
+        reply = `已绑定：您（家长 ID ${meId}）已绑定子女 ID ${childId}。此后该子女账号触发中高危风险时，您会收到小盾的风险通知。`
+      } catch (err) {
+        reply = `绑定失败：${err?.message || '未知错误'}`
+      }
+      break
+    }
+
+    // 解绑：清除与当前 ID 相关的家长/子女绑定关系。
+    case 'unbind-parent': {
+      const meId = getMyClawbotId(msg)
+      if (!meId) {
+        reply = '解绑失败：无法识别您的微信身份（非微信渠道或上下文缺失）。'
+        break
+      }
+      try {
+        const ok = unbindParent(meId)
+        reply = ok
+          ? `已解除绑定：与 ID ${meId} 相关的家长 / 子女绑定关系均已清除。`
+          : `未找到与 ID ${meId} 相关的绑定关系。`
+      } catch (err) {
+        reply = `解绑失败：${err?.message || '未知错误'}`
+      }
+      break
+    }
+
+    // 每日反诈提醒：直接取当日 tip 并组装成可读回复。
+    case 'daily-tip': {
+      const resultText = String(await execGetDailyTip({ date: '' }))
+      let parsed = null
+      try {
+        parsed = JSON.parse(resultText)
+      } catch {
+        parsed = null
+      }
+      if (!parsed) {
+        reply = resultText
+      } else if (parsed.ok === false) {
+        reply = `每日提醒获取失败：${parsed.error || '未知错误'}`
+      } else {
+        const tip = parsed.tip || {}
+        const lines = [
+          '【每日反诈提醒】',
+          tip.title || '',
+          tip.content || '',
+        ]
+        if (tip.actionable_advice) lines.push(`处置建议：${tip.actionable_advice}`)
+        lines.push(`（来源：${tip.source || parsed.source_type || '小盾反诈知识库'}）`)
+        reply = lines.filter(Boolean).join('\n')
+      }
+      break
+    }
+
+    // 测试家长通知：手动触发一次「家长风险推送」，便于自测整条绑定→推送链路。
+    case 'test-parent-notify': {
+      const childId = getMyClawbotId(msg)
+      if (!childId) {
+        reply = '未能识别您的微信 ID（当前非微信渠道或上下文缺失，无法获取绑定所需的 ID）。'
+        break
+      }
+      const binding = getBinding(childId)
+      if (!binding) {
+        reply = '未找到绑定关系。请先让家长发送 /bind_parent <您的ID> 完成绑定。您可以通过 /my_id 查询自己的ID。'
+        break
+      }
+      try {
+        const result = await maybeNotifyBoundParent(childId, {
+          score: 75,
+          level: '高风险',
+          kind: 'link',
+          fraudType: '测试-家长通知',
+          summary: '这是一条测试风险通知',
+          subjectRef: 'test://parent-notify',
+        })
+        const notified = !!result?.notified
+        const reason = result?.reason || 'unknown'
+        const base = [
+          '【家长通知测试】',
+          `子女ID：${childId}`,
+          `绑定家长ID：${binding.parentWechatId}（关系：${binding.relation}，状态：${binding.status}）`,
+          `推送结果：${notified ? '已推送' : '未推送'}（${reason}）`,
+          '· ok = 家长在线并已推送',
+          '· parent_offline = 家长账号当前未通过微信连接小盾，无法推送',
+          '· below_threshold / no_binding / dedup_skipped = 逻辑未命中',
+        ]
+        if (reason === 'parent_offline') {
+          base.push(
+            '',
+            '⚠️ 家长未在线（无可用微信推送通道）',
+            '网页端（brain-ui）本身不具备微信推送能力，家长必须改用微信渠道连接才能收到推送：',
+            '1) 家长用个人微信扫码连接小盾：设置面板 → 微信 ClawBot → 连接微信；',
+            '2) 家长连上后先给小盾发任意一条消息（如"你好"），小盾才会拿到推送凭证（写入 wechat_clawbot_tokens）；',
+            '3) 之后子女触发中高危风险，家长微信即可收到推送。',
+            '若你全程在网页端测试，推送必然显示"未推送（parent_offline）"——这是预期行为，不是 bug；要走真实推送必须用微信端。'
+          )
+        }
+        reply = base.join('\n')
+      } catch (err) {
+        reply = `家长通知测试失败：${err?.message || '未知错误'}`
+      }
+      break
+    }
+
+    default:
+      return ''
   }
 
   // 走正规投递通道：写 conversations + 广播 SSE + 外部渠道派发，与 send_message 完全一致。
   // 带上当前 turn 的渠道信息，保证「在哪儿收的消息就回到哪儿」。
+  // The browser posts through the HTTP API, but its reply destination is the
+  // local chat UI. `API` is an ingress label rather than a delivery channel.
+  const replyChannel = String(msg?.channel || '').toUpperCase() === 'API'
+    ? 'TUI'
+    : (msg?.channel || 'AUTO')
   await deliverMessage(
-    { target_id: msg.fromId, content: reply, channel: msg.channel || 'AUTO' },
+    { target_id: msg.fromId, content: reply, channel: replyChannel },
     {
-      currentChannel: msg.notificationChannel || msg.channel || null,
+      currentChannel: msg.notificationChannel || replyChannel || null,
       currentExternalPartyId: msg.notificationExternalPartyId || msg.externalPartyId || null,
+      ...(spec.tool === 'assess_fraud_risk' && parsedRiskMetadata
+        ? { riskMetadata: parsedRiskMetadata }
+        : {}),
     },
   )
   return reply
@@ -970,9 +1181,11 @@ async function runTurn(input, label, msg = null) {
 
       // 零 LLM 快车道：显式指令命中纯本地能力（验链接 / 验短信）时，直接跑工具并投递结果，
       // 跳过整个 LLM 主循环——LLM 欠费（402）时用户依然拿得到本地研判报告。
-      // 只认 via==='command'（用户手打 / 斜杠菜单预填）；via==='llm' 的意图兜底仍走 LLM 不变。
+      // `command` covers slash commands. `image_risk` is the same deterministic
+      // path for a current image accompanied by an explicit risk question.
+      // `llm` intent fallback still uses the normal chat loop.
       if (
-        intent?.via === 'command' &&
+        (intent?.via === 'command' || intent?.via === 'image_risk') &&
         LOCAL_COMMAND_TOOLS[intent.capabilityId] &&
         msg?.fromId &&
         !silentSignal
@@ -1819,6 +2032,10 @@ async function main() {
 
   if (config.needsActivation) {
     console.log(`Please open http://127.0.0.1:${apiPort}/activation in your browser to activate before sending messages\n`)
+    // Keep the queue alive for deterministic local slash commands such as
+    // /risk_assess, /check_link, and /check_sms. These tools do not need an
+    // LLM, while ordinary turns still remain gated by activation.
+    await startConsciousnessLoop({ runImmediateTick: false, onlyUserMessages: true })
     return
   }
 

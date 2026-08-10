@@ -36,6 +36,7 @@ export function createConsciousnessLoop({
   let lastTickAborted = false
   let currentTimer = null  // timer for the next pending tick; can be cleared by pushMessage to run immediately
   let loopStarted = false
+  let userMessagesOnly = false
 
   function markLastTickAborted() {
     lastTickAborted = true
@@ -93,6 +94,8 @@ export function createConsciousnessLoop({
         const msg = popMessage()
         const lane = msg.queueName === 'background' ? 'BG' : 'L1'
         await runTurnWithWatchdog(msg.raw, `${lane} message from ${msg.fromId}`, msg)
+      } else if (userMessagesOnly) {
+        return
       } else {
         autoTick = true
         tickerRevisionAtStart = getTickerStatus()?.revision ?? null
@@ -143,6 +146,7 @@ export function createConsciousnessLoop({
     enqueueDueReminders()
 
     const hasPending = hasMessages()
+    if (userMessagesOnly && !hasPending) return
     const hasPendingUser = hasUserMessages()
     const queueSnapshot = getQueueSnapshot()
     const rateLimited = isRateLimited()
@@ -221,9 +225,18 @@ export function createConsciousnessLoop({
     })()
   }
 
-  async function startConsciousnessLoop({ runImmediateTick = true } = {}) {
-    if (loopStarted) return
+  async function startConsciousnessLoop({ runImmediateTick = true, onlyUserMessages = false } = {}) {
+    if (loopStarted) {
+      const resumeFullLoop = userMessagesOnly && !onlyUserMessages
+      userMessagesOnly = onlyUserMessages
+      if (resumeFullLoop) {
+        if (runImmediateTick) await onTick()
+        scheduleNextTick()
+      }
+      return
+    }
     loopStarted = true
+    userMessagesOnly = onlyUserMessages
 
     startConsolidationLoop()
 

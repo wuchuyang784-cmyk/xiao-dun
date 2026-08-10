@@ -20,6 +20,7 @@
 
 import { runFraudRuleEngine } from '../../context/fraud-rule-engine.js'
 import { domainToUnicode } from 'node:url'
+import { getMyClawbotId, getBinding, maybeNotifyBoundParent, RISK_PUSH_THRESHOLD, evaluateNotifyReason } from '../../social/parent-notify.js'
 
 // -----------------------------------------------------------------------------
 // 数据：品牌、缩短器、可疑 TLD、诱导词、同形字符
@@ -608,7 +609,20 @@ async function runLinkLLMAnalysis(url, findings) {
  * @param {string|Object} args  URL 字符串或 { url, link, text, llm }
  * @returns {Promise<string>}
  */
-export async function execCheckLink(args = {}) {
+/**
+ * 从调用上下文 / 参数中解析出「当前触发风险的子女」裸 clawbot id。
+ * 优先取执行上下文带回的外部渠道原始 ID（含 wechat:clawbot: 前缀，由 getMyClawbotId 去前缀），
+ * 退而求其次取参数里显式传入的发起者 ID。
+ * @param {Object} args
+ * @param {Object} ctx
+ * @returns {string}
+ */
+function resolveChildClawbotId(args = {}, ctx = {}) {
+  const raw = ctx?.currentExternalPartyId || ctx?.fromUserId || args?.fromUserId || args?.currentExternalPartyId || ''
+  return getMyClawbotId({ externalPartyId: raw, fromId: raw })
+}
+
+export async function execCheckLink(args = {}, ctx = {}) {
   try {
     const llm = Boolean(typeof args === 'object' ? args.llm : false)
     const result = await analyzeUrl(args, { llm })
@@ -621,6 +635,36 @@ export async function execCheckLink(args = {}) {
           result.fraud_rule_hint = { score: rule.score, level: rule.level, top: rule.hits[0]?.type || null }
         }
       } catch { /* 规则引擎为辅助信号，失败不阻断 */ }
+    }
+    // ── 家长推送触发（中高危时 fire-and-forget）──
+    // 子女账号触发中高危风险且已绑定家长时，向家长微信定向推送风险通知。
+    if (result.ok === true && Number(result.risk_score) >= RISK_PUSH_THRESHOLD) {
+      const childId = resolveChildClawbotId(args, ctx)
+      // 同步预判推送失败原因，在 report 中追加可读提示（不阻塞主流程）。
+      // 说明：本函数会把 result 序列化进返回的 JSON，若用 fire-and-forget 的 .then 会在序列化之后才执行，
+      // 导致 hint 无法进入返回内容；因此这里同步预判并以 [家长通知] 标注（实际推送仍 fire-and-forget）。
+      const parentNotifyReason = evaluateNotifyReason(childId, result.risk_score)
+      if (parentNotifyReason && parentNotifyReason !== 'below_threshold' && parentNotifyReason !== 'eligible') {
+        let hint = ''
+        if (parentNotifyReason === 'no_binding') {
+          hint = '尚未绑定家长微信，发送 /my_id 并把 ID 给家长完成 /bind_parent 绑定。'
+        } else if (parentNotifyReason === 'parent_offline') {
+          hint = '家长微信当前未连接小盾，无法推送；请家长在微信端重新联系小盾并保持在线。'
+        }
+        if (hint) {
+          result.report = `${result.report}\n\n[家长通知] ${hint}`
+        }
+      }
+      // 实际家长微信推送：fire-and-forget，不阻塞主流程（推送结果已在 parentNotifyReason 中预判）。
+      maybeNotifyBoundParent(childId, {
+        score: result.risk_score,
+        level: result.risk_level,
+        kind: 'link',
+        fraudType: result.findings?.[0]?.label || '链接诈骗分析',
+        summary: (result.findings?.[0]?.detail || result.findings?.[0]?.label || '可疑链接').slice(0, 60),
+        subjectRef: result.url || '',
+        recordId: result.record_id || '',
+      }).catch(() => {})
     }
     return JSON.stringify({ ok: true, ...result }, null, 2)
   } catch (error) {

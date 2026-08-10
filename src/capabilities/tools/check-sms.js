@@ -17,6 +17,7 @@ import {
   FRAUD_RULE_ENGINE_VERSION,
 } from '../../context/fraud-rule-engine.js'
 import { searchRiskTexts } from '../../services/rag-client.js'
+import { getMyClawbotId, getBinding, maybeNotifyBoundParent, RISK_PUSH_THRESHOLD, evaluateNotifyReason } from '../../social/parent-notify.js'
 
 /**
  * 风险分 → 风险等级（与 fraud-rule-engine 分档一致）。
@@ -42,6 +43,19 @@ function extractUrls(text) {
 }
 
 /**
+ * 从调用上下文 / 参数中解析出「当前触发风险的子女」裸 clawbot id。
+ * 优先取执行上下文带回的外部渠道原始 ID（含 wechat:clawbot: 前缀，由 getMyClawbotId 去前缀），
+ * 退而求其次取参数里显式传入的发起者 ID。
+ * @param {Object} args
+ * @param {Object} ctx
+ * @returns {string}
+ */
+function resolveChildClawbotId(args = {}, ctx = {}) {
+  const raw = ctx?.currentExternalPartyId || ctx?.fromUserId || args?.fromUserId || args?.currentExternalPartyId || ''
+  return getMyClawbotId({ externalPartyId: raw, fromId: raw })
+}
+
+/**
  * 对一段短信 / 聊天文本做结构化风险拆解。
  * @param {string|Object} input  文本，或 { text | content | message | sms }
  * @param {Object} [opts]
@@ -50,7 +64,7 @@ function extractUrls(text) {
  * @param {string}  [opts.riskCategoryHint] RAG 类目提示。
  * @returns {Promise<Object>} 结构化拆解结果
  */
-export async function runCheckSms(input, opts = {}) {
+export async function runCheckSms(input, { llm, topK, riskCategoryHint, ctx } = {}) {
   const raw = typeof input === 'string'
     ? input
     : (input?.text || input?.content || input?.message || input?.sms || '')
@@ -85,9 +99,9 @@ export async function runCheckSms(input, opts = {}) {
   try {
     const rag = await searchRiskTexts({
       queryText: text,
-      topK: opts.topK && opts.topK > 0 ? opts.topK : 5,
+      topK: topK && topK > 0 ? topK : 5,
       candidateK: 50,
-      ...(opts.riskCategoryHint ? { riskCategoryHint: opts.riskCategoryHint } : {}),
+      ...(riskCategoryHint ? { riskCategoryHint } : {}),
     })
     ragOk = true
     const items = Array.isArray(rag?.items) ? rag.items : []
@@ -109,6 +123,24 @@ export async function runCheckSms(input, opts = {}) {
   const level = rule.level || levelFromScore(score)
   const urls = extractUrls(text)
 
+  // ── 家长推送触发（中高危时 fire-and-forget）──
+  // 子女账号触发中高危风险且已绑定家长时，向家长微信定向推送风险通知。
+  const childId = resolveChildClawbotId(input, ctx)
+  // 同步预判推送失败原因（不阻塞主流程），用于下方 report 可读提示。
+  const parentNotifyReason = Number(score) >= RISK_PUSH_THRESHOLD ? evaluateNotifyReason(childId, score) : 'below_threshold'
+  if (Number(score) >= RISK_PUSH_THRESHOLD) {
+    // 实际家长微信推送：fire-and-forget，不阻塞主流程（结果已在 parentNotifyReason 中预判）。
+    maybeNotifyBoundParent(childId, {
+      score,
+      level,
+      kind: 'sms',
+      fraudType: (ruleHits?.[0]?.type || '短信诈骗分析'),
+      summary: (ruleHits?.[0]?.matched_keywords?.slice(0, 3).join('、') || '可疑短信').slice(0, 60),
+      subjectRef: text.slice(0, 120),
+      recordId: '',
+    }).catch(() => {})
+  }
+
   // 4) 处置建议（合并规则命中 + 通用）
   const adviceSet = new Set()
   for (const h of ruleHits) {
@@ -124,11 +156,28 @@ export async function runCheckSms(input, opts = {}) {
   // 5) 可选 LLM 研判层（try/catch 降级）
   let llmAnalysis = null
   let llmNote = ''
-  if (opts.llm) {
+  if (llm) {
     try {
       llmAnalysis = await runSmsLLMAnalysis(text, { score, level, ruleHits })
     } catch (err) {
       llmNote = `LLM 研判层不可用，已降级为规则+RAG 结论：${err?.message || 'unknown'}`
+    }
+  }
+
+  let report = buildSmsReport({
+    text, score, level, ruleHits, similarCases, ragOk, ragError,
+    urls, advice, llmAnalysis, llmNote,
+  })
+  // 若推送未成功且有意义的失败原因，在报告末尾追加可读提示（与 check-link 一致）。
+  if (parentNotifyReason && parentNotifyReason !== 'below_threshold' && parentNotifyReason !== 'eligible') {
+    let hint = ''
+    if (parentNotifyReason === 'no_binding') {
+      hint = '尚未绑定家长微信，发送 /my_id 并把 ID 给家长完成 /bind_parent 绑定。'
+    } else if (parentNotifyReason === 'parent_offline') {
+      hint = '家长微信当前未连接小盾，无法推送；请家长在微信端重新联系小盾并保持在线。'
+    }
+    if (hint) {
+      report += `\n\n[家长通知] ${hint}`
     }
   }
 
@@ -152,10 +201,7 @@ export async function runCheckSms(input, opts = {}) {
     advice: [...new Set(advice)],
     llm_analysis: llmAnalysis,
     llm_note: llmNote,
-    report: buildSmsReport({
-      text, score, level, ruleHits, similarCases, ragOk, ragError,
-      urls, advice, llmAnalysis, llmNote,
-    }),
+    report,
   }
 }
 
@@ -265,12 +311,12 @@ async function runSmsLLMAnalysis(text, summary) {
  * @param {string|Object} args  文本，或 { text, content, message, sms, llm, top_k }
  * @returns {Promise<string>}
  */
-export async function execCheckSms(args = {}) {
+export async function execCheckSms(args = {}, ctx = {}) {
   try {
     const llm = Boolean(typeof args === 'object' ? args.llm : false)
     const topK = typeof args === 'object' && args.top_k ? Number(args.top_k) : undefined
     const riskCategoryHint = typeof args === 'object' ? (args.risk_category_hint || args.riskCategoryHint) : undefined
-    const result = await runCheckSms(args, { llm, topK, riskCategoryHint })
+    const result = await runCheckSms(args, { llm, topK, riskCategoryHint, ctx })
     return JSON.stringify({ ok: true, ...result }, null, 2)
   } catch (error) {
     return JSON.stringify({

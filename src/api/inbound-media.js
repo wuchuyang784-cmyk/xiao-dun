@@ -33,6 +33,15 @@ function collectInboundChatMedia(body = {}) {
     .slice(0, MAX_INBOUND_CHAT_MEDIA)
 }
 
+export function combineInboundChatContent(content = '', markdown = '') {
+  const text = String(content || '').trim()
+  const mediaMarkdown = String(markdown || '').trim()
+  if (!mediaMarkdown) return text
+  return (text.startsWith('/')
+    ? `${text}\n\n${mediaMarkdown}`
+    : `${mediaMarkdown}\n\n${text}`).trim()
+}
+
 export function appendInboundChatMediaMarkdown(content = '', body = {}) {
   const media = []
   for (const item of collectInboundChatMedia(body)) {
@@ -48,8 +57,12 @@ export function appendInboundChatMediaMarkdown(content = '', body = {}) {
     }
   }
   if (media.length === 0) return { content, media }
+  const markdown = media.map(item => item.markdown).join('\n')
   return {
-    content: `${media.map(item => item.markdown).join('\n')}\n\n${content.trim()}`.trim(),
+    // Keep a user-entered slash command at the start of the turn. The intent
+    // resolver intentionally recognizes only leading commands; putting media
+    // first would silently route `/risk_assess` into the general chat loop.
+    content: combineInboundChatContent(content, markdown),
     media,
   }
 }
