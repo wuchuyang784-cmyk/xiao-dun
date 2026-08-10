@@ -1,5 +1,6 @@
 import { emitEvent } from '../events.js'
 import { getFraudCaseStore } from '../db/stores/store-factory.js'
+const store = await getFraudCaseStore()
 const PROVINCES = [
   ['110000', '北京市'], ['120000', '天津市'], ['130000', '河北省'], ['140000', '山西省'],
   ['150000', '内蒙古自治区'], ['210000', '辽宁省'], ['220000', '吉林省'], ['230000', '黑龙江省'],
@@ -87,7 +88,7 @@ function normalizeCase(input = {}) {
 function seedDemoCases() {
   for (const input of DEMO_CASES) {
     try {
-      store.insert(normalizeCase(input))
+      store.upsert(normalizeCase(input))
     } catch (error) {
       console.warn('[fraud-case-service] demo seed skipped:', error.message)
     }
