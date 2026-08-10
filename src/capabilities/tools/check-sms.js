@@ -99,9 +99,9 @@ export async function runCheckSms(input, { llm, topK, riskCategoryHint, ctx } = 
   try {
     const rag = await searchRiskTexts({
       queryText: text,
-      topK: opts.topK && opts.topK > 0 ? opts.topK : 5,
+      topK: topK && topK > 0 ? topK : 5,
       candidateK: 50,
-      ...(opts.riskCategoryHint ? { riskCategoryHint: opts.riskCategoryHint } : {}),
+      ...(riskCategoryHint ? { riskCategoryHint } : {}),
     })
     ragOk = true
     const items = Array.isArray(rag?.items) ? rag.items : []
